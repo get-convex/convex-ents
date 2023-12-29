@@ -7,6 +7,11 @@ import { v } from "convex/values";
 
 export default defineSchema(
   {
+    messages: defineTable({
+      text: v.string(),
+      authorId: v.id("users"),
+    }).index("authorId", ["authorId"]),
+    users: defineTable({}),
     documents: defineTable({
       fieldOne: v.string(),
       fieldTwo: v.object({
