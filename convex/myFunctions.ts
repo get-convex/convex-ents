@@ -4,19 +4,13 @@ import {
   FieldTypeFromFieldPath,
   GenericDataModel,
   GenericDatabaseReader,
-  GenericIndexFields,
   GenericQueryCtx,
-  GenericTableIndexes,
-  IndexNames,
-  Indexes,
-  NamedIndex,
   NamedTableInfo,
   Query,
   TableNamesInDataModel,
 } from "convex/server";
 import { GenericId } from "convex/values";
 import { query as baseQuery, mutation } from "./_generated/server";
-import { Doc, TableNames } from "./_generated/dataModel";
 import { EdgeConfig, Expand, GenericEntsDataModel } from "./ents/schema";
 import { entDefinitions } from "./schema";
 
@@ -400,6 +394,13 @@ export const test = query({
 
   handler: async (ctx) => {
     {
+      const firstsFollowees = await ctx
+        .table("users")
+        .first()
+        .edge("followees");
+      return firstsFollowees;
+    }
+    {
       const firstMessageTags = await ctx.table("messages").first().edge("tags");
       return firstMessageTags;
     }
@@ -524,7 +525,21 @@ export const test = query({
 });
 
 export const seed = mutation(async (ctx) => {
+  for (const table of [
+    "users",
+    "messages",
+    "profiles",
+    "tags",
+    "documents",
+    "messages_to_tags",
+  ]) {
+    for (const { _id } of await ctx.db.query(table as any).collect()) {
+      await ctx.db.delete(_id);
+    }
+  }
+
   const userId = await ctx.db.insert("users", { name: "Stark" });
+  const userId2 = await ctx.db.insert("users", { name: "Musk" });
   const messageId = await ctx.db.insert("messages", {
     text: "Hello world",
     userId,
@@ -540,23 +555,12 @@ export const seed = mutation(async (ctx) => {
     messagesId: messageId,
     tagsId: tagsId,
   });
+  await ctx.db.insert("users_followees_to_followers" as any, {
+    followeesId: userId2,
+    followersId: userId,
+  });
 });
 
 export const list = query(async (ctx, args) => {
   return await ctx.table(args.table as any);
-});
-
-export const clear = mutation(async (ctx) => {
-  for (const table of [
-    "users",
-    "messages",
-    "profiles",
-    "tags",
-    "documents",
-    "messages_to_tags",
-  ]) {
-    for (const { _id } of await ctx.db.query(table as any).collect()) {
-      await ctx.db.delete(_id);
-    }
-  }
 });

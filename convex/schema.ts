@@ -22,8 +22,8 @@ const schema = defineEntSchema(
       name: v.string(),
     })
       .edge("profile", { optional: true })
-      .edges("messages"),
-    // .edges("followees", "users", { inverse: "followers" })
+      .edges("messages")
+      .edges("followers", { to: "users", inverse: "followees" }),
     // .edges("friends", "users"),
 
     profiles: defineEnt({

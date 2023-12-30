@@ -23,24 +23,22 @@ export function defineEntSchema<
   // If we have two ref edges pointing at each other,
   // we gotta add the table for them with indexes
   const tableNames = Object.keys(schema);
-  for (let i = 0; i < tableNames.length; i++) {
-    const tableName = tableNames[i];
+  for (const tableName of tableNames) {
     const table = schema[tableName];
     for (const edge of (table as any)
       .edgeConfigs as EdgeConfigFromEntDefinition[]) {
       if (edge.cardinality === "multiple") {
+        if (edge.type !== null) {
+          continue;
+        }
         const otherTableName = edge.to;
         const otherTable = schema[otherTableName];
         if (otherTable === undefined) {
           continue;
         }
-        if (tableNames.indexOf(otherTableName) < i) {
-          // We handled this pair already
-          continue;
-        }
         for (const inverseEdge of (otherTable as any)
           .edgeConfigs as EdgeConfigFromEntDefinition[]) {
-          if (inverseEdge.to !== tableName) {
+          if (inverseEdge.to !== tableName || inverseEdge.name === edge.name) {
             continue;
           }
           if (inverseEdge.cardinality === "single") {
@@ -52,27 +50,64 @@ export function defineEntSchema<
                   inverseEdge.name
               );
             }
-            edge.type = "field";
+            (edge as any).type = "field";
             (edge as any).ref = inverseEdge.field;
           }
 
           if (inverseEdge.cardinality === "multiple") {
-            const edgeTableName = `${tableName}_to_${otherTableName}`;
+            //   // Add the table
+            //   (schema as any)[edgeTableName] = defineEnt({
+            //     [edge.name + "Id"]: v.id(tableName),
+            //     [edge.inverse + "Id"]: v.id(otherTableName),
+            //   })
+            //     .index(edge.name + "Id", [edge.name + "Id"])
+            //     .index(edge.inverse + "Id", [edge.inverse + "Id"]);
+            //   (edge as any).type = "ref";
+            //   (edge as any).table = edgeTableName;
+            //   (edge as any).field = edge.name + "Id";
+            //   (edge as any).ref = edge.inverse + "Id";
+            //   const inverseEdge: EdgeConfig = {
+            //     name: edge.inverse,
+            //     to: tableName,
+            //     cardinality: "multiple",
+            //     type: "ref",
+            //     table: edgeTableName,
+            //     field: edge.inverse + "Id",
+            //     ref: edge.name + "Id",
+            //     inverse: true,
+            //   };
+            //   ((table as any).edgeConfigs as EdgeConfig[]).unshift(inverseEdge);
+            //   break;
+            // }
+            const edgeTableName =
+              inverseEdge.name !== tableName
+                ? `${tableName}_${inverseEdge.name}_to_${edge.name}`
+                : `${inverseEdge.name}_to_${edge.name}`;
+
+            const forwardId =
+              tableName === otherTableName
+                ? inverseEdge.name + "Id"
+                : tableName + "Id";
+            const inverseId =
+              tableName === otherTableName
+                ? edge.name + "Id"
+                : otherTableName + "Id";
             // Add the table
             (schema as any)[edgeTableName] = defineEnt({
-              [tableName + "Id"]: v.id(tableName),
+              [forwardId]: v.id(tableName),
               [otherTableName + "Id"]: v.id(otherTableName),
             })
-              .index(tableName + "Id", [tableName + "Id"])
-              .index(otherTableName + "Id", [otherTableName + "Id"]);
-            edge.type = "ref";
+              .index(forwardId, [forwardId])
+              .index(inverseId, [inverseId]);
+
+            (edge as any).type = "ref";
             (edge as any).table = edgeTableName;
-            (edge as any).field = tableName + "Id";
-            (edge as any).ref = otherTableName + "Id";
+            (edge as any).field = forwardId;
+            (edge as any).ref = inverseId;
             inverseEdge.type = "ref";
             (inverseEdge as any).table = edgeTableName;
-            (inverseEdge as any).field = otherTableName + "Id";
-            (inverseEdge as any).ref = tableName + "Id";
+            (inverseEdge as any).field = inverseId;
+            (inverseEdge as any).ref = forwardId;
 
             // TODO: Error on repeated iteration before the if block instead of breaking
             break;
@@ -182,6 +217,35 @@ interface EntDefinition<
       };
     }
   >;
+  edges<
+    EdgesName extends string,
+    TableName extends string,
+    InverseEdgesNames extends string
+  >(
+    edge: EdgesName,
+    options: { to: TableName; inverse: InverseEdgesNames }
+  ): EntDefinition<
+    Document,
+    FieldPaths,
+    Indexes,
+    SearchIndexes,
+    VectorIndexes,
+    Edges & {
+      [key in EdgesName]: {
+        name: EdgesName;
+        to: TableName;
+        type: "ref";
+        cardinality: "multiple";
+      };
+    } & {
+      [key in InverseEdgesNames]: {
+        name: InverseEdgesNames;
+        to: TableName;
+        type: "ref";
+        cardinality: "multiple";
+      };
+    }
+  >;
   edges(table: string, options: EdgesOptions): this;
 }
 
@@ -190,7 +254,8 @@ type EdgeOptions = {
 };
 
 type EdgesOptions = {
-  name: string;
+  to?: string;
+  inverse?: string;
 };
 
 class EntDefinitionImpl {
@@ -282,13 +347,20 @@ class EntDefinitionImpl {
     return this;
   }
 
-  edges(table: string, options?: EdgesOptions): this {
-    if (options === undefined) {
+  edges(name: string, options?: EdgesOptions): this {
+    this.edgeConfigs.push({
+      name: name,
+      to: options?.to ?? name,
+      cardinality: "multiple",
+      type: null, // gets filled in by defineEntSchema
+    });
+    if (options?.inverse !== undefined) {
       this.edgeConfigs.push({
-        name: table,
-        to: table,
+        name: options?.inverse,
+        to: options?.to ?? name,
         cardinality: "multiple",
         type: null, // gets filled in by defineEntSchema
+        inverse: true,
       });
     }
     return this;
@@ -312,7 +384,13 @@ export type EdgeConfig = {
       cardinality: "multiple";
     } & (
       | { type: "field"; ref: string }
-      | { type: "ref"; table: string; field: string; ref: string }
+      | {
+          type: "ref";
+          table: string;
+          field: string;
+          ref: string;
+          inverse: boolean;
+        }
     ))
 );
 
@@ -332,9 +410,15 @@ type EdgeConfigFromEntDefinition = {
   | ({
       cardinality: "multiple";
     } & (
-      | { type: null }
+      | { type: null; inverse?: true }
       | { type: "field"; ref: string }
-      | { type: "ref"; table: string; field: string; ref: string }
+      | {
+          type: "ref";
+          table: string;
+          field: string;
+          ref: string;
+          inverse?: true;
+        }
     ))
 );
 
