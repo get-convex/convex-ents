@@ -1,4 +1,5 @@
 import {
+  DefineSchemaOptions,
   GenericDataModel,
   GenericDocument,
   GenericSchema,
@@ -8,19 +9,83 @@ import {
   SchemaDefinition,
   TableDefinition,
   TableNamesInDataModel,
+  defineSchema,
 } from "convex/server";
-import {
-  ObjectType,
-  PropertyValidators,
-  Validator,
-  v as baseV,
-} from "convex/values";
+import { ObjectType, PropertyValidators, Validator, v } from "convex/values";
+
+export function defineEntSchema<
+  Schema extends Record<string, EntDefinition>,
+  StrictTableNameTypes extends boolean = true
+>(
+  schema: Schema,
+  options?: DefineSchemaOptions<StrictTableNameTypes>
+): SchemaDefinition<Schema, StrictTableNameTypes> {
+  // If we have two ref edges pointing at each other,
+  // we gotta add the table for them with indexes
+  const tableNames = Object.keys(schema);
+  for (let i = 0; i < tableNames.length; i++) {
+    const tableName = tableNames[i];
+    const table = schema[tableName];
+    for (const edge of (table as any)
+      .edgeConfigs as EdgeConfigFromEntDefinition[]) {
+      if (edge.cardinality === "multiple") {
+        const otherTableName = edge.to;
+        const otherTable = schema[otherTableName];
+        if (otherTable === undefined) {
+          continue;
+        }
+        if (tableNames.indexOf(otherTableName) < i) {
+          // We handled this pair already
+          continue;
+        }
+        for (const inverseEdge of (otherTable as any)
+          .edgeConfigs as EdgeConfigFromEntDefinition[]) {
+          if (inverseEdge.to !== tableName) {
+            continue;
+          }
+          if (inverseEdge.cardinality === "single") {
+            if (inverseEdge.type === "ref") {
+              throw new Error(
+                "Unexpected optional edge for " +
+                  edge.name +
+                  " called " +
+                  inverseEdge.name
+              );
+            }
+            edge.type = "field";
+            (edge as any).ref = inverseEdge.field;
+          }
+
+          if (inverseEdge.cardinality === "multiple") {
+            const edgeTableName = `${tableName}_to_${otherTableName}`;
+            // Add the table
+            (schema as any)[edgeTableName] = defineEnt({
+              [tableName + "Id"]: v.id(tableName),
+              [otherTableName + "Id"]: v.id(otherTableName),
+            })
+              .index(tableName + "Id", [tableName + "Id"])
+              .index(otherTableName + "Id", [otherTableName + "Id"]);
+            edge.type = "ref";
+            (edge as any).table = edgeTableName;
+            (edge as any).field = tableName + "Id";
+            (edge as any).ref = otherTableName + "Id";
+            inverseEdge.type = "ref";
+            (inverseEdge as any).table = edgeTableName;
+            (inverseEdge as any).field = otherTableName + "Id";
+            (inverseEdge as any).ref = tableName + "Id";
+
+            // TODO: Error on repeated iteration before the if block instead of breaking
+            break;
+          }
+        }
+      }
+    }
+  }
+  return defineSchema(schema, options);
+}
 
 export function defineEnt<
-  DocumentSchema extends Record<
-    string,
-    Validator<any, any, any> | EdgeValidator<any, any, any>
-  >
+  DocumentSchema extends Record<string, Validator<any, any, any>>
 >(
   documentSchema: DocumentSchema
 ): EntDefinition<
@@ -141,7 +206,7 @@ class EntDefinitionImpl {
   // The type of documents stored in this table.
   private documentType: Validator<any, any, any>;
 
-  private edgeConfigs: EdgeConfig[];
+  private edgeConfigs: EdgeConfigFromEntDefinition[];
 
   constructor(documentType: Validator<any, any, any>) {
     this.indexes = [];
@@ -149,6 +214,11 @@ class EntDefinitionImpl {
     this.vectorIndexes = [];
     this.documentType = documentType;
     this.edgeConfigs = [];
+  }
+
+  index(name: any, fields: any) {
+    this.indexes.push({ indexDescriptor: name, fields });
+    return this;
   }
 
   searchIndex(name: any, indexConfig: any) {
@@ -206,6 +276,7 @@ class EntDefinitionImpl {
         to: table + "s",
         cardinality: "single",
         type: "ref",
+        ref: null, // gets filled in by defineEntSchema
       });
     }
     return this;
@@ -217,7 +288,7 @@ class EntDefinitionImpl {
         name: table,
         to: table,
         cardinality: "multiple",
-        type: "ref",
+        type: null, // gets filled in by defineEntSchema
       });
     }
     return this;
@@ -227,13 +298,44 @@ class EntDefinitionImpl {
 export type EdgeConfig = {
   name: string;
   to: string;
-  cardinality: "single" | "multiple";
 } & (
-  | {
-      type: "field";
-      field: string;
-    }
-  | { type: "ref" }
+  | ({
+      cardinality: "single";
+    } & (
+      | {
+          type: "field";
+          field: string;
+        }
+      | { type: "ref"; ref: string }
+    ))
+  | ({
+      cardinality: "multiple";
+    } & (
+      | { type: "field"; ref: string }
+      | { type: "ref"; table: string; field: string; ref: string }
+    ))
+);
+
+type EdgeConfigFromEntDefinition = {
+  name: string;
+  to: string;
+} & (
+  | ({
+      cardinality: "single";
+    } & (
+      | {
+          type: "field";
+          field: string;
+        }
+      | { type: "ref"; ref: null | string }
+    ))
+  | ({
+      cardinality: "multiple";
+    } & (
+      | { type: null }
+      | { type: "field"; ref: string }
+      | { type: "ref"; table: string; field: string; ref: string }
+    ))
 );
 
 type ExtractDocument<T extends Validator<any, any, any>> =
@@ -275,30 +377,6 @@ type JoinFieldPaths<
   Start extends string,
   End extends string
 > = `${Start}.${End}`;
-
-const v = {
-  ...baseV,
-  edge: (tableName: string) => new EdgeValidator(v.id(tableName)),
-};
-
-class EdgeValidator<T, I extends boolean, P extends string> extends Validator<
-  T,
-  I,
-  P
-> {
-  constructor(
-    public validator: Validator<T, I, P>,
-    private isIndexed: boolean = false
-  ) {
-    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-    // @ts-ignore
-    super(validator.json, validator.isOptional);
-  }
-
-  indexed(): EdgeValidator<T, I, P> {
-    return new EdgeValidator(this.validator, true);
-  }
-}
 
 export type GenericEntsDataModel<DataModel extends GenericDataModel> = Record<
   TableNamesInDataModel<DataModel>,

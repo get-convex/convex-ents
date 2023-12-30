@@ -1,12 +1,12 @@
-import { defineSchema } from "convex/server";
 import {
   EntDataModelFromSchema,
   defineEnt,
   getEntDefinition,
+  defineEntSchema,
 } from "./ents/schema";
 import { v } from "convex/values";
 
-const schema = defineSchema(
+const schema = defineEntSchema(
   {
     // messages: defineTable({
     //   text: v.string(),
@@ -14,8 +14,9 @@ const schema = defineSchema(
     // }).index("authorId", ["authorId"]),
     messages: defineEnt({
       text: v.string(),
-    }).edge("user"),
-    // .edges("tags"),
+    })
+      .edge("user")
+      .edges("tags"),
 
     users: defineEnt({
       name: v.string(),
@@ -31,8 +32,7 @@ const schema = defineSchema(
 
     tags: defineEnt({
       name: v.string(),
-    }),
-    //.edges("messages"),
+    }).edges("messages"),
 
     documents: defineEnt({
       fieldOne: v.string(),

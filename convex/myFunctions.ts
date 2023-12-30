@@ -11,6 +11,7 @@ import {
   Indexes,
   NamedIndex,
   NamedTableInfo,
+  Query,
   TableNamesInDataModel,
 } from "convex/server";
 import { GenericId } from "convex/values";
@@ -30,17 +31,73 @@ type FieldTypes<
   >;
 };
 
+class QueryQueryPromise<
+  DataModel extends GenericDataModel,
+  EntsDataModel extends GenericEntsDataModel<DataModel>,
+  Table extends TableNamesInDataModel<DataModel>
+> extends Promise<EntByName<DataModel, Table>[] | null> {
+  constructor(
+    protected ctx: GenericQueryCtx<DataModel>,
+    protected entDefinitions: EntsDataModel,
+    protected table: Table,
+    protected retrieve: (
+      db: GenericDatabaseReader<DataModel>
+    ) => Promise<Query<NamedTableInfo<DataModel, Table>> | null>
+  ) {
+    super(() => {});
+  }
+
+  first(): QueryOnePromise<DataModel, EntsDataModel, Table> {
+    return new QueryOnePromise(
+      this.ctx,
+      this.entDefinitions,
+      this.table,
+      async (db) => {
+        const query = await this.retrieve(db);
+        if (query === null) {
+          return null;
+        }
+        return query
+          .first()
+          .then((doc) => (doc === null ? null : entWrapper(doc, this.table)));
+      }
+    );
+  }
+
+  then<TResult1 = EntByName<DataModel, Table>[] | null, TResult2 = never>(
+    onfulfilled?:
+      | ((
+          value: EntByName<DataModel, Table>[] | null
+        ) => TResult1 | PromiseLike<TResult1>)
+      | undefined
+      | null,
+    onrejected?:
+      | ((reason: any) => TResult2 | PromiseLike<TResult2>)
+      | undefined
+      | null
+  ): Promise<TResult1 | TResult2> {
+    return this.retrieve(this.ctx.db)
+      .then((query) => (query === null ? null : query.collect()))
+      .then((documents) =>
+        documents === null
+          ? null
+          : documents.map((doc) => entWrapper(doc, this.table))
+      )
+      .then(onfulfilled, onrejected);
+  }
+}
+
 class QueryPromise<
   DataModel extends GenericDataModel,
   EntsDataModel extends GenericEntsDataModel<DataModel>,
   Table extends TableNamesInDataModel<DataModel>
-> extends Promise<EntByName<DataModel, Table>[]> {
+> extends QueryQueryPromise<DataModel, EntsDataModel, Table> {
   constructor(
-    private ctx: GenericQueryCtx<DataModel>,
-    private entDefinitions: EntsDataModel,
-    private table: Table
+    ctx: GenericQueryCtx<DataModel>,
+    entDefinitions: EntsDataModel,
+    table: Table
   ) {
-    super(() => {});
+    super(ctx, entDefinitions, table, async (db) => db.query(table));
   }
 
   get<
@@ -84,19 +141,6 @@ class QueryPromise<
     );
   }
 
-  first(): QueryOnePromise<DataModel, EntsDataModel, Table> {
-    return new QueryOnePromise(
-      this.ctx,
-      this.entDefinitions,
-      this.table,
-      (db) =>
-        db
-          .query(this.table)
-          .first()
-          .then((doc) => (doc === null ? null : entWrapper(doc, this.table)))
-    );
-  }
-
   then<TResult1 = EntByName<DataModel, Table>[], TResult2 = never>(
     onfulfilled?:
       | ((
@@ -109,15 +153,13 @@ class QueryPromise<
       | undefined
       | null
   ): Promise<TResult1 | TResult2> {
-    return this.ctx.db
-      .query(this.table)
-      .collect()
-      .then((documents) => documents.map((doc) => entWrapper(doc, this.table)))
-      .then(onfulfilled, onrejected);
+    return super.then(onfulfilled as any, onrejected);
   }
 }
 
-// Chaining to this type of query performs operations in JavaScript.
+// This query materializes objects, so chaining to this type of query performs one operation for each
+// retrieved document in JavaScript, basically as if using
+// `Promise.all()`.
 class QueryMultiplePromise<
   DataModel extends GenericDataModel,
   EntsDataModel extends GenericEntsDataModel<DataModel>,
@@ -129,7 +171,7 @@ class QueryMultiplePromise<
     private table: Table,
     private retrieve: (
       db: GenericDatabaseReader<DataModel>
-    ) => Promise<EntByName<DataModel, Table>[] | null>
+    ) => Promise<DocumentByName<DataModel, Table>[] | null>
   ) {
     super(() => {});
   }
@@ -146,7 +188,11 @@ class QueryMultiplePromise<
       | undefined
       | null
   ): Promise<TResult1 | TResult2> {
-    return this.retrieve(this.ctx.db).then(onfulfilled, onrejected);
+    return this.retrieve(this.ctx.db)
+      .then((docs) =>
+        docs === null ? null : docs.map((doc) => entWrapper(doc, this.table))
+      )
+      .then(onfulfilled, onrejected);
   }
 }
 
@@ -161,7 +207,7 @@ class QueryOnePromise<
     private table: Table,
     private retrieve: (
       db: GenericDatabaseReader<DataModel>
-    ) => Promise<EntByName<DataModel, Table> | null>
+    ) => Promise<DocumentByName<DataModel, Table> | null>
   ) {
     super(() => {});
   }
@@ -178,7 +224,9 @@ class QueryOnePromise<
       | undefined
       | null
   ): Promise<TResult1 | TResult2> {
-    return this.retrieve(this.ctx.db).then(onfulfilled, onrejected);
+    return this.retrieve(this.ctx.db)
+      .then((doc) => (doc === null ? null : entWrapper(doc, this.table)))
+      .then(onfulfilled, onrejected);
   }
 
   edge<Edge extends keyof EntsDataModel[Table]["edges"]>(
@@ -199,32 +247,57 @@ class QueryOnePromise<
     ).filter(({ name }: EdgeConfig) => name === edge)[0];
 
     if (edgeDefinition.cardinality === "multiple") {
-      const inverseEdgeDefinition: EdgeConfig = (
-        this.entDefinitions[edgeDefinition.to].edges as any
-      ).filter(({ to }: EdgeConfig) => to === this.table)[0];
-      if (inverseEdgeDefinition.type !== "field") {
-        throw new Error(
-          `Unexpected inverse edge type for edge: ${edgeDefinition.name}, ` +
-            `expected field, got ${inverseEdgeDefinition.type} ` +
-            `named ${inverseEdgeDefinition.name}`
-        );
+      if (edgeDefinition.type === "ref") {
+        return new QueryMultiplePromise(
+          this.ctx,
+          this.entDefinitions,
+          edgeDefinition.to,
+          async (db) => {
+            const doc = await this.retrieve(db);
+            if (doc === null) {
+              return null;
+            }
+            const edgeDocs = await db
+              .query(edgeDefinition.table)
+              .withIndex(edgeDefinition.field, (q) =>
+                q.eq(edgeDefinition.field, doc._id as any)
+              )
+              .collect();
+            return (
+              await Promise.all(
+                edgeDocs.map((edgeDoc) =>
+                  db.get(edgeDoc[edgeDefinition.ref] as any)
+                )
+              )
+            ).filter(<TValue>(doc: TValue | null, i: number): doc is TValue => {
+              if (doc === null) {
+                throw new Error(
+                  `Dangling reference "${
+                    edgeDocs[i][edgeDefinition.field] as string
+                  }" found in document with _id "${
+                    edgeDocs[i]._id as string
+                  }", expected to find a document with the first ID.`
+                );
+              }
+              return true;
+            });
+          }
+        ) as any;
       }
-      return new QueryMultiplePromise(
+      return new QueryQueryPromise(
         this.ctx,
         this.entDefinitions,
-        this.table,
+        edgeDefinition.to,
         async (db) => {
           const doc = await this.retrieve(db);
           if (doc === null) {
             return null;
           }
-          const collected = await this.ctx.db
+          return db
             .query(edgeDefinition.to)
-            .withIndex(inverseEdgeDefinition.field, (q) =>
-              q.eq(inverseEdgeDefinition.field, doc._id as any)
-            )
-            .collect();
-          return collected.map((doc) => entWrapper(doc, this.table));
+            .withIndex(edgeDefinition.ref, (q) =>
+              q.eq(edgeDefinition.ref, doc._id as any)
+            );
         }
       ) as any;
     }
@@ -253,8 +326,8 @@ class QueryOnePromise<
 
           const other = await this.ctx.db
             .query(edgeDefinition.to)
-            .withIndex(inverseEdgeDefinition.field, (q) =>
-              q.eq(inverseEdgeDefinition.field, doc._id as any)
+            .withIndex(edgeDefinition.ref, (q) =>
+              q.eq(edgeDefinition.ref, doc._id as any)
             )
             .unique();
           if (other === null) {
@@ -326,6 +399,10 @@ export const test = query({
   args: {},
 
   handler: async (ctx) => {
+    {
+      const firstMessageTags = await ctx.table("messages").first().edge("tags");
+      return firstMessageTags;
+    }
     {
       const firstUserProfile = await ctx.table("users").first().edge("profile");
       return firstUserProfile;
@@ -448,13 +525,20 @@ export const test = query({
 
 export const seed = mutation(async (ctx) => {
   const userId = await ctx.db.insert("users", { name: "Stark" });
-  await ctx.db.insert("messages", {
+  const messageId = await ctx.db.insert("messages", {
     text: "Hello world",
     userId,
   });
   await ctx.db.insert("profiles", {
     bio: "Hello world",
     userId,
+  });
+  const tagsId = await ctx.db.insert("tags", {
+    name: "Orange",
+  });
+  await ctx.db.insert("messages_to_tags" as any, {
+    messagesId: messageId,
+    tagsId: tagsId,
   });
 });
 
@@ -463,7 +547,14 @@ export const list = query(async (ctx, args) => {
 });
 
 export const clear = mutation(async (ctx) => {
-  for (const table of ["users", "messages", "profiles", "tags", "documents"]) {
+  for (const table of [
+    "users",
+    "messages",
+    "profiles",
+    "tags",
+    "documents",
+    "messages_to_tags",
+  ]) {
     for (const { _id } of await ctx.db.query(table as any).collect()) {
       await ctx.db.delete(_id);
     }
