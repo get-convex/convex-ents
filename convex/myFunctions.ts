@@ -15,6 +15,8 @@ import {
 } from "convex/server";
 import { GenericId } from "convex/values";
 import { query as baseQuery } from "./_generated/server";
+import { Doc, TableNames } from "./_generated/dataModel";
+import { Expand } from "./schema";
 
 type FieldTypes<
   DataModel extends GenericDataModel,
@@ -30,7 +32,7 @@ type FieldTypes<
 class QueryPromise<
   DataModel extends GenericDataModel,
   Table extends TableNamesInDataModel<DataModel>
-> extends Promise<DocumentByName<DataModel, Table>[]> {
+> extends Promise<EntByName<DataModel, Table>[]> {
   constructor(private ctx: GenericQueryCtx<DataModel>, private table: Table) {
     super(() => {});
   }
@@ -55,26 +57,38 @@ class QueryPromise<
                 new Error(`Invalid id \`${id}\` for table "${this.table}"`)
               );
             }
-            return db.get(id);
+            return db
+              .get(id)
+              .then((doc) =>
+                doc === null ? null : entWrapper(doc, this.table)
+              );
           }
         : (db) => {
             const [indexName, value] = args;
             return db
               .query(this.table)
               .withIndex(indexName, (q) => q.eq(indexName, value))
-              .unique();
+              .unique()
+              .then((doc) =>
+                doc === null ? null : entWrapper(doc, this.table)
+              );
           }
     );
   }
 
   first(): QueryOnePromise<DataModel, Table> {
-    return new QueryOnePromise(this.ctx, (db) => db.query(this.table).first());
+    return new QueryOnePromise(this.ctx, (db) =>
+      db
+        .query(this.table)
+        .first()
+        .then((doc) => (doc === null ? null : entWrapper(doc, this.table)))
+    );
   }
 
-  then<TResult1 = DocumentByName<DataModel, Table>[], TResult2 = never>(
+  then<TResult1 = EntByName<DataModel, Table>[], TResult2 = never>(
     onfulfilled?:
       | ((
-          value: DocumentByName<DataModel, Table>[]
+          value: EntByName<DataModel, Table>[]
         ) => TResult1 | PromiseLike<TResult1>)
       | undefined
       | null,
@@ -86,6 +100,7 @@ class QueryPromise<
     return this.ctx.db
       .query(this.table)
       .collect()
+      .then((documents) => documents.map((doc) => entWrapper(doc, this.table)))
       .then(onfulfilled, onrejected);
   }
 }
@@ -93,20 +108,20 @@ class QueryPromise<
 class QueryOnePromise<
   DataModel extends GenericDataModel,
   Table extends TableNamesInDataModel<DataModel>
-> extends Promise<DocumentByName<DataModel, Table> | null> {
+> extends Promise<EntByName<DataModel, Table> | null> {
   constructor(
     private ctx: GenericQueryCtx<DataModel>,
     private retrieve: (
       db: GenericDatabaseReader<DataModel>
-    ) => Promise<DocumentByName<DataModel, Table> | null>
+    ) => Promise<EntByName<DataModel, Table> | null>
   ) {
     super(() => {});
   }
 
-  then<TResult1 = DocumentByName<DataModel, Table> | null, TResult2 = never>(
+  then<TResult1 = EntByName<DataModel, Table> | null, TResult2 = never>(
     onfulfilled?:
       | ((
-          value: DocumentByName<DataModel, Table> | null
+          value: EntByName<DataModel, Table> | null
         ) => TResult1 | PromiseLike<TResult1>)
       | undefined
       | null,
@@ -117,6 +132,22 @@ class QueryOnePromise<
   ): Promise<TResult1 | TResult2> {
     return this.retrieve(this.ctx.db).then(onfulfilled, onrejected);
   }
+}
+
+function entWrapper<
+  DataModel extends GenericDataModel,
+  TableName extends TableNamesInDataModel<DataModel>
+>(
+  doc: DocumentByName<DataModel, TableName>,
+  tableName: TableName
+): EntByName<DataModel, TableName> {
+  Object.defineProperty(doc, "edge", {
+    value: (name: string) => {},
+    enumerable: false,
+    writable: false,
+    configurable: false,
+  });
+  return doc as any;
 }
 
 function tableFactory<DataModel extends GenericDataModel>(
@@ -137,15 +168,30 @@ const query = customQuery(
   })
 );
 
+type EntByName<
+  DataModel extends GenericDataModel,
+  TableName extends TableNamesInDataModel<DataModel>
+> = Expand<DocumentByName<DataModel, TableName> & { myMethod(): null }>;
+
 export const test = query({
   args: {},
 
   handler: async (ctx) => {
     {
-      const message = await ctx
-        .table("messages")
-        .get("authorId", "jh76hs45yga4pgptp21nxhfdx96gf8xr" as any);
-      return message;
+      // const postsByUser = await ctx
+      // .table("users")
+      // .get("email", "srb@convex.dev")
+      // // .edge("posts")
+      // .map(async (user) => (
+      //   ctx.table("posts")
+      //     .withIndex("authorId", (q) => q.eq("authorId", user._id))
+      // ));
+    }
+    {
+      // const message = await ctx
+      //   .table("messages")
+      //   .get("authorId", "jh76hs45yga4pgptp21nxhfdx96gf8xr" as any);
+      // return message;
     }
 
     {
@@ -211,6 +257,11 @@ export const test = query({
     //   name: user.name,
     //   posts: await user.edge("posts"),
     // }));
+
+    // But if I already have a user, how do I get the posts from them?
+    // const user = await ctx.table("users").get("email", "srb@...");
+    // const posts = await user.edge("posts");
+
     // // List all messages
     // // const allPosts = ctx.db.query("posts").collect();
     // const allPosts = await ctx.table("posts");
