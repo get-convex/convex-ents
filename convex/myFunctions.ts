@@ -201,11 +201,12 @@ function entWrapper<
   return doc as any;
 }
 
-function tableFactory<DataModel extends GenericDataModel>(
-  ctx: GenericQueryCtx<DataModel>
-) {
+function tableFactory<
+  DataModel extends GenericDataModel,
+  EntsDataModel extends GenericEntsDataModel<DataModel>
+>(ctx: GenericQueryCtx<DataModel>, entDefinitions: EntsDataModel) {
   return <Table extends TableNamesInDataModel<DataModel>>(table: Table) => {
-    return new QueryPromise(ctx, entDefinitions as any, table);
+    return new QueryPromise(ctx, entDefinitions, table);
   };
 }
 
@@ -213,7 +214,7 @@ const query = customQuery(
   baseQuery,
   customCtx(async (ctx) => {
     return {
-      table: tableFactory(ctx),
+      table: tableFactory(ctx, entDefinitions),
       db: undefined,
     };
   })
