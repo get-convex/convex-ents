@@ -177,6 +177,10 @@ class EntDefinitionImpl {
         type: "field",
         field: table + "Id",
       });
+      this.indexes.push({
+        indexDescriptor: table + "Id",
+        fields: [table + "Id"],
+      });
     }
     return this;
   }
