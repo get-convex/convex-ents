@@ -1,19 +1,13 @@
-// OPTIONAL: Rename this file to `schema.ts` to declare the shape
-// of the data in your database.
-// See https://docs.convex.dev/database/schemas.
-
 import {
-  defineSchema,
-  defineTable as baseDefineTable,
-  TableDefinition,
+  GenericDataModel,
   GenericDocument,
   GenericTableIndexes,
   GenericTableSearchIndexes,
   GenericTableVectorIndexes,
-  FieldPaths,
-  GenericDataModel,
   SchemaDefinition,
+  TableDefinition,
   TableNamesInDataModel,
+  defineSchema,
 } from "convex/server";
 import {
   ObjectType,
@@ -21,7 +15,6 @@ import {
   Validator,
   v as baseV,
 } from "convex/values";
-import { DataModel } from "./_generated/dataModel";
 
 function defineEnt<
   DocumentSchema extends Record<
@@ -49,7 +42,8 @@ type GenericEdges<DataModel extends GenericDataModel> = Record<
 type GenericEdgeConfig<DataModel extends GenericDataModel> = {
   name: string;
   to: TableNamesInDataModel<DataModel>;
-  type: "field";
+  cardinality: "single" | "multiple";
+  type: "field" | "ref";
 };
 
 interface EntDefinition<
@@ -79,11 +73,34 @@ interface EntDefinition<
     SearchIndexes,
     VectorIndexes,
     Edges & {
-      [key in EdgeName]: { name: EdgeName; to: `${EdgeName}s`; type: "field" };
+      [key in EdgeName]: {
+        name: EdgeName;
+        to: `${EdgeName}s`;
+        type: "field";
+        cardinality: "single";
+      };
     }
   >;
-  edge(table: string, options?: EdgeOptions): this;
-  edges(table: string, options?: EdgesOptions): this;
+  edge(table: string, options: EdgeOptions): this;
+
+  edges<EdgesName extends string>(
+    edge: EdgesName
+  ): EntDefinition<
+    Document,
+    FieldPaths,
+    Indexes,
+    SearchIndexes,
+    VectorIndexes,
+    Edges & {
+      [key in EdgesName]: {
+        name: EdgesName;
+        to: EdgesName;
+        type: "ref";
+        cardinality: "multiple";
+      };
+    }
+  >;
+  edges(table: string, options: EdgesOptions): this;
 }
 
 type EdgeOptions = {
@@ -156,6 +173,7 @@ class EntDefinitionImpl {
       this.edgeConfigs.push({
         name: table,
         to: table + "s",
+        cardinality: "single",
         type: "field",
         field: table + "Id",
       });
@@ -164,6 +182,14 @@ class EntDefinitionImpl {
   }
 
   edges(table: string, options?: EdgesOptions): this {
+    if (options === undefined) {
+      this.edgeConfigs.push({
+        name: table,
+        to: table,
+        cardinality: "multiple",
+        type: "ref",
+      });
+    }
     return this;
   }
 }
@@ -171,22 +197,14 @@ class EntDefinitionImpl {
 export type EdgeConfig = {
   name: string;
   to: string;
-  type: "field";
-  field: string;
-};
-
-type ConvertEdges<
-  DocumentSchema extends Record<
-    string,
-    Validator<any, any, any> | EdgeValidator<any, any, any>
-  >
-> = {
-  [Key in keyof DocumentSchema as Key extends string
-    ? DocumentSchema[Key] extends EdgeValidator<any, any, any>
-      ? `${Key}Id`
-      : Key
-    : never]: DocumentSchema[Key];
-};
+  cardinality: "single" | "multiple";
+} & (
+  | {
+      type: "field";
+      field: string;
+    }
+  | { type: "ref" }
+);
 
 type ExtractDocument<T extends Validator<any, any, any>> =
   // Add the system fields to `Value` (except `_id` because it depends on
@@ -272,7 +290,7 @@ const schema = defineSchema(
     }).edge("user"),
     // .edges("tags"),
 
-    users: defineEnt({}),
+    users: defineEnt({}).edges("messages"),
     // .edges("followees", "users", { inverse: "followers" })
     // .edges("friends", "users"),
 

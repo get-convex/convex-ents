@@ -121,6 +121,39 @@ class QueryPromise<
   }
 }
 
+// Chaining to this type of query performs operations in JavaScript.
+class QueryMultiplePromise<
+  DataModel extends GenericDataModel,
+  EntsDataModel extends GenericEntsDataModel<DataModel>,
+  Table extends TableNamesInDataModel<DataModel>
+> extends Promise<EntByName<DataModel, Table>[] | null> {
+  constructor(
+    private ctx: GenericQueryCtx<DataModel>,
+    private entDefinitions: EntsDataModel,
+    private table: Table,
+    private retrieve: (
+      db: GenericDatabaseReader<DataModel>
+    ) => Promise<EntByName<DataModel, Table>[] | null>
+  ) {
+    super(() => {});
+  }
+
+  then<TResult1 = EntByName<DataModel, Table>[], TResult2 = never>(
+    onfulfilled?:
+      | ((
+          value: EntByName<DataModel, Table>[] | null
+        ) => TResult1 | PromiseLike<TResult1>)
+      | undefined
+      | null,
+    onrejected?:
+      | ((reason: any) => TResult2 | PromiseLike<TResult2>)
+      | undefined
+      | null
+  ): Promise<TResult1 | TResult2> {
+    return this.retrieve(this.ctx.db).then(onfulfilled, onrejected);
+  }
+}
+
 class QueryOnePromise<
   DataModel extends GenericDataModel,
   EntsDataModel extends GenericEntsDataModel<DataModel>,
@@ -154,14 +187,51 @@ class QueryOnePromise<
 
   edge<Edge extends keyof EntsDataModel[Table]["edges"]>(
     edge: Edge
-  ): QueryOnePromise<
-    DataModel,
-    EntsDataModel,
-    EntsDataModel[Table]["edges"][Edge]["to"]
-  > {
+  ): EntsDataModel[Table]["edges"][Edge]["cardinality"] extends "multiple"
+    ? QueryMultiplePromise<
+        DataModel,
+        EntsDataModel,
+        EntsDataModel[Table]["edges"][Edge]["to"]
+      >
+    : QueryOnePromise<
+        DataModel,
+        EntsDataModel,
+        EntsDataModel[Table]["edges"][Edge]["to"]
+      > {
     const edgeDefinition: EdgeConfig = (
       this.entDefinitions[this.table].edges as any
-    ).filter(({ name }: any) => name === edge)[0];
+    ).filter(({ name }: EdgeConfig) => name === edge)[0];
+
+    if (edgeDefinition.cardinality === "multiple") {
+      const inverseEdgeDefinition: EdgeConfig = (
+        this.entDefinitions[edgeDefinition.to].edges as any
+      ).filter(({ to }: EdgeConfig) => to === this.table)[0];
+      if (inverseEdgeDefinition.type !== "field") {
+        throw new Error(
+          `Unexpected inverse edge type for edge: ${edgeDefinition.name}, ` +
+            `expected field, got ${inverseEdgeDefinition.type} ` +
+            `named ${inverseEdgeDefinition.name}`
+        );
+      }
+      return new QueryMultiplePromise(
+        this.ctx,
+        this.entDefinitions,
+        this.table,
+        async (db) => {
+          const doc = await this.retrieve(db);
+          if (doc === null) {
+            return null;
+          }
+          const collected = await this.ctx.db
+            .query(edgeDefinition.to)
+            .withIndex(inverseEdgeDefinition.field, (q) =>
+              q.eq(inverseEdgeDefinition.field, doc._id as any)
+            )
+            .collect();
+          return collected.map((doc) => entWrapper(doc, this.table));
+        }
+      ) as any;
+    }
 
     return new QueryOnePromise(
       this.ctx,
@@ -173,6 +243,13 @@ class QueryOnePromise<
           return null;
         }
 
+        if (edgeDefinition.type !== "field") {
+          throw new Error(
+            `Unexpected edge type for: ${edgeDefinition.name}, ` +
+              `expected field, got ${edgeDefinition.type} `
+          );
+        }
+
         const otherEnd = await this.ctx.db.get(
           doc[edgeDefinition.field] as any
         );
@@ -181,7 +258,7 @@ class QueryOnePromise<
         }
         return entWrapper(otherEnd, edgeDefinition.to);
       }
-    );
+    ) as any;
   }
 }
 
@@ -230,8 +307,19 @@ export const test = query({
 
   handler: async (ctx) => {
     {
-      const message = await ctx.table("messages").first().edge("user");
-      return message;
+      const lastMessageAuthorsMessages = await ctx
+        .table("messages")
+        .first()
+        .edge("user")
+        .edge("messages");
+      return lastMessageAuthorsMessages;
+    }
+    {
+      const lastMessageAuthor = await ctx
+        .table("messages")
+        .first()
+        .edge("user");
+      return lastMessageAuthor;
     }
     {
       // const postsByUser = await ctx
