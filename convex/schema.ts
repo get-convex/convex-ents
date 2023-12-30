@@ -81,7 +81,24 @@ interface EntDefinition<
       };
     }
   >;
-  edge(table: string, options: EdgeOptions): this;
+  edge<EdgeName extends string>(
+    edge: EdgeName,
+    options: { optional: true }
+  ): EntDefinition<
+    Document,
+    FieldPaths,
+    Indexes,
+    SearchIndexes,
+    VectorIndexes,
+    Edges & {
+      [key in EdgeName]: {
+        name: EdgeName;
+        to: `${EdgeName}s`;
+        type: "ref";
+        cardinality: "single";
+      };
+    }
+  >;
 
   edges<EdgesName extends string>(
     edge: EdgesName
@@ -104,7 +121,7 @@ interface EntDefinition<
 }
 
 type EdgeOptions = {
-  name: string;
+  optional?: true;
 };
 
 type EdgesOptions = {
@@ -180,6 +197,15 @@ class EntDefinitionImpl {
       this.indexes.push({
         indexDescriptor: table + "Id",
         fields: [table + "Id"],
+      });
+      return this;
+    }
+    if (options.optional === true) {
+      this.edgeConfigs.push({
+        name: table,
+        to: table + "s",
+        cardinality: "single",
+        type: "ref",
       });
     }
     return this;
@@ -294,9 +320,17 @@ const schema = defineSchema(
     }).edge("user"),
     // .edges("tags"),
 
-    users: defineEnt({}).edges("messages"),
+    users: defineEnt({
+      name: v.string(),
+    })
+      .edge("profile", { optional: true })
+      .edges("messages"),
     // .edges("followees", "users", { inverse: "followers" })
     // .edges("friends", "users"),
+
+    profiles: defineEnt({
+      bio: v.string(),
+    }).edge("user"),
 
     tags: defineEnt({
       name: v.string(),

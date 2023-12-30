@@ -243,12 +243,36 @@ class QueryOnePromise<
           return null;
         }
 
-        if (edgeDefinition.type !== "field") {
-          throw new Error(
-            `Unexpected edge type for: ${edgeDefinition.name}, ` +
-              `expected field, got ${edgeDefinition.type} `
-          );
+        if (edgeDefinition.type === "ref") {
+          const inverseEdgeDefinition: EdgeConfig = (
+            this.entDefinitions[edgeDefinition.to].edges as any
+          ).filter(({ to }: EdgeConfig) => to === this.table)[0];
+          if (inverseEdgeDefinition.type !== "field") {
+            throw new Error(
+              `Unexpected inverse edge type for edge: ${edgeDefinition.name}, ` +
+                `expected field, got ${inverseEdgeDefinition.type} ` +
+                `named ${inverseEdgeDefinition.name}`
+            );
+          }
+
+          const other = await this.ctx.db
+            .query(edgeDefinition.to)
+            .withIndex(inverseEdgeDefinition.field, (q) =>
+              q.eq(inverseEdgeDefinition.field, doc._id as any)
+            )
+            .unique();
+          if (other === null) {
+            return null;
+          }
+          return entWrapper(other, edgeDefinition.to);
         }
+
+        // if (edgeDefinition.type !== "field") {
+        //   throw new Error(
+        //     `Unexpected edge type for: ${edgeDefinition.name}, ` +
+        //       `expected field, got ${edgeDefinition.type} `
+        //   );
+        // }
 
         const otherEnd = await this.ctx.db.get(
           doc[edgeDefinition.field] as any
@@ -306,6 +330,10 @@ export const test = query({
   args: {},
 
   handler: async (ctx) => {
+    {
+      const firstUserProfile = await ctx.table("users").first().edge("profile");
+      return firstUserProfile;
+    }
     {
       const lastMessageAuthorsMessages = await ctx
         .table("messages")
@@ -423,9 +451,25 @@ export const test = query({
 });
 
 export const seed = mutation(async (ctx) => {
-  const userId = await ctx.db.insert("users", {});
+  const userId = await ctx.db.insert("users", { name: "Stark" });
   await ctx.db.insert("messages", {
     text: "Hello world",
     userId,
   });
+  await ctx.db.insert("profiles", {
+    bio: "Hello world",
+    userId,
+  });
+});
+
+export const list = query(async (ctx, args) => {
+  return await ctx.table(args.table as any);
+});
+
+export const clear = mutation(async (ctx) => {
+  for (const table of ["users", "messages", "profiles", "tags", "documents"]) {
+    for (const { _id } of await ctx.db.query(table as any).collect()) {
+      await ctx.db.delete(_id);
+    }
+  }
 });
