@@ -74,16 +74,17 @@ a 1:1 edge:
 defineSchema({
   users: defineEnt({
     name: v.string(),
-  }).edge("profiles", { optional: true }),
+  }).edge("profile", { optional: true }),
   profiles: defineEnt({
     bio: v.string(),
-  }).edge("users"),
+  }).edge("user"),
 });
 ```
 
 In this case, each user can have 1 profile, and each profile must have 1
 associated user. This is a field edge stored on the "profiles" table as a
-foreign key. The column name is "userId" based on the "users" table name.
+foreign key. The column name is "userId" based on the "users" table name (itself
+inferred from the provided "user" string).
 
 If we wanted to have another field edge from profiles to users, we would have to
 specify the field name. We can choose to specify the field name even if we have
@@ -93,33 +94,33 @@ only one edge:
 defineSchema({
   users: defineEnt({
     name: v.string(),
-  }).edge("profiles", { ref: "ownerId", optional: true }),
+  }).edge("profile", { ref: "ownerId", optional: true }),
   profiles: defineEnt({
     bio: v.string(),
-  }).edge("users", { field: "ownerId" }),
+  }).edge("user", { field: "ownerId" }),
 });
 ```
 
 We have to provide the field name on both ends of the edge (as `ref` and `field`
 respectively).
 
-Either way the name of the edge is based on the tables names: "profile" and
+Either way the name of the edge is tied to the tables names: "profile" and
 "user" respectively for each direction of the edge (since this is not a
-symmetrical edge). We can also name the edge explicitly, from either or both
-ends:
+symmetrical edge). We can also provide the table names specifically, from either
+or both ends:
 
 ```ts
 defineSchema({
   users: defineEnt({
     name: v.string(),
-  }).edge("profiles", { name: "info", ref: "ownerId", optional: true }),
+  }).edge("info", { to: "profiles", ref: "ownerId", optional: true }),
   profiles: defineEnt({
     bio: v.string(),
-  }).edge("users", { name: "owner", field: "ownerId" }),
+  }).edge("owner", { to: "users", field: "ownerId" }),
 });
 ```
 
-These names are used when querying the edges, but they are not stored in the
+The edge names are used when querying the edges, but they are not stored in the
 database (the field name is, as part of each document that stores its value).
 
 ### 1:many edges
@@ -134,7 +135,7 @@ defineSchema({
   }).edges("messages"),
   messages: defineEnt({
     text: v.string(),
-  }).edge("users"),
+  }).edge("user"),
 });
 ```
 
@@ -154,23 +155,23 @@ defineSchema({
   }).edges("messages", { ref: "authorId" }),
   messages: defineEnt({
     text: v.string(),
-  }).edge("users", { field: "authorId" }),
+  }).edge("user", { field: "authorId" }),
 });
 ```
 
-Either way the name of the edge is based on the tables names: "messages" and
+Either way the name of the edge is tied to the tables names: "messages" and
 "user" respectively for each direction of the edge (since this is not a
-symmetrical edge). We can also name the edge explicitly, from either or both
-ends:
+symmetrical edge). We can also provide the table names explicitly, from either
+or both ends:
 
 ```ts
 defineSchema({
   users: defineEnt({
     name: v.string(),
-  }).edges("messages", { name: "authoredMessages", ref: "authorId" }),
+  }).edges("authoredMessages", { to: "messages", ref: "authorId" }),
   messages: defineEnt({
     text: v.string(),
-  }).edge("users", { name: "authors", field: "authorId" }),
+  }).edge("author", { to: "users", field: "authorId" }),
 });
 ```
 
@@ -218,12 +219,12 @@ As with 1:many edges, we can give the edges names:
 defineSchema({
   messages: defineEnt({
     name: v.string(),
-  }).edges("tags", { name: "assignedTags", left: "messages_to_assignedTags" }),
+  }).edges("assignedTags", { to: "tags", table: "messages_to_assignedTags" }),
   tags: defineEnt({
     text: v.string(),
-  }).edge("messages", {
-    name: "taggedMessages",
-    right: "messages_to_assignedTags",
+  }).edge("taggedMessages", {
+    name: "messages",
+    table: "messages_to_assignedTags",
   }),
 });
 ```
@@ -237,13 +238,13 @@ table.
 defineSchema({
   users: defineEnt({
     name: v.string(),
-  }).edges("users", { name: "followees", inverse: "followers" }),
+  }).edges("followees", { to: "users", inverse: "followers" }),
 });
 ```
 
 Self-directed edges point to the same table on which they are defined. For the
 edge to be asymmetrical, it has to specify the `inverse` name. In this example,
-if this edge is between user A and user B, B is a "folloee" of A (is being
+if this edge is between user A and user B, B is a "followee" of A (is being
 followed by A), and A is a "follower" of B.
 
 We can also specify the `table`, `field` and `inverseField` options to control
@@ -258,10 +259,12 @@ table, but additionally they "double-write" the edge for both directions:
 defineSchema({
   users: defineEnt({
     name: v.string(),
-  }).edges("users", { name: "friends" }),
+  }).edges("friends", { to: "users" }),
 });
 ```
 
 By not specifying the `inverse` name, we're declaring the edge as symmetrical.
+We can also specify the `table`, `field` and `inverseField` options to control
+how the edge is stored and to allow multiple symmetrical self-directed edges.
 
 Other kinds of edges are possible, but less common.

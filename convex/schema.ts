@@ -11,6 +11,9 @@ import {
   GenericTableSearchIndexes,
   GenericTableVectorIndexes,
   FieldPaths,
+  GenericDataModel,
+  SchemaDefinition,
+  TableNamesInDataModel,
 } from "convex/server";
 import {
   ObjectType,
@@ -18,6 +21,7 @@ import {
   Validator,
   v as baseV,
 } from "convex/values";
+import { DataModel } from "./_generated/dataModel";
 
 function defineEnt<
   DocumentSchema extends Record<
@@ -37,6 +41,17 @@ function defineEnt<
   }
 }
 
+type GenericEdges<DataModel extends GenericDataModel> = Record<
+  string,
+  GenericEdgeConfig<DataModel>
+>;
+
+type GenericEdgeConfig<DataModel extends GenericDataModel> = {
+  name: string;
+  to: TableNamesInDataModel<DataModel>;
+  type: "field";
+};
+
 interface EntDefinition<
   Document extends GenericDocument = GenericDocument,
   FieldPaths extends string = string,
@@ -45,7 +60,9 @@ interface EntDefinition<
   // eslint-disable-next-line @typescript-eslint/ban-types
   SearchIndexes extends GenericTableSearchIndexes = {},
   // eslint-disable-next-line @typescript-eslint/ban-types
-  VectorIndexes extends GenericTableVectorIndexes = {}
+  VectorIndexes extends GenericTableVectorIndexes = {},
+  // eslint-disable-next-line @typescript-eslint/ban-types
+  Edges extends GenericEdges<any> = {}
 > extends TableDefinition<
     Document,
     FieldPaths,
@@ -53,6 +70,18 @@ interface EntDefinition<
     SearchIndexes,
     VectorIndexes
   > {
+  edge<EdgeName extends string>(
+    edge: EdgeName
+  ): EntDefinition<
+    Document & { [key in `${EdgeName}Id`]: string },
+    FieldPaths | `${EdgeName}Id`,
+    Indexes,
+    SearchIndexes,
+    VectorIndexes,
+    Edges & {
+      [key in EdgeName]: { name: EdgeName; to: `${EdgeName}s`; type: "field" };
+    }
+  >;
   edge(table: string, options?: EdgeOptions): this;
   edges(table: string, options?: EdgesOptions): this;
 }
@@ -78,11 +107,14 @@ class EntDefinitionImpl {
   // The type of documents stored in this table.
   private documentType: Validator<any, any, any>;
 
+  private edgeConfigs: EdgeConfig[];
+
   constructor(documentType: Validator<any, any, any>) {
     this.indexes = [];
     this.searchIndexes = [];
     this.vectorIndexes = [];
     this.documentType = documentType;
+    this.edgeConfigs = [];
   }
 
   searchIndex(name: any, indexConfig: any) {
@@ -115,11 +147,19 @@ class EntDefinitionImpl {
       indexes: this.indexes,
       searchIndexes: this.searchIndexes,
       vectorIndexes: this.vectorIndexes,
-      documentType: this.documentType.json,
+      documentType: (this.documentType as any).json,
     };
   }
 
   edge(table: string, options?: EdgeOptions): this {
+    if (options === undefined) {
+      this.edgeConfigs.push({
+        name: table,
+        to: table + "s",
+        type: "field",
+        field: table + "Id",
+      });
+    }
     return this;
   }
 
@@ -127,6 +167,13 @@ class EntDefinitionImpl {
     return this;
   }
 }
+
+export type EdgeConfig = {
+  name: string;
+  to: string;
+  type: "field";
+  field: string;
+};
 
 type ConvertEdges<
   DocumentSchema extends Record<
@@ -205,7 +252,16 @@ class EdgeValidator<T, I extends boolean, P extends string> extends Validator<
   }
 }
 
-export default defineSchema(
+export type GenericEntsDataModel<DataModel extends GenericDataModel> = Record<
+  TableNamesInDataModel<DataModel>,
+  GenericEntModel<DataModel>
+>;
+
+export type GenericEntModel<DataModel extends GenericDataModel> = {
+  edges: Record<string, GenericEdgeConfig<DataModel>>;
+};
+
+const schema = defineSchema(
   {
     // messages: defineTable({
     //   text: v.string(),
@@ -213,10 +269,10 @@ export default defineSchema(
     // }).index("authorId", ["authorId"]),
     messages: defineEnt({
       text: v.string(),
-    }).edge("users", { name: "author" }),
+    }).edge("user"),
     // .edges("tags"),
 
-    users: defineEnt({}).edges("messages"),
+    users: defineEnt({}),
     // .edges("followees", "users", { inverse: "followers" })
     // .edges("friends", "users"),
 
@@ -246,3 +302,36 @@ export default defineSchema(
   //     freely, ignoring the schema. Don't forget to change back to `true`!
   { schemaValidation: false }
 );
+
+export default schema;
+
+export type EntDataModelFromSchema<
+  SchemaDef extends SchemaDefinition<any, boolean>
+> = {
+  [TableName in keyof SchemaDef["tables"] &
+    string]: SchemaDef["tables"][TableName] extends EntDefinition<
+    any,
+    any,
+    any,
+    any,
+    any,
+    infer Edges
+  >
+    ? {
+        edges: Edges;
+      }
+    : never;
+};
+
+export type EntDataModel = EntDataModelFromSchema<typeof schema>;
+
+export const entDefinitions: EntDataModel = Object.keys(schema.tables).reduce(
+  (acc, tableName) => ({
+    ...acc,
+    [tableName]: {
+      edges: (schema.tables[tableName as keyof typeof schema.tables] as any)
+        .edgeConfigs,
+    },
+  }),
+  {}
+) as any;

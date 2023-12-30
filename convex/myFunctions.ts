@@ -14,9 +14,14 @@ import {
   TableNamesInDataModel,
 } from "convex/server";
 import { GenericId } from "convex/values";
-import { query as baseQuery } from "./_generated/server";
+import { query as baseQuery, mutation } from "./_generated/server";
 import { Doc, TableNames } from "./_generated/dataModel";
-import { Expand } from "./schema";
+import {
+  EdgeConfig,
+  Expand,
+  GenericEntsDataModel,
+  entDefinitions,
+} from "./schema";
 
 type FieldTypes<
   DataModel extends GenericDataModel,
@@ -31,9 +36,14 @@ type FieldTypes<
 
 class QueryPromise<
   DataModel extends GenericDataModel,
+  EntsDataModel extends GenericEntsDataModel<DataModel>,
   Table extends TableNamesInDataModel<DataModel>
 > extends Promise<EntByName<DataModel, Table>[]> {
-  constructor(private ctx: GenericQueryCtx<DataModel>, private table: Table) {
+  constructor(
+    private ctx: GenericQueryCtx<DataModel>,
+    private entDefinitions: EntsDataModel,
+    private table: Table
+  ) {
     super(() => {});
   }
 
@@ -44,11 +54,13 @@ class QueryPromise<
   >(
     indexName: Index,
     ...values: FieldTypes<DataModel, Table, IndexTypes>
-  ): QueryOnePromise<DataModel, Table>;
-  get(id: GenericId<Table>): QueryOnePromise<DataModel, Table>;
+  ): QueryOnePromise<DataModel, EntsDataModel, Table>;
+  get(id: GenericId<Table>): QueryOnePromise<DataModel, EntsDataModel, Table>;
   get(...args: any[]) {
     return new QueryOnePromise(
       this.ctx,
+      this.entDefinitions,
+      this.table,
       args.length === 1
         ? (db) => {
             const id = args[0] as GenericId<Table>;
@@ -76,12 +88,16 @@ class QueryPromise<
     );
   }
 
-  first(): QueryOnePromise<DataModel, Table> {
-    return new QueryOnePromise(this.ctx, (db) =>
-      db
-        .query(this.table)
-        .first()
-        .then((doc) => (doc === null ? null : entWrapper(doc, this.table)))
+  first(): QueryOnePromise<DataModel, EntsDataModel, Table> {
+    return new QueryOnePromise(
+      this.ctx,
+      this.entDefinitions,
+      this.table,
+      (db) =>
+        db
+          .query(this.table)
+          .first()
+          .then((doc) => (doc === null ? null : entWrapper(doc, this.table)))
     );
   }
 
@@ -107,10 +123,13 @@ class QueryPromise<
 
 class QueryOnePromise<
   DataModel extends GenericDataModel,
+  EntsDataModel extends GenericEntsDataModel<DataModel>,
   Table extends TableNamesInDataModel<DataModel>
 > extends Promise<EntByName<DataModel, Table> | null> {
   constructor(
     private ctx: GenericQueryCtx<DataModel>,
+    private entDefinitions: EntsDataModel,
+    private table: Table,
     private retrieve: (
       db: GenericDatabaseReader<DataModel>
     ) => Promise<EntByName<DataModel, Table> | null>
@@ -131,6 +150,38 @@ class QueryOnePromise<
       | null
   ): Promise<TResult1 | TResult2> {
     return this.retrieve(this.ctx.db).then(onfulfilled, onrejected);
+  }
+
+  edge<Edge extends keyof EntsDataModel[Table]["edges"]>(
+    edge: Edge
+  ): QueryOnePromise<
+    DataModel,
+    EntsDataModel,
+    EntsDataModel[Table]["edges"][Edge]["to"]
+  > {
+    const edgeDefinition: EdgeConfig = (
+      this.entDefinitions[this.table].edges as any
+    ).filter(({ name }: any) => name === edge)[0];
+
+    return new QueryOnePromise(
+      this.ctx,
+      this.entDefinitions,
+      edgeDefinition.to,
+      async (db) => {
+        const doc = await this.retrieve(db);
+        if (doc === null) {
+          return null;
+        }
+
+        const otherEnd = await this.ctx.db.get(
+          doc[edgeDefinition.field] as any
+        );
+        if (otherEnd === null) {
+          return null;
+        }
+        return entWrapper(otherEnd, edgeDefinition.to);
+      }
+    );
   }
 }
 
@@ -154,7 +205,7 @@ function tableFactory<DataModel extends GenericDataModel>(
   ctx: GenericQueryCtx<DataModel>
 ) {
   return <Table extends TableNamesInDataModel<DataModel>>(table: Table) => {
-    return new QueryPromise(ctx, table);
+    return new QueryPromise(ctx, entDefinitions as any, table);
   };
 }
 
@@ -177,6 +228,10 @@ export const test = query({
   args: {},
 
   handler: async (ctx) => {
+    {
+      const message = await ctx.table("messages").first().edge("user");
+      return message;
+    }
     {
       // const postsByUser = await ctx
       // .table("users")
@@ -276,4 +331,12 @@ export const test = query({
     //   .take(args.count);
     // return numbers.toReversed().map((number) => number.value);
   },
+});
+
+export const seed = mutation(async (ctx) => {
+  const userId = await ctx.db.insert("users", {});
+  await ctx.db.insert("messages", {
+    text: "Hello world",
+    userId,
+  });
 });
