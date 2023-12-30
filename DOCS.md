@@ -159,7 +159,7 @@ defineSchema({
 });
 ```
 
-Either way the name of the edge is tied to the tables names: "messages" and
+Either way the name of the edge is tied to the tables' names: "messages" and
 "user" respectively for each direction of the edge (since this is not a
 symmetrical edge). We can also provide the table names explicitly, from either
 or both ends:

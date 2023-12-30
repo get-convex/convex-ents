@@ -16,12 +16,8 @@ import {
 import { GenericId } from "convex/values";
 import { query as baseQuery, mutation } from "./_generated/server";
 import { Doc, TableNames } from "./_generated/dataModel";
-import {
-  EdgeConfig,
-  Expand,
-  GenericEntsDataModel,
-  entDefinitions,
-} from "./schema";
+import { EdgeConfig, Expand, GenericEntsDataModel } from "./ents/schema";
+import { entDefinitions } from "./schema";
 
 type FieldTypes<
   DataModel extends GenericDataModel,
