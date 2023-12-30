@@ -51,9 +51,7 @@ class QueryQueryPromise<
         if (query === null) {
           return null;
         }
-        return query
-          .first()
-          .then((doc) => (doc === null ? null : entWrapper(doc, this.table)));
+        return query.first();
       }
     );
   }
@@ -116,21 +114,14 @@ class QueryPromise<
                 new Error(`Invalid id \`${id}\` for table "${this.table}"`)
               );
             }
-            return db
-              .get(id)
-              .then((doc) =>
-                doc === null ? null : entWrapper(doc, this.table)
-              );
+            return db.get(id);
           }
         : (db) => {
             const [indexName, value] = args;
             return db
               .query(this.table)
               .withIndex(indexName, (q) => q.eq(indexName, value))
-              .unique()
-              .then((doc) =>
-                doc === null ? null : entWrapper(doc, this.table)
-              );
+              .unique();
           }
     );
   }
@@ -168,6 +159,23 @@ class QueryMultiplePromise<
     ) => Promise<DocumentByName<DataModel, Table>[] | null>
   ) {
     super(() => {});
+  }
+
+  // This just returns the first retrieved document, it does not optimize
+  // the previous steps in the query.
+  first(): QueryOnePromise<DataModel, EntsDataModel, Table> {
+    return new QueryOnePromise(
+      this.ctx,
+      this.entDefinitions,
+      this.table,
+      async (db) => {
+        const docs = await this.retrieve(db);
+        if (docs === null) {
+          return null;
+        }
+        return docs[0];
+      }
+    );
   }
 
   then<TResult1 = EntByName<DataModel, Table>[], TResult2 = never>(
@@ -318,32 +326,15 @@ class QueryOnePromise<
             );
           }
 
-          const other = await this.ctx.db
+          return await this.ctx.db
             .query(edgeDefinition.to)
             .withIndex(edgeDefinition.ref, (q) =>
               q.eq(edgeDefinition.ref, doc._id as any)
             )
             .unique();
-          if (other === null) {
-            return null;
-          }
-          return entWrapper(other, edgeDefinition.to);
         }
 
-        // if (edgeDefinition.type !== "field") {
-        //   throw new Error(
-        //     `Unexpected edge type for: ${edgeDefinition.name}, ` +
-        //       `expected field, got ${edgeDefinition.type} `
-        //   );
-        // }
-
-        const otherEnd = await this.ctx.db.get(
-          doc[edgeDefinition.field] as any
-        );
-        if (otherEnd === null) {
-          return null;
-        }
-        return entWrapper(otherEnd, edgeDefinition.to);
+        return await this.ctx.db.get(doc[edgeDefinition.field] as any);
       }
     ) as any;
   }
@@ -397,7 +388,8 @@ export const test = query({
       const firstsFollowees = await ctx
         .table("users")
         .first()
-        .edge("followees");
+        .edge("followees")
+        .first();
       return firstsFollowees;
     }
     {
