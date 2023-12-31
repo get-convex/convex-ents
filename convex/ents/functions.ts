@@ -195,6 +195,21 @@ class QueryQueryPromise<
     return await query.paginate(paginationOpts);
   }
 
+  order(
+    order: "asc" | "desc"
+  ): QueryQueryPromise<DataModel, EntsDataModel, Table> {
+    return new QueryQueryPromise(
+      this.ctx,
+      this.entDefinitions,
+      this.table,
+      async (db) => {
+        const query = await this.retrieve(db);
+        // TODO: We need more granular types for the QueryPromises
+        return query.order(order) as any;
+      }
+    );
+  }
+
   take(n: number): QueryMultiplePromise<DataModel, EntsDataModel, Table> {
     return new QueryMultiplePromise(
       this.ctx,

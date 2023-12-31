@@ -117,6 +117,7 @@ export const test = query({
     {
       const lastMessageAuthorsMessages = await ctx
         .table("messages")
+        .order("desc")
         .first()
         .edge("user")
         .edge("messages");
