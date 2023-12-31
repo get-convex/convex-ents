@@ -162,10 +162,7 @@ interface EntDefinition<
     SearchIndexes,
     VectorIndexes
   > {
-  field<
-    FieldName extends Exclude<string, keyof Document>,
-    T extends Validator<any, any, any>
-  >(
+  field<FieldName extends string, T extends Validator<any, any, any>>(
     field: FieldName,
     validator: T
   ): EntDefinition<
@@ -176,10 +173,7 @@ interface EntDefinition<
     VectorIndexes,
     Edges
   >;
-  field<
-    FieldName extends Exclude<string, keyof Document>,
-    T extends Validator<any, any, any>
-  >(
+  field<FieldName extends string, T extends Validator<any, any, any>>(
     field: FieldName,
     validator: T,
     options: { index: true }
