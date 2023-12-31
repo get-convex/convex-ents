@@ -238,14 +238,16 @@ table.
 defineSchema({
   users: defineEnt({
     name: v.string(),
-  }).edges("followees", { to: "users", inverse: "followers" }),
+  }).edges("followers", "followees", { to: "users" }),
 });
 ```
 
+<!-- TODO: Figure out if TS can support `edges("followees", { to: "users", inverse: "followers" })` instead -->
+
 Self-directed edges point to the same table on which they are defined. For the
-edge to be asymmetrical, it has to specify the `inverse` name. In this example,
-if this edge is between user A and user B, B is a "followee" of A (is being
-followed by A), and A is a "follower" of B.
+edge to be asymmetrical, it has to specify the `inverse` name (as a second
+argument). In this example, if this edge is between user A and user B, B is a
+"followee" of A (is being followed by A), and A is a "follower" of B.
 
 We can also specify the `table`, `field` and `inverseField` options to control
 how the edge is stored and to allow multiple self-directed edges.

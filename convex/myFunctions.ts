@@ -25,11 +25,11 @@ type FieldTypes<
   >;
 };
 
-class QueryQueryPromise<
+class QueryQueryOrNullPromise<
   DataModel extends GenericDataModel,
   EntsDataModel extends GenericEntsDataModel<DataModel>,
   Table extends TableNamesInDataModel<DataModel>
-> extends Promise<EntByName<DataModel, Table>[] | null> {
+> extends Promise<EntByName<DataModel, EntsDataModel, Table>[] | null> {
   constructor(
     protected ctx: GenericQueryCtx<DataModel>,
     protected entDefinitions: EntsDataModel,
@@ -39,6 +39,21 @@ class QueryQueryPromise<
     ) => Promise<Query<NamedTableInfo<DataModel, Table>> | null>
   ) {
     super(() => {});
+  }
+
+  take(n: number): QueryMultipleOrNullPromise<DataModel, EntsDataModel, Table> {
+    return new QueryMultipleOrNullPromise(
+      this.ctx,
+      this.entDefinitions,
+      this.table,
+      async (db) => {
+        const query = await this.retrieve(db);
+        if (query === null) {
+          return null;
+        }
+        return query.take(n);
+      }
+    );
   }
 
   first(): QueryOnePromise<DataModel, EntsDataModel, Table> {
@@ -56,10 +71,13 @@ class QueryQueryPromise<
     );
   }
 
-  then<TResult1 = EntByName<DataModel, Table>[] | null, TResult2 = never>(
+  then<
+    TResult1 = EntByName<DataModel, EntsDataModel, Table>[] | null,
+    TResult2 = never
+  >(
     onfulfilled?:
       | ((
-          value: EntByName<DataModel, Table>[] | null
+          value: EntByName<DataModel, EntsDataModel, Table>[] | null
         ) => TResult1 | PromiseLike<TResult1>)
       | undefined
       | null,
@@ -73,7 +91,78 @@ class QueryQueryPromise<
       .then((documents) =>
         documents === null
           ? null
-          : documents.map((doc) => entWrapper(doc, this.table))
+          : documents.map((doc) =>
+              entWrapper(doc, this.ctx, this.entDefinitions, this.table)
+            )
+      )
+      .then(onfulfilled, onrejected);
+  }
+}
+
+class QueryQueryPromise<
+  DataModel extends GenericDataModel,
+  EntsDataModel extends GenericEntsDataModel<DataModel>,
+  Table extends TableNamesInDataModel<DataModel>
+> extends Promise<EntByName<DataModel, EntsDataModel, Table>[]> {
+  constructor(
+    protected ctx: GenericQueryCtx<DataModel>,
+    protected entDefinitions: EntsDataModel,
+    protected table: Table,
+    protected retrieve: (
+      db: GenericDatabaseReader<DataModel>
+    ) => Promise<Query<NamedTableInfo<DataModel, Table>>>
+  ) {
+    super(() => {});
+  }
+
+  take(n: number): QueryMultiplePromise<DataModel, EntsDataModel, Table> {
+    return new QueryMultiplePromise(
+      this.ctx,
+      this.entDefinitions,
+      this.table,
+      async (db) => {
+        const query = await this.retrieve(db);
+        return query.take(n);
+      }
+    );
+  }
+
+  first(): QueryOnePromise<DataModel, EntsDataModel, Table> {
+    return new QueryOnePromise(
+      this.ctx,
+      this.entDefinitions,
+      this.table,
+      async (db) => {
+        const query = await this.retrieve(db);
+        if (query === null) {
+          return null;
+        }
+        return query.first();
+      }
+    );
+  }
+
+  then<
+    TResult1 = EntByName<DataModel, EntsDataModel, Table>[],
+    TResult2 = never
+  >(
+    onfulfilled?:
+      | ((
+          value: EntByName<DataModel, EntsDataModel, Table>[]
+        ) => TResult1 | PromiseLike<TResult1>)
+      | undefined
+      | null,
+    onrejected?:
+      | ((reason: any) => TResult2 | PromiseLike<TResult2>)
+      | undefined
+      | null
+  ): Promise<TResult1 | TResult2> {
+    return this.retrieve(this.ctx.db)
+      .then((query) => query.collect())
+      .then((documents) =>
+        documents.map((doc) =>
+          entWrapper(doc, this.ctx, this.entDefinitions, this.table)
+        )
       )
       .then(onfulfilled, onrejected);
   }
@@ -125,31 +214,16 @@ class QueryPromise<
           }
     );
   }
-
-  then<TResult1 = EntByName<DataModel, Table>[], TResult2 = never>(
-    onfulfilled?:
-      | ((
-          value: EntByName<DataModel, Table>[]
-        ) => TResult1 | PromiseLike<TResult1>)
-      | undefined
-      | null,
-    onrejected?:
-      | ((reason: any) => TResult2 | PromiseLike<TResult2>)
-      | undefined
-      | null
-  ): Promise<TResult1 | TResult2> {
-    return super.then(onfulfilled as any, onrejected);
-  }
 }
 
 // This query materializes objects, so chaining to this type of query performs one operation for each
 // retrieved document in JavaScript, basically as if using
 // `Promise.all()`.
-class QueryMultiplePromise<
+class QueryMultipleOrNullPromise<
   DataModel extends GenericDataModel,
   EntsDataModel extends GenericEntsDataModel<DataModel>,
   Table extends TableNamesInDataModel<DataModel>
-> extends Promise<EntByName<DataModel, Table>[] | null> {
+> extends Promise<EntByName<DataModel, EntsDataModel, Table>[] | null> {
   constructor(
     private ctx: GenericQueryCtx<DataModel>,
     private entDefinitions: EntsDataModel,
@@ -173,15 +247,18 @@ class QueryMultiplePromise<
         if (docs === null) {
           return null;
         }
-        return docs[0];
+        return docs[0] ?? null;
       }
     );
   }
 
-  then<TResult1 = EntByName<DataModel, Table>[], TResult2 = never>(
+  then<
+    TResult1 = EntByName<DataModel, EntsDataModel, Table>[] | null,
+    TResult2 = never
+  >(
     onfulfilled?:
       | ((
-          value: EntByName<DataModel, Table>[] | null
+          value: EntByName<DataModel, EntsDataModel, Table>[] | null
         ) => TResult1 | PromiseLike<TResult1>)
       | undefined
       | null,
@@ -192,7 +269,72 @@ class QueryMultiplePromise<
   ): Promise<TResult1 | TResult2> {
     return this.retrieve(this.ctx.db)
       .then((docs) =>
-        docs === null ? null : docs.map((doc) => entWrapper(doc, this.table))
+        docs === null
+          ? null
+          : docs.map((doc) =>
+              entWrapper(doc, this.ctx, this.entDefinitions, this.table)
+            )
+      )
+      .then(onfulfilled, onrejected);
+  }
+}
+
+// This query materializes objects, so chaining to this type of query performs one operation for each
+// retrieved document in JavaScript, basically as if using
+// `Promise.all()`.
+class QueryMultiplePromise<
+  DataModel extends GenericDataModel,
+  EntsDataModel extends GenericEntsDataModel<DataModel>,
+  Table extends TableNamesInDataModel<DataModel>
+> extends Promise<EntByName<DataModel, EntsDataModel, Table>[]> {
+  constructor(
+    private ctx: GenericQueryCtx<DataModel>,
+    private entDefinitions: EntsDataModel,
+    private table: Table,
+    private retrieve: (
+      db: GenericDatabaseReader<DataModel>
+    ) => Promise<DocumentByName<DataModel, Table>[]>
+  ) {
+    super(() => {});
+  }
+
+  // This just returns the first retrieved document, it does not optimize
+  // the previous steps in the query.
+  first(): QueryOnePromise<DataModel, EntsDataModel, Table> {
+    return new QueryOnePromise(
+      this.ctx,
+      this.entDefinitions,
+      this.table,
+      async (db) => {
+        const docs = await this.retrieve(db);
+        if (docs === null) {
+          return null;
+        }
+        return docs[0] ?? null;
+      }
+    );
+  }
+
+  then<
+    TResult1 = EntByName<DataModel, EntsDataModel, Table>[],
+    TResult2 = never
+  >(
+    onfulfilled?:
+      | ((
+          value: EntByName<DataModel, EntsDataModel, Table>[]
+        ) => TResult1 | PromiseLike<TResult1>)
+      | undefined
+      | null,
+    onrejected?:
+      | ((reason: any) => TResult2 | PromiseLike<TResult2>)
+      | undefined
+      | null
+  ): Promise<TResult1 | TResult2> {
+    return this.retrieve(this.ctx.db)
+      .then((docs) =>
+        docs.map((doc) =>
+          entWrapper(doc, this.ctx, this.entDefinitions, this.table)
+        )
       )
       .then(onfulfilled, onrejected);
   }
@@ -202,7 +344,7 @@ class QueryOnePromise<
   DataModel extends GenericDataModel,
   EntsDataModel extends GenericEntsDataModel<DataModel>,
   Table extends TableNamesInDataModel<DataModel>
-> extends Promise<EntByName<DataModel, Table> | null> {
+> extends Promise<EntByName<DataModel, EntsDataModel, Table> | null> {
   constructor(
     private ctx: GenericQueryCtx<DataModel>,
     private entDefinitions: EntsDataModel,
@@ -214,10 +356,13 @@ class QueryOnePromise<
     super(() => {});
   }
 
-  then<TResult1 = EntByName<DataModel, Table> | null, TResult2 = never>(
+  then<
+    TResult1 = EntByName<DataModel, EntsDataModel, Table> | null,
+    TResult2 = never
+  >(
     onfulfilled?:
       | ((
-          value: EntByName<DataModel, Table> | null
+          value: EntByName<DataModel, EntsDataModel, Table> | null
         ) => TResult1 | PromiseLike<TResult1>)
       | undefined
       | null,
@@ -227,14 +372,18 @@ class QueryOnePromise<
       | null
   ): Promise<TResult1 | TResult2> {
     return this.retrieve(this.ctx.db)
-      .then((doc) => (doc === null ? null : entWrapper(doc, this.table)))
+      .then((doc) =>
+        doc === null
+          ? null
+          : entWrapper(doc, this.ctx, this.entDefinitions, this.table)
+      )
       .then(onfulfilled, onrejected);
   }
 
   edge<Edge extends keyof EntsDataModel[Table]["edges"]>(
     edge: Edge
   ): EntsDataModel[Table]["edges"][Edge]["cardinality"] extends "multiple"
-    ? QueryMultiplePromise<
+    ? QueryMultipleOrNullPromise<
         DataModel,
         EntsDataModel,
         EntsDataModel[Table]["edges"][Edge]["to"]
@@ -250,7 +399,7 @@ class QueryOnePromise<
 
     if (edgeDefinition.cardinality === "multiple") {
       if (edgeDefinition.type === "ref") {
-        return new QueryMultiplePromise(
+        return new QueryMultipleOrNullPromise(
           this.ctx,
           this.entDefinitions,
           edgeDefinition.to,
@@ -286,7 +435,7 @@ class QueryOnePromise<
           }
         ) as any;
       }
-      return new QueryQueryPromise(
+      return new QueryQueryOrNullPromise(
         this.ctx,
         this.entDefinitions,
         edgeDefinition.to,
@@ -342,13 +491,24 @@ class QueryOnePromise<
 
 function entWrapper<
   DataModel extends GenericDataModel,
-  TableName extends TableNamesInDataModel<DataModel>
+  EntsDataModel extends GenericEntsDataModel<DataModel>,
+  Table extends TableNamesInDataModel<DataModel>
 >(
-  doc: DocumentByName<DataModel, TableName>,
-  tableName: TableName
-): EntByName<DataModel, TableName> {
+  doc: DocumentByName<DataModel, Table>,
+  ctx: GenericQueryCtx<DataModel>,
+  entDefinitions: EntsDataModel,
+  table: Table
+): EntByName<DataModel, EntsDataModel, Table> {
+  const queryInterface = new QueryOnePromise(
+    ctx,
+    entDefinitions,
+    table,
+    async () => doc
+  );
   Object.defineProperty(doc, "edge", {
-    value: (name: string) => {},
+    value: (edge: any) => {
+      return queryInterface.edge(edge);
+    },
     enumerable: false,
     writable: false,
     configurable: false,
@@ -377,13 +537,43 @@ const query = customQuery(
 
 type EntByName<
   DataModel extends GenericDataModel,
-  TableName extends TableNamesInDataModel<DataModel>
-> = Expand<DocumentByName<DataModel, TableName> & { myMethod(): null }>;
+  EntsDataModel extends GenericEntsDataModel<DataModel>,
+  Table extends TableNamesInDataModel<DataModel>
+> = Expand<
+  DocumentByName<DataModel, Table> & {
+    edge<Edge extends keyof EntsDataModel[Table]["edges"]>(
+      edge: Edge
+    ): EdgeQuery<DataModel, EntsDataModel, Table, Edge>;
+  }
+>;
+
+type EdgeQuery<
+  DataModel extends GenericDataModel,
+  EntsDataModel extends GenericEntsDataModel<DataModel>,
+  Table extends TableNamesInDataModel<DataModel>,
+  Edge extends keyof EntsDataModel[Table]["edges"]
+> = EntsDataModel[Table]["edges"][Edge]["cardinality"] extends "multiple"
+  ? QueryMultipleOrNullPromise<
+      DataModel,
+      EntsDataModel,
+      EntsDataModel[Table]["edges"][Edge]["to"]
+    >
+  : QueryOnePromise<
+      DataModel,
+      EntsDataModel,
+      EntsDataModel[Table]["edges"][Edge]["to"]
+    >;
 
 export const test = query({
   args: {},
 
   handler: async (ctx) => {
+    {
+      const [first, second] = await ctx.table("users").take(2);
+      const user = Math.random() > 0.5 ? first : second;
+      const foo = await user.edge("followees").first();
+      return foo;
+    }
     {
       const firstsFollowees = await ctx
         .table("users")

@@ -223,7 +223,8 @@ interface EntDefinition<
     InverseEdgesNames extends string
   >(
     edge: EdgesName,
-    options: { to: TableName; inverse: InverseEdgesNames }
+    inverse: InverseEdgesNames,
+    options: { to: TableName }
   ): EntDefinition<
     Document,
     FieldPaths,
@@ -347,17 +348,23 @@ class EntDefinitionImpl {
     return this;
   }
 
-  edges(name: string, options?: EdgesOptions): this {
+  edges(
+    name: string,
+    options?: string | EdgesOptions,
+    otherOptions?: EdgesOptions
+  ): this {
+    const finalOptions: EdgesOptions | undefined =
+      otherOptions ?? (options as EdgesOptions);
     this.edgeConfigs.push({
       name: name,
-      to: options?.to ?? name,
+      to: finalOptions?.to ?? name,
       cardinality: "multiple",
       type: null, // gets filled in by defineEntSchema
     });
-    if (options?.inverse !== undefined) {
+    if (typeof options === "string") {
       this.edgeConfigs.push({
-        name: options?.inverse,
-        to: options?.to ?? name,
+        name: options,
+        to: finalOptions?.to ?? name,
         cardinality: "multiple",
         type: null, // gets filled in by defineEntSchema
         inverse: true,
