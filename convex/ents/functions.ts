@@ -467,6 +467,7 @@ class QueryMultiplePromise<
   }
 }
 
+// TODO: QueryOnePromise needs to be split to QueryOnePromise and QueryOneOrNullPromise
 class QueryOnePromise<
   DataModel extends GenericDataModel,
   EntsDataModel extends GenericEntsDataModel<DataModel>,

@@ -26,22 +26,57 @@ export const test = query({
       assertEqual(usersFirstFollower, firstUser);
     }
     {
-      const messagesByUsers = await ctx.table("users").map(async (user) => ({
-        ...user,
-        messages: await user.edge("messages"),
-      }));
-      assertEqual(messagesByUsers.length, 2);
-      assertEqual(messagesByUsers[0].name, "Stark");
-      assertEqual(messagesByUsers[0].messages.length, 1);
-      assertEqual(messagesByUsers[1].name, "Musk");
-      assertEqual(messagesByUsers[1].messages.length, 0);
-      assertEqual(Object.keys(messagesByUsers[0]), [
+      const usersWithMessagesAndProfile = await ctx
+        .table("users")
+        .map(async (user) => ({
+          ...user,
+          messages: await user.edge("messages"),
+          profile: await user.edge("profile"),
+        }));
+      assertEqual(usersWithMessagesAndProfile.length, 2);
+      assertEqual(usersWithMessagesAndProfile[0].name, "Stark");
+      assertEqual(usersWithMessagesAndProfile[0].messages.length, 1);
+      assertEqual(usersWithMessagesAndProfile[1].name, "Musk");
+      assertEqual(usersWithMessagesAndProfile[1].messages.length, 0);
+      assertEqual(Object.keys(usersWithMessagesAndProfile[0]), [
         "_creationTime",
         "_id",
         "email",
         "name",
         "messages",
+        "profile",
       ]);
+      assertEqual(usersWithMessagesAndProfile[0].profile!.bio, "Hello world");
+    }
+
+    {
+      const usersWithMessageTexts = await ctx
+        .table("users")
+        .map(async (user) => ({
+          name: user.name,
+          email: user.email,
+          messages: (
+            await user.edge("messages")
+          ).map((message) => message.text),
+        }));
+      assertEqual(usersWithMessageTexts, [
+        {
+          name: "Stark",
+          email: "tony@stark.com",
+          messages: ["Hello world"],
+        },
+        {
+          name: "Musk",
+          email: "elon@musk.com",
+        },
+      ]);
+    }
+
+    {
+      const firstProfile = await ctx.table("profiles").first();
+      const user = await firstProfile!.edge("user");
+      // TODO: Should not be nullable
+      assertEqual(user!.name, "Stark");
     }
     {
       const id = (await ctx.table("users").first())!._id;
@@ -123,36 +158,7 @@ export const test = query({
     // // choose the index in convex model, but as Ian suggested if you choose a single field index
     // // you can inline the eq condition, so
     // await ctx.table("messages").get("author", foo._id); // note not authorId even though that's the underlying index
-    // // Retrieve the posts of a user
-    // // const postsByUser: Post[] = await prisma.user
-    // //   .findUnique({ where: { email: "ada@prisma.io" } })
-    // //   .posts();
-    // const postsByUser = await ctx
-    //   .table("users")
-    //   .get("email", "srb@convex.dev")
-    //   .edge("posts");
-    // // Retrieve the profile of a user via a specific post
-    // // const authorProfile: Profile | null = await prisma.post
-    // // .findUnique({ where: { id: 1 } })
-    // // .author()
-    // // .profile();
-    // const authorProfile = await ctx
-    //   .table("posts")
-    //   .get(1)
-    //   .edge("author")
-    //   .edge("profile");
-    // // Return all users and include their posts and profile
-    // // const users: User[] = await prisma.user.findMany({
-    // //   include: {
-    // //     posts: true,
-    // //     profile: true,
-    // //   },
-    // // });
-    // const users = await ctx.table("users").map(async (user) => ({
-    //   ...user,
-    //   posts: await user.edge("posts"),
-    //   profile: await user.edge("profile"),
-    // }));
+
     // // Select all users and all their post titles
     // // const userPosts = await prisma.user.findMany({
     // //   select: {
