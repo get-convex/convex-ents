@@ -643,6 +643,9 @@ export function tableFactory<
   EntsDataModel extends GenericEntsDataModel<DataModel>
 >(ctx: GenericQueryCtx<DataModel>, entDefinitions: EntsDataModel) {
   return <Table extends TableNamesInDataModel<DataModel>>(table: Table) => {
+    if (typeof table !== "string") {
+      throw new Error(`Expected table name, got \`${table as any}\``);
+    }
     return new QueryPromise(ctx, entDefinitions, table);
   };
 }

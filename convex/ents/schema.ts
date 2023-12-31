@@ -197,7 +197,7 @@ interface EntDefinition<
   ): EntDefinition<
     Document & { [key in `${EdgeName}Id`]: GenericId<`${EdgeName}s`> },
     FieldPaths | `${EdgeName}Id`,
-    Indexes,
+    Indexes & { [key in `${EdgeName}Id`]: [`${EdgeName}Id`] },
     SearchIndexes,
     VectorIndexes,
     Edges & {

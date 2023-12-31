@@ -18,6 +18,12 @@ export const test = query({
 
   handler: async (ctx) => {
     {
+      const message = await ctx
+        .table("messages")
+        .get("userId", "j57fbye04rgjset0z4dwz33bqx6gnttv" as any);
+      return message;
+    }
+    {
       const foo = ctx.table("users").normalizeId("blabla");
       return foo;
     }
@@ -69,12 +75,6 @@ export const test = query({
         .edge("messages");
       return messagesByUser;
     }
-    // {
-    //   const message = await ctx
-    //     .table("messages")
-    //     .get("authorId", "jh76hs45yga4pgptp21nxhfdx96gf8xr" as any);
-    //   return message;
-    // }
 
     {
       const messages = await ctx.table("messages");
