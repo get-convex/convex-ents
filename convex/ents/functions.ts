@@ -1,6 +1,8 @@
 import {
   DocumentByName,
+  ExpressionOrValue,
   FieldTypeFromFieldPath,
+  FilterBuilder,
   GenericDataModel,
   GenericDatabaseReader,
   GenericQueryCtx,
@@ -36,6 +38,25 @@ class QueryQueryOrNullPromise<
     ) => Promise<Query<NamedTableInfo<DataModel, Table>> | null>
   ) {
     super(() => {});
+  }
+
+  filter(
+    predicate: (
+      q: FilterBuilder<NamedTableInfo<DataModel, Table>>
+    ) => ExpressionOrValue<boolean>
+  ): QueryQueryOrNullPromise<DataModel, EntsDataModel, Table> {
+    return new QueryQueryOrNullPromise(
+      this.ctx,
+      this.entDefinitions,
+      this.table,
+      async (db) => {
+        const query = await this.retrieve(db);
+        if (query === null) {
+          return null;
+        }
+        return query.filter(predicate);
+      }
+    );
   }
 
   take(n: number): QueryMultipleOrNullPromise<DataModel, EntsDataModel, Table> {
@@ -125,6 +146,22 @@ class QueryQueryPromise<
     ) => Promise<Query<NamedTableInfo<DataModel, Table>>>
   ) {
     super(() => {});
+  }
+
+  filter(
+    predicate: (
+      q: FilterBuilder<NamedTableInfo<DataModel, Table>>
+    ) => ExpressionOrValue<boolean>
+  ): QueryQueryPromise<DataModel, EntsDataModel, Table> {
+    return new QueryQueryPromise(
+      this.ctx,
+      this.entDefinitions,
+      this.table,
+      async (db) => {
+        const query = await this.retrieve(db);
+        return query.filter(predicate);
+      }
+    );
   }
 
   take(n: number): QueryMultiplePromise<DataModel, EntsDataModel, Table> {
