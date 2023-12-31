@@ -18,12 +18,10 @@ export const test = query({
 
   handler: async (ctx) => {
     {
-      const messagesByUsers = await ctx
-        .table("users")
-        .map(async (user) => ({
-          ...user,
-          messages: await user.edge("messages"),
-        }));
+      const messagesByUsers = await ctx.table("users").map(async (user) => ({
+        ...user,
+        messages: await user.edge("messages"),
+      }));
       return messagesByUsers;
     }
     {

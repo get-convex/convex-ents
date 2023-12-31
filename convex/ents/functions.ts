@@ -166,7 +166,7 @@ class QueryQueryPromise<
       value: EntByName<DataModel, EntsDataModel, Table>,
       index: number,
       array: EntByName<DataModel, EntsDataModel, Table>[]
-    ) => TOutput
+    ) => Promise<TOutput> | TOutput
   ): Promise<TOutput[]> {
     const array = await this;
     return await Promise.all(array.map(callbackFn));
