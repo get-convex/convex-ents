@@ -223,6 +223,9 @@ interface EntDefinition<
     InverseEdgesNames extends string
   >(
     edge: EdgesName,
+    // TODO: When I had `inverse` as a field in the options
+    // object TS would infer `InverseEdgesNames` as string
+    // in the [key in InverseEdgesNames] type :(((
     inverse: InverseEdgesNames,
     options: { to: TableName }
   ): EntDefinition<
@@ -353,6 +356,9 @@ class EntDefinitionImpl {
     options?: string | EdgesOptions,
     otherOptions?: EdgesOptions
   ): this {
+    // TODO: When I had `inverse` as a field in the options
+    // object TS would infer `InverseEdgesNames` as string
+    // so I have to do this complicated implementation
     const finalOptions: EdgesOptions | undefined =
       otherOptions ?? (options as EdgesOptions);
     this.edgeConfigs.push({
