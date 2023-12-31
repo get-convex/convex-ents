@@ -161,6 +161,17 @@ class QueryQueryPromise<
     super(() => {});
   }
 
+  async map<TOutput>(
+    callbackFn: (
+      value: EntByName<DataModel, EntsDataModel, Table>,
+      index: number,
+      array: EntByName<DataModel, EntsDataModel, Table>[]
+    ) => TOutput
+  ): Promise<TOutput[]> {
+    const array = await this;
+    return await Promise.all(array.map(callbackFn));
+  }
+
   filter(
     predicate: (
       q: FilterBuilder<NamedTableInfo<DataModel, Table>>

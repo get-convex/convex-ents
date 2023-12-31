@@ -18,6 +18,15 @@ export const test = query({
 
   handler: async (ctx) => {
     {
+      const messagesByUsers = await ctx
+        .table("users")
+        .map(async (user) => ({
+          ...user,
+          messages: await user.edge("messages"),
+        }));
+      return messagesByUsers;
+    }
+    {
       const message = await ctx
         .table("messages")
         .get("userId", "j57fbye04rgjset0z4dwz33bqx6gnttv" as any);
