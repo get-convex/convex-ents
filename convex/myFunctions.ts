@@ -18,6 +18,10 @@ export const test = query({
 
   handler: async (ctx) => {
     {
+      const foo = ctx.table("users").normalizeId("blabla");
+      return foo;
+    }
+    {
       const friends = await ctx.table("users").first().edge("friends");
       return friends;
     }

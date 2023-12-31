@@ -68,6 +68,21 @@ class QueryQueryOrNullPromise<
     );
   }
 
+  unique(): QueryOnePromise<DataModel, EntsDataModel, Table> {
+    return new QueryOnePromise(
+      this.ctx,
+      this.entDefinitions,
+      this.table,
+      async (db) => {
+        const query = await this.retrieve(db);
+        if (query === null) {
+          return null;
+        }
+        return query.unique();
+      }
+    );
+  }
+
   then<
     TResult1 = EntByName<DataModel, EntsDataModel, Table>[] | null,
     TResult2 = never
@@ -131,10 +146,19 @@ class QueryQueryPromise<
       this.table,
       async (db) => {
         const query = await this.retrieve(db);
-        if (query === null) {
-          return null;
-        }
         return query.first();
+      }
+    );
+  }
+
+  unique(): QueryOnePromise<DataModel, EntsDataModel, Table> {
+    return new QueryOnePromise(
+      this.ctx,
+      this.entDefinitions,
+      this.table,
+      async (db) => {
+        const query = await this.retrieve(db);
+        return query.unique();
       }
     );
   }
@@ -211,6 +235,10 @@ class QueryPromise<
           }
     );
   }
+
+  normalizeId(id: string): GenericId<Table> | null {
+    return this.ctx.db.normalizeId(this.table, id);
+  }
 }
 
 // This query materializes objects, so chaining to this type of query performs one operation for each
@@ -243,6 +271,26 @@ class QueryMultipleOrNullPromise<
         const docs = await this.retrieve(db);
         if (docs === null) {
           return null;
+        }
+        return docs[0] ?? null;
+      }
+    );
+  }
+
+  // This just returns the unique retrieved document, it does not optimize
+  // the previous steps in the query. It behaves like db.query().unique()
+  unique(): QueryOnePromise<DataModel, EntsDataModel, Table> {
+    return new QueryOnePromise(
+      this.ctx,
+      this.entDefinitions,
+      this.table,
+      async (db) => {
+        const docs = await this.retrieve(db);
+        if (docs === null) {
+          return null;
+        }
+        if (docs.length === 2) {
+          throw new Error("unique() query returned more than one result");
         }
         return docs[0] ?? null;
       }
@@ -304,8 +352,22 @@ class QueryMultiplePromise<
       this.table,
       async (db) => {
         const docs = await this.retrieve(db);
-        if (docs === null) {
-          return null;
+        return docs[0] ?? null;
+      }
+    );
+  }
+
+  // This just returns the unique retrieved document, it does not optimize
+  // the previous steps in the query. It behaves like db.query().unique()
+  unique(): QueryOnePromise<DataModel, EntsDataModel, Table> {
+    return new QueryOnePromise(
+      this.ctx,
+      this.entDefinitions,
+      this.table,
+      async (db) => {
+        const docs = await this.retrieve(db);
+        if (docs.length === 2) {
+          throw new Error("unique() query returned more than one result");
         }
         return docs[0] ?? null;
       }
@@ -380,11 +442,17 @@ class QueryOnePromise<
   edge<Edge extends keyof EntsDataModel[Table]["edges"]>(
     edge: Edge
   ): EntsDataModel[Table]["edges"][Edge]["cardinality"] extends "multiple"
-    ? QueryMultipleOrNullPromise<
-        DataModel,
-        EntsDataModel,
-        EntsDataModel[Table]["edges"][Edge]["to"]
-      >
+    ? EntsDataModel[Table]["edges"][Edge]["type"] extends "ref"
+      ? QueryMultipleOrNullPromise<
+          DataModel,
+          EntsDataModel,
+          EntsDataModel[Table]["edges"][Edge]["to"]
+        >
+      : QueryQueryOrNullPromise<
+          DataModel,
+          EntsDataModel,
+          EntsDataModel[Table]["edges"][Edge]["to"]
+        >
     : QueryOnePromise<
         DataModel,
         EntsDataModel,
