@@ -2,7 +2,7 @@ import { customCtx, customQuery } from "convex-helpers/server/customFunctions";
 import { query as baseQuery, mutation } from "./_generated/server";
 import { tableFactory } from "./ents/functions";
 import { entDefinitions } from "./schema";
-import { assert } from "chai";
+import expect from "@storybook/expect";
 
 const query = customQuery(
   baseQuery,
@@ -68,6 +68,7 @@ export const test = query({
         {
           name: "Musk",
           email: "elon@musk.com",
+          messages: [],
         },
       ]);
     }
@@ -158,40 +159,6 @@ export const test = query({
     // // choose the index in convex model, but as Ian suggested if you choose a single field index
     // // you can inline the eq condition, so
     // await ctx.table("messages").get("author", foo._id); // note not authorId even though that's the underlying index
-
-    // // Select all users and all their post titles
-    // // const userPosts = await prisma.user.findMany({
-    // //   select: {
-    // //     name: true,
-    // //     posts: {
-    // //       select: {
-    // //         title: true,
-    // //       },
-    // //     },
-    // //   },
-    // // });
-    // const userPosts = await ctx.table("users").map(async (user) => ({
-    //   name: user.name,
-    //   posts: await user.edge("posts"),
-    // }));
-
-    // But if I already have a user, how do I get the posts from them?
-    // const user = await ctx.table("users").get("email", "srb@...");
-    // const posts = await user.edge("posts");
-
-    // // List all messages
-    // // const allPosts = ctx.db.query("posts").collect();
-    // const allPosts = await ctx.table("posts");
-    // // const userById = ctx.db.get(id);
-    // const userById = await ctx.table("posts");
-    //// Read the database as many times as you need here.
-    //// See https://docs.convex.dev/database/reading-data.
-    // const numbers = await ctx.db
-    //   .query("numbers")
-    //   // Ordered by _creationTime, return most recent
-    //   .order("desc")
-    //   .take(args.count);
-    // return numbers.toReversed().map((number) => number.value);
   },
 });
 
@@ -251,5 +218,5 @@ export const list = query(async (ctx, args) => {
 });
 
 function assertEqual(actual: any, expected: any) {
-  assert.deepEqual(actual, expected);
+  expect(actual).toEqual(expected);
 }
