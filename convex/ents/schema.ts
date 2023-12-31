@@ -2,7 +2,6 @@ import {
   DefineSchemaOptions,
   GenericDataModel,
   GenericDocument,
-  GenericSchema,
   GenericTableIndexes,
   GenericTableSearchIndexes,
   GenericTableVectorIndexes,
@@ -555,12 +554,15 @@ export type EntDataModelFromSchema<
     : never;
 };
 
-export function getEntDefinition(tables: GenericSchema): any {
+export function getEntDefinitions<
+  SchemaDef extends SchemaDefinition<any, boolean>
+>(schema: SchemaDef): EntDataModelFromSchema<typeof schema> {
+  const tables = schema.tables;
   return Object.keys(tables).reduce(
     (acc, tableName) => ({
       ...acc,
       [tableName]: {
-        edges: (tables[tableName] as any).edgeConfigs,
+        edges: tables[tableName].edgeConfigs,
       },
     }),
     {}

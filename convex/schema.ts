@@ -1,10 +1,5 @@
-import {
-  EntDataModelFromSchema,
-  defineEnt,
-  getEntDefinition,
-  defineEntSchema,
-} from "./ents/schema";
 import { v } from "convex/values";
+import { defineEnt, defineEntSchema, getEntDefinitions } from "./ents/schema";
 
 const schema = defineEntSchema(
   {
@@ -36,6 +31,4 @@ const schema = defineEntSchema(
 
 export default schema;
 
-export type EntDataModel = EntDataModelFromSchema<typeof schema>;
-
-export const entDefinitions: EntDataModel = getEntDefinition(schema.tables);
+export const entDefinitions = getEntDefinitions(schema);

@@ -7,7 +7,6 @@ import {
   GenericDatabaseReader,
   GenericQueryCtx,
   IndexNames,
-  NamedIndex,
   NamedTableInfo,
   PaginationOptions,
   PaginationResult,

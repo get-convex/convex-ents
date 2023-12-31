@@ -1,8 +1,8 @@
 import { customCtx, customQuery } from "convex-helpers/server/customFunctions";
 import { query as baseQuery, mutation } from "./_generated/server";
 import { tableFactory } from "./ents/functions";
-import { entDefinitions } from "./schema";
 import expect from "@storybook/expect";
+import { entDefinitions } from "./schema";
 
 const query = customQuery(
   baseQuery,
