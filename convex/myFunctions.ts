@@ -115,6 +115,14 @@ export const test = query({
       assertEqual(firstUserProfile!.bio, "Hello world");
     }
     {
+      const paginatedUsersByEmail = await ctx
+        .table("users")
+        .order("asc", "email")
+        .paginate({ cursor: null, numItems: 5 });
+      assertEqual(paginatedUsersByEmail.page[0].name, "Musk");
+      assertEqual(paginatedUsersByEmail.page[1].name, "Stark");
+    }
+    {
       const lastMessageAuthorsMessages = await ctx
         .table("messages")
         .order("desc")

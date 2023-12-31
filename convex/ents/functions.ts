@@ -6,10 +6,13 @@ import {
   GenericDataModel,
   GenericDatabaseReader,
   GenericQueryCtx,
+  IndexNames,
+  NamedIndex,
   NamedTableInfo,
   PaginationOptions,
   PaginationResult,
   Query,
+  QueryInitializer,
   TableNamesInDataModel,
 } from "convex/server";
 import { GenericId } from "convex/values";
@@ -196,14 +199,21 @@ class QueryQueryPromise<
   }
 
   order(
-    order: "asc" | "desc"
-  ): QueryQueryPromise<DataModel, EntsDataModel, Table> {
+    order: "asc" | "desc",
+    indexName?: IndexNames<NamedTableInfo<DataModel, Table>>
+  ) {
     return new QueryQueryPromise(
       this.ctx,
       this.entDefinitions,
       this.table,
       async (db) => {
         const query = await this.retrieve(db);
+        if (indexName !== undefined) {
+          // TODO: We need more granular types for the QueryPromises
+          return (query as QueryInitializer<NamedTableInfo<DataModel, Table>>)
+            .withIndex(indexName)
+            .order(order);
+        }
         // TODO: We need more granular types for the QueryPromises
         return query.order(order) as any;
       }
