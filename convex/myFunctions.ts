@@ -63,21 +63,18 @@ export const test = query({
       return lastMessageAuthor;
     }
     {
-      // const postsByUser = await ctx
-      // .table("users")
-      // .get("email", "srb@convex.dev")
-      // // .edge("posts")
-      // .map(async (user) => (
-      //   ctx.table("posts")
-      //     .withIndex("authorId", (q) => q.eq("authorId", user._id))
-      // ));
+      const messagesByUser = await ctx
+        .table("users")
+        .get("email", "srb@convex.dev")
+        .edge("messages");
+      return messagesByUser;
     }
-    {
-      // const message = await ctx
-      //   .table("messages")
-      //   .get("authorId", "jh76hs45yga4pgptp21nxhfdx96gf8xr" as any);
-      // return message;
-    }
+    // {
+    //   const message = await ctx
+    //     .table("messages")
+    //     .get("authorId", "jh76hs45yga4pgptp21nxhfdx96gf8xr" as any);
+    //   return message;
+    // }
 
     {
       const messages = await ctx.table("messages");
@@ -177,8 +174,14 @@ export const seed = mutation(async (ctx) => {
     }
   }
 
-  const userId = await ctx.db.insert("users", { name: "Stark" });
-  const userId2 = await ctx.db.insert("users", { name: "Musk" });
+  const userId = await ctx.db.insert("users", {
+    name: "Stark",
+    email: "tony@stark.com",
+  });
+  const userId2 = await ctx.db.insert("users", {
+    name: "Musk",
+    email: "elon@musk.com",
+  });
   const messageId = await ctx.db.insert("messages", {
     text: "Hello world",
     userId,

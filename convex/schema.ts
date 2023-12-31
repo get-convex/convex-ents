@@ -21,6 +21,7 @@ const schema = defineEntSchema(
     users: defineEnt({
       name: v.string(),
     })
+      .field("email", v.string(), { index: true })
       .edge("profile", { optional: true })
       .edges("messages")
       .edges("followers", "followees", { to: "users" })

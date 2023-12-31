@@ -11,7 +11,13 @@ import {
   TableNamesInDataModel,
   defineSchema,
 } from "convex/server";
-import { ObjectType, PropertyValidators, Validator, v } from "convex/values";
+import {
+  GenericId,
+  ObjectType,
+  PropertyValidators,
+  Validator,
+  v,
+} from "convex/values";
 
 export function defineEntSchema<
   Schema extends Record<string, EntDefinition>,
@@ -123,11 +129,7 @@ export function defineEnt<
   ExtractDocument<ObjectValidator<DocumentSchema>>,
   ExtractFieldPaths<ObjectValidator<DocumentSchema>>
 > {
-  if (documentSchema instanceof Validator) {
-    return new EntDefinitionImpl(documentSchema) as any;
-  } else {
-    return new EntDefinitionImpl(v.object(documentSchema)) as any;
-  }
+  return new EntDefinitionImpl(documentSchema) as any;
 }
 
 type GenericEdges<DataModel extends GenericDataModel> = Record<
@@ -160,10 +162,40 @@ interface EntDefinition<
     SearchIndexes,
     VectorIndexes
   > {
+  field<
+    FieldName extends Exclude<string, keyof Document>,
+    T extends Validator<any, any, any>
+  >(
+    field: FieldName,
+    validator: T
+  ): EntDefinition<
+    Document & { [key in FieldName]: T["type"] },
+    FieldPaths | FieldName,
+    Indexes,
+    SearchIndexes,
+    VectorIndexes,
+    Edges
+  >;
+  field<
+    FieldName extends Exclude<string, keyof Document>,
+    T extends Validator<any, any, any>
+  >(
+    field: FieldName,
+    validator: T,
+    options: { index: true }
+  ): EntDefinition<
+    Document & { [key in FieldName]: T["type"] },
+    FieldPaths | FieldName,
+    Indexes & { [key in FieldName]: [FieldName] },
+    SearchIndexes,
+    VectorIndexes,
+    Edges
+  >;
+
   edge<EdgeName extends string>(
     edge: EdgeName
   ): EntDefinition<
-    Document & { [key in `${EdgeName}Id`]: string },
+    Document & { [key in `${EdgeName}Id`]: GenericId<`${EdgeName}s`> },
     FieldPaths | `${EdgeName}Id`,
     Indexes,
     SearchIndexes,
@@ -267,6 +299,10 @@ interface EntDefinition<
   edges(table: string, options: EdgesOptions): this;
 }
 
+type FieldOptions = {
+  index?: true;
+};
+
 type EdgeOptions = {
   optional?: true;
 };
@@ -286,16 +322,16 @@ class EntDefinitionImpl {
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
   // @ts-ignore
   private vectorIndexes: VectorIndex[];
-  // The type of documents stored in this table.
-  private documentType: Validator<any, any, any>;
+
+  private documentSchema: Record<string, Validator<any, any, any>>;
 
   private edgeConfigs: EdgeConfigFromEntDefinition[];
 
-  constructor(documentType: Validator<any, any, any>) {
+  constructor(documentSchema: Record<string, Validator<any, any, any>>) {
     this.indexes = [];
     this.searchIndexes = [];
     this.vectorIndexes = [];
-    this.documentType = documentType;
+    this.documentSchema = documentSchema;
     this.edgeConfigs = [];
   }
 
@@ -334,8 +370,16 @@ class EntDefinitionImpl {
       indexes: this.indexes,
       searchIndexes: this.searchIndexes,
       vectorIndexes: this.vectorIndexes,
-      documentType: (this.documentType as any).json,
+      documentType: (v.object(this.documentSchema) as any).json,
     };
+  }
+
+  field(name: string, validator: any, options?: FieldOptions): this {
+    this.documentSchema = { ...this.documentSchema, [name]: validator };
+    if (options?.index === true) {
+      this.indexes.push({ indexDescriptor: name, fields: [name] });
+    }
+    return this;
   }
 
   edge(table: string, options?: EdgeOptions): this {

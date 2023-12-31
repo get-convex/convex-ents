@@ -15,16 +15,17 @@ import {
 import { GenericId } from "convex/values";
 import { EdgeConfig, Expand, GenericEntsDataModel } from "./schema";
 
-type FieldTypes<
-  DataModel extends GenericDataModel,
-  Table extends TableNamesInDataModel<DataModel>,
-  T extends string[]
-> = {
-  [K in keyof T]: FieldTypeFromFieldPath<
-    DocumentByName<DataModel, Table>,
-    T[K]
-  >;
-};
+// TODO: Figure out how to make get() variadic
+// type FieldTypes<
+//   DataModel extends GenericDataModel,
+//   Table extends TableNamesInDataModel<DataModel>,
+//   T extends string[]
+// > = {
+//   [K in keyof T]: FieldTypeFromFieldPath<
+//     DocumentByName<DataModel, Table>,
+//     T[K]
+//   >;
+// };
 
 class QueryQueryOrNullPromise<
   DataModel extends GenericDataModel,
@@ -258,13 +259,13 @@ class QueryPromise<
     super(ctx, entDefinitions, table, async (db) => db.query(table));
   }
 
-  get<
-    Indexes extends DataModel[Table]["indexes"],
-    Index extends keyof Indexes,
-    IndexTypes extends string[] = Indexes[Index]
-  >(
+  get<Indexes extends DataModel[Table]["indexes"], Index extends keyof Indexes>(
     indexName: Index,
-    ...values: FieldTypes<DataModel, Table, IndexTypes>
+    // TODO: Figure out how to make this variadic
+    value0: FieldTypeFromFieldPath<
+      DocumentByName<DataModel, Table>,
+      Indexes[Index][0]
+    >
   ): QueryOnePromise<DataModel, EntsDataModel, Table>;
   get(id: GenericId<Table>): QueryOnePromise<DataModel, EntsDataModel, Table>;
   get(...args: any[]) {
