@@ -679,11 +679,17 @@ type EdgeQuery<
   Table extends TableNamesInDataModel<DataModel>,
   Edge extends keyof EntsDataModel[Table]["edges"]
 > = EntsDataModel[Table]["edges"][Edge]["cardinality"] extends "multiple"
-  ? QueryMultipleOrNullPromise<
-      DataModel,
-      EntsDataModel,
-      EntsDataModel[Table]["edges"][Edge]["to"]
-    >
+  ? EntsDataModel[Table]["edges"][Edge]["type"] extends "ref"
+    ? QueryMultiplePromise<
+        DataModel,
+        EntsDataModel,
+        EntsDataModel[Table]["edges"][Edge]["to"]
+      >
+    : QueryQueryPromise<
+        DataModel,
+        EntsDataModel,
+        EntsDataModel[Table]["edges"][Edge]["to"]
+      >
   : QueryOnePromise<
       DataModel,
       EntsDataModel,

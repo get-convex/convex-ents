@@ -33,35 +33,49 @@ export function defineEntSchema<
     const table = schema[tableName];
     for (const edge of (table as any)
       .edgeConfigs as EdgeConfigFromEntDefinition[]) {
+      const otherTableName = edge.to;
+      const otherTable = schema[otherTableName];
+      if (otherTable === undefined) {
+        continue;
+      }
+
+      const isSelfDirected = edge.to === tableName;
+
+      const inverseEdgeCandidates = (
+        (otherTable as any).edgeConfigs as EdgeConfigFromEntDefinition[]
+      ).filter(
+        (candidate) =>
+          candidate.to === tableName &&
+          candidate.name !== edge.name &&
+          (!isSelfDirected || (candidate.type === null && candidate.inverse))
+      );
+      if (inverseEdgeCandidates.length > 1) {
+        throw new Error(
+          'Too many potential inverse edges for "' +
+            edge.name +
+            `", all eligible: ${inverseEdgeCandidates
+              .map((edge) => `"${edge.name}"`)
+              .join(", ")}`
+        );
+      }
+      const inverseEdge: EdgeConfigFromEntDefinition | undefined =
+        inverseEdgeCandidates[0];
+
+      if (edge.cardinality === "single" && edge.type === "ref") {
+        if (
+          inverseEdge?.cardinality !== "single" ||
+          inverseEdge?.type !== "field"
+        ) {
+          throw new Error(
+            `Unexpected inverse edge type ${edge.name}, ${inverseEdge?.name}`
+          );
+        }
+        (edge as any).ref = inverseEdge.field;
+      }
       if (edge.cardinality === "multiple") {
         if (edge.type !== null) {
           continue;
         }
-        const otherTableName = edge.to;
-        const otherTable = schema[otherTableName];
-        if (otherTable === undefined) {
-          continue;
-        }
-        const isSelfDirected = edge.to === tableName;
-        const inverseEdgeCandidates = (
-          (otherTable as any).edgeConfigs as EdgeConfigFromEntDefinition[]
-        ).filter(
-          (candidate) =>
-            candidate.to === tableName &&
-            candidate.name !== edge.name &&
-            (!isSelfDirected || (candidate.type === null && candidate.inverse))
-        );
-        if (inverseEdgeCandidates.length > 1) {
-          throw new Error(
-            'Too many potential inverse edges for "' +
-              edge.name +
-              `", all eligible: ${inverseEdgeCandidates
-                .map((edge) => `"${edge.name}"`)
-                .join(", ")}`
-          );
-        }
-        const inverseEdge: EdgeConfigFromEntDefinition | undefined =
-          inverseEdgeCandidates[0];
 
         if (inverseEdge?.cardinality === "single") {
           if (inverseEdge.type === "ref") {

@@ -2,6 +2,7 @@ import { customCtx, customQuery } from "convex-helpers/server/customFunctions";
 import { query as baseQuery, mutation } from "./_generated/server";
 import { tableFactory } from "./ents/functions";
 import { entDefinitions } from "./schema";
+import { assert } from "chai";
 
 const query = customQuery(
   baseQuery,
@@ -18,48 +19,64 @@ export const test = query({
 
   handler: async (ctx) => {
     {
-      const [first, second] = await ctx.table("users").take(2);
-      const user = Math.random() > 0.5 ? first : second;
-      const foo = await user.edge("followers").first();
-      return foo;
+      const someFlag = false;
+      const [firstUser, secondUser] = await ctx.table("users").take(2);
+      const user = someFlag ? firstUser : secondUser;
+      const usersFirstFollower = await user.edge("followers").first();
+      assertEqual(usersFirstFollower, firstUser);
     }
     {
       const messagesByUsers = await ctx.table("users").map(async (user) => ({
         ...user,
         messages: await user.edge("messages"),
       }));
-      return messagesByUsers;
+      assertEqual(messagesByUsers.length, 2);
+      assertEqual(messagesByUsers[0].name, "Stark");
+      assertEqual(messagesByUsers[0].messages.length, 1);
+      assertEqual(messagesByUsers[1].name, "Musk");
+      assertEqual(messagesByUsers[1].messages.length, 0);
+      assertEqual(Object.keys(messagesByUsers[0]), [
+        "_creationTime",
+        "_id",
+        "email",
+        "name",
+        "messages",
+      ]);
     }
     {
-      const message = await ctx
-        .table("messages")
-        .get("userId", "j57fbye04rgjset0z4dwz33bqx6gnttv" as any);
-      return message;
+      const id = (await ctx.table("users").first())!._id;
+      const message = await ctx.table("messages").get("userId", id);
+      assertEqual(message!.text, "Hello world");
     }
     {
       const foo = ctx.table("users").normalizeId("blabla");
-      return foo;
+      assertEqual(foo, null);
+      const id = (await ctx.table("users").first())!._id;
+      const idToo = ctx.table("users").normalizeId(id);
+      assertEqual(id, idToo);
     }
     {
       const friends = await ctx.table("users").first().edge("friends");
-      return friends;
+      assertEqual(friends!.length, 1);
+      assertEqual(friends![0].name, "Musk");
     }
 
     {
-      const firstsFollowees = await ctx
+      const firstsFirstFollowee = await ctx
         .table("users")
         .first()
         .edge("followees")
         .first();
-      return firstsFollowees;
+      assertEqual(firstsFirstFollowee!.name, "Musk");
     }
     {
       const firstMessageTags = await ctx.table("messages").first().edge("tags");
-      return firstMessageTags;
+      assertEqual(firstMessageTags!.length, 1);
+      assertEqual(firstMessageTags![0].name, "Orange");
     }
     {
       const firstUserProfile = await ctx.table("users").first().edge("profile");
-      return firstUserProfile;
+      assertEqual(firstUserProfile!.bio, "Hello world");
     }
     {
       const lastMessageAuthorsMessages = await ctx
@@ -67,34 +84,38 @@ export const test = query({
         .first()
         .edge("user")
         .edge("messages");
-      return lastMessageAuthorsMessages;
+      assertEqual(lastMessageAuthorsMessages!.length, 1);
+      assertEqual(lastMessageAuthorsMessages![0].text, "Hello world");
     }
     {
       const lastMessageAuthor = await ctx
         .table("messages")
         .first()
         .edge("user");
-      return lastMessageAuthor;
+      assertEqual(lastMessageAuthor!.name, "Stark");
     }
     {
       const messagesByUser = await ctx
         .table("users")
-        .get("email", "srb@convex.dev")
+        .get("email", "tony@stark.com")
         .edge("messages");
-      return messagesByUser;
+      assertEqual(messagesByUser!.length, 1);
+      assertEqual(messagesByUser![0].text, "Hello world");
     }
 
     {
       const messages = await ctx.table("messages");
-      return messages;
+      assertEqual(messages.length, 1);
+      assertEqual(messages[0].text, "Hello world");
     }
     {
-      const message = await ctx.table("messages").get("123123213" as any);
-      return message;
+      const id = (await ctx.table("messages").first())!._id;
+      const message = await ctx.table("messages").get(id);
+      assertEqual(message!.text, "Hello world");
     }
     {
       const messages = await ctx.table("messages").first();
-      return messages;
+      assertEqual(messages!.text, "Hello world");
     }
 
     // // For single field indexes, we should be able to eq or lt gt directly - but that doesn't
@@ -222,3 +243,7 @@ export const seed = mutation(async (ctx) => {
 export const list = query(async (ctx, args) => {
   return await ctx.table(args.table as any);
 });
+
+function assertEqual(actual: any, expected: any) {
+  assert.deepEqual(actual, expected);
+}
