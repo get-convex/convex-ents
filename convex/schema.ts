@@ -23,7 +23,8 @@ const schema = defineEntSchema(
     })
       .edge("profile", { optional: true })
       .edges("messages")
-      .edges("followers", "followees", { to: "users" }),
+      .edges("followers", "followees", { to: "users" })
+      .edges("friends", { to: "users" }),
     // .edges("friends", "users"),
 
     profiles: defineEnt({

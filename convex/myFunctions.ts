@@ -569,6 +569,10 @@ export const test = query({
 
   handler: async (ctx) => {
     {
+      const friends = await ctx.table("users").first().edge("friends");
+      return friends;
+    }
+    {
       const [first, second] = await ctx.table("users").take(2);
       const user = Math.random() > 0.5 ? first : second;
       const foo = await user.edge("followees").first();
@@ -740,6 +744,14 @@ export const seed = mutation(async (ctx) => {
   await ctx.db.insert("users_followees_to_followers" as any, {
     followeesId: userId2,
     followersId: userId,
+  });
+  await ctx.db.insert("users_friends" as any, {
+    aId: userId,
+    bId: userId2,
+  });
+  await ctx.db.insert("users_friends" as any, {
+    aId: userId2,
+    bId: userId,
   });
 });
 

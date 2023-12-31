@@ -36,81 +36,77 @@ export function defineEntSchema<
         if (otherTable === undefined) {
           continue;
         }
-        for (const inverseEdge of (otherTable as any)
-          .edgeConfigs as EdgeConfigFromEntDefinition[]) {
-          if (inverseEdge.to !== tableName || inverseEdge.name === edge.name) {
-            continue;
+        const isSelfDirected = edge.to === tableName;
+        const inverseEdgeCandidates = (
+          (otherTable as any).edgeConfigs as EdgeConfigFromEntDefinition[]
+        ).filter(
+          (candidate) =>
+            candidate.to === tableName &&
+            candidate.name !== edge.name &&
+            (!isSelfDirected || (candidate.type === null && candidate.inverse))
+        );
+        if (inverseEdgeCandidates.length > 1) {
+          throw new Error(
+            'Too many potential inverse edges for "' +
+              edge.name +
+              `", all eligible: ${inverseEdgeCandidates
+                .map((edge) => `"${edge.name}"`)
+                .join(", ")}`
+          );
+        }
+        const inverseEdge: EdgeConfigFromEntDefinition | undefined =
+          inverseEdgeCandidates[0];
+
+        if (inverseEdge?.cardinality === "single") {
+          if (inverseEdge.type === "ref") {
+            throw new Error(
+              "Unexpected optional edge for " +
+                edge.name +
+                " called " +
+                inverseEdge.name
+            );
           }
-          if (inverseEdge.cardinality === "single") {
-            if (inverseEdge.type === "ref") {
-              throw new Error(
-                "Unexpected optional edge for " +
-                  edge.name +
-                  " called " +
-                  inverseEdge.name
-              );
-            }
-            (edge as any).type = "field";
-            (edge as any).ref = inverseEdge.field;
-          }
+          (edge as any).type = "field";
+          (edge as any).ref = inverseEdge.field;
+        }
 
-          if (inverseEdge.cardinality === "multiple") {
-            //   // Add the table
-            //   (schema as any)[edgeTableName] = defineEnt({
-            //     [edge.name + "Id"]: v.id(tableName),
-            //     [edge.inverse + "Id"]: v.id(otherTableName),
-            //   })
-            //     .index(edge.name + "Id", [edge.name + "Id"])
-            //     .index(edge.inverse + "Id", [edge.inverse + "Id"]);
-            //   (edge as any).type = "ref";
-            //   (edge as any).table = edgeTableName;
-            //   (edge as any).field = edge.name + "Id";
-            //   (edge as any).ref = edge.inverse + "Id";
-            //   const inverseEdge: EdgeConfig = {
-            //     name: edge.inverse,
-            //     to: tableName,
-            //     cardinality: "multiple",
-            //     type: "ref",
-            //     table: edgeTableName,
-            //     field: edge.inverse + "Id",
-            //     ref: edge.name + "Id",
-            //     inverse: true,
-            //   };
-            //   ((table as any).edgeConfigs as EdgeConfig[]).unshift(inverseEdge);
-            //   break;
-            // }
-            const edgeTableName =
-              inverseEdge.name !== tableName
-                ? `${tableName}_${inverseEdge.name}_to_${edge.name}`
-                : `${inverseEdge.name}_to_${edge.name}`;
+        if (inverseEdge?.cardinality === "multiple" || isSelfDirected) {
+          const edgeTableName =
+            inverseEdge === undefined
+              ? `${tableName}_${edge.name}`
+              : inverseEdge.name !== tableName
+              ? `${tableName}_${inverseEdge.name}_to_${edge.name}`
+              : `${inverseEdge.name}_to_${edge.name}`;
 
-            const forwardId =
-              tableName === otherTableName
-                ? inverseEdge.name + "Id"
-                : tableName + "Id";
-            const inverseId =
-              tableName === otherTableName
-                ? edge.name + "Id"
-                : otherTableName + "Id";
-            // Add the table
-            (schema as any)[edgeTableName] = defineEnt({
-              [forwardId]: v.id(tableName),
-              [otherTableName + "Id"]: v.id(otherTableName),
-            })
-              .index(forwardId, [forwardId])
-              .index(inverseId, [inverseId]);
+          const forwardId =
+            inverseEdge === undefined
+              ? "aId"
+              : tableName === otherTableName
+              ? inverseEdge.name + "Id"
+              : tableName + "Id";
+          const inverseId =
+            inverseEdge === undefined
+              ? "bId"
+              : tableName === otherTableName
+              ? edge.name + "Id"
+              : otherTableName + "Id";
+          // Add the table
+          (schema as any)[edgeTableName] = defineEnt({
+            [forwardId]: v.id(tableName),
+            [inverseId]: v.id(otherTableName),
+          })
+            .index(forwardId, [forwardId])
+            .index(inverseId, [inverseId]);
 
-            (edge as any).type = "ref";
-            (edge as any).table = edgeTableName;
-            (edge as any).field = forwardId;
-            (edge as any).ref = inverseId;
+          (edge as any).type = "ref";
+          (edge as any).table = edgeTableName;
+          (edge as any).field = forwardId;
+          (edge as any).ref = inverseId;
+          if (inverseEdge !== undefined) {
             inverseEdge.type = "ref";
             (inverseEdge as any).table = edgeTableName;
             (inverseEdge as any).field = inverseId;
             (inverseEdge as any).ref = forwardId;
-
-            // TODO: Error on repeated iteration before the if block instead of breaking
-            break;
           }
         }
       }
@@ -212,6 +208,24 @@ interface EntDefinition<
       [key in EdgesName]: {
         name: EdgesName;
         to: EdgesName;
+        type: "ref";
+        cardinality: "multiple";
+      };
+    }
+  >;
+  edges<EdgesName extends string, TableName extends string>(
+    edge: EdgesName,
+    options: { to: TableName }
+  ): EntDefinition<
+    Document,
+    FieldPaths,
+    Indexes,
+    SearchIndexes,
+    VectorIndexes,
+    Edges & {
+      [key in EdgesName]: {
+        name: EdgesName;
+        to: TableName;
         type: "ref";
         cardinality: "multiple";
       };
