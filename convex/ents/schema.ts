@@ -20,7 +20,7 @@ import {
 } from "convex/values";
 
 export function defineEntSchema<
-  Schema extends Record<string, EntDefinition>,
+  Schema extends Record<string, EntDefinition<any, any, any, any, any, any>>,
   StrictTableNameTypes extends boolean = true
 >(
   schema: Schema,
@@ -269,11 +269,7 @@ interface EntDefinition<
     InverseEdgesNames extends string
   >(
     edge: EdgesName,
-    // TODO: When I had `inverse` as a field in the options
-    // object TS would infer `InverseEdgesNames` as string
-    // in the [key in InverseEdgesNames] type :(((
-    inverse: InverseEdgesNames,
-    options: { to: TableName }
+    options: { to: TableName; inverse: InverseEdgesNames }
   ): EntDefinition<
     Document,
     FieldPaths,
@@ -409,26 +405,17 @@ class EntDefinitionImpl {
     return this;
   }
 
-  edges(
-    name: string,
-    options?: string | EdgesOptions,
-    otherOptions?: EdgesOptions
-  ): this {
-    // TODO: When I had `inverse` as a field in the options
-    // object TS would infer `InverseEdgesNames` as string
-    // so I have to do this complicated implementation
-    const finalOptions: EdgesOptions | undefined =
-      otherOptions ?? (options as EdgesOptions);
+  edges(name: string, options?: EdgesOptions): this {
     this.edgeConfigs.push({
       name: name,
-      to: finalOptions?.to ?? name,
+      to: options?.to ?? name,
       cardinality: "multiple",
       type: null, // gets filled in by defineEntSchema
     });
-    if (typeof options === "string") {
+    if (typeof options?.inverse === "string") {
       this.edgeConfigs.push({
-        name: options,
-        to: finalOptions?.to ?? name,
+        name: options?.inverse,
+        to: options?.to ?? name,
         cardinality: "multiple",
         type: null, // gets filled in by defineEntSchema
         inverse: true,

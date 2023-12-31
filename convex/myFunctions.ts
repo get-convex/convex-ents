@@ -18,6 +18,12 @@ export const test = query({
 
   handler: async (ctx) => {
     {
+      const [first, second] = await ctx.table("users").take(2);
+      const user = Math.random() > 0.5 ? first : second;
+      const foo = await user.edge("followers").first();
+      return foo;
+    }
+    {
       const messagesByUsers = await ctx.table("users").map(async (user) => ({
         ...user,
         messages: await user.edge("messages"),
@@ -38,12 +44,7 @@ export const test = query({
       const friends = await ctx.table("users").first().edge("friends");
       return friends;
     }
-    {
-      const [first, second] = await ctx.table("users").take(2);
-      const user = Math.random() > 0.5 ? first : second;
-      const foo = await user.edge("followees").first();
-      return foo;
-    }
+
     {
       const firstsFollowees = await ctx
         .table("users")
