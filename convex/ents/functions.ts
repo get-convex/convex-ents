@@ -7,6 +7,8 @@ import {
   GenericDatabaseReader,
   GenericQueryCtx,
   NamedTableInfo,
+  PaginationOptions,
+  PaginationResult,
   Query,
   TableNamesInDataModel,
 } from "convex/server";
@@ -57,6 +59,16 @@ class QueryQueryOrNullPromise<
         return query.filter(predicate);
       }
     );
+  }
+
+  async paginate(
+    paginationOpts: PaginationOptions
+  ): Promise<PaginationResult<DocumentByName<DataModel, Table>> | null> {
+    const query = await this.retrieve(this.ctx.db);
+    if (query === null) {
+      return null;
+    }
+    return await query.paginate(paginationOpts);
   }
 
   take(n: number): QueryMultipleOrNullPromise<DataModel, EntsDataModel, Table> {
@@ -162,6 +174,13 @@ class QueryQueryPromise<
         return query.filter(predicate);
       }
     );
+  }
+
+  async paginate(
+    paginationOpts: PaginationOptions
+  ): Promise<PaginationResult<DocumentByName<DataModel, Table>>> {
+    const query = await this.retrieve(this.ctx.db);
+    return await query.paginate(paginationOpts);
   }
 
   take(n: number): QueryMultiplePromise<DataModel, EntsDataModel, Table> {
