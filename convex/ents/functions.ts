@@ -29,11 +29,147 @@ import { EdgeConfig, Expand, GenericEntsDataModel } from "./schema";
 //   >;
 // };
 
-class QueryQueryOrNullPromise<
+interface PromiseOrderedQueryOrNull<
   DataModel extends GenericDataModel,
   EntsDataModel extends GenericEntsDataModel<DataModel>,
   Table extends TableNamesInDataModel<DataModel>
 > extends Promise<EntByName<DataModel, EntsDataModel, Table>[] | null> {
+  filter(
+    predicate: (
+      q: FilterBuilder<NamedTableInfo<DataModel, Table>>
+    ) => ExpressionOrValue<boolean>
+  ): this;
+
+  map<TOutput>(
+    callbackFn: (
+      value: EntByName<DataModel, EntsDataModel, Table>,
+      index: number,
+      array: EntByName<DataModel, EntsDataModel, Table>[]
+    ) => Promise<TOutput> | TOutput
+  ): Promise<TOutput[] | null>;
+
+  // TODO: entWrapper for pagination
+  paginate(
+    paginationOpts: PaginationOptions
+  ): Promise<PaginationResult<DocumentByName<DataModel, Table>> | null>;
+
+  take(n: number): PromiseEntsOrNullImpl<DataModel, EntsDataModel, Table>;
+
+  first(): PromiseEntOrNull<DataModel, EntsDataModel, Table>;
+
+  unique(): PromiseEntOrNull<DataModel, EntsDataModel, Table>;
+
+  then<
+    TResult1 = EntByName<DataModel, EntsDataModel, Table>[] | null,
+    TResult2 = never
+  >(
+    onfulfilled?:
+      | ((
+          value: EntByName<DataModel, EntsDataModel, Table>[] | null
+        ) => TResult1 | PromiseLike<TResult1>)
+      | undefined
+      | null,
+    onrejected?:
+      | ((reason: any) => TResult2 | PromiseLike<TResult2>)
+      | undefined
+      | null
+  ): Promise<TResult1 | TResult2>;
+}
+
+interface PromiseQueryOrNull<
+  DataModel extends GenericDataModel,
+  EntsDataModel extends GenericEntsDataModel<DataModel>,
+  Table extends TableNamesInDataModel<DataModel>
+> extends PromiseOrderedQueryOrNull<DataModel, EntsDataModel, Table> {
+  order(
+    order: "asc" | "desc",
+    indexName?: IndexNames<NamedTableInfo<DataModel, Table>>
+  ): PromiseOrderedQueryOrNull<DataModel, EntsDataModel, Table>;
+}
+
+interface PromiseTable<
+  DataModel extends GenericDataModel,
+  EntsDataModel extends GenericEntsDataModel<DataModel>,
+  Table extends TableNamesInDataModel<DataModel>
+> extends PromiseQuery<DataModel, EntsDataModel, Table> {
+  get<Indexes extends DataModel[Table]["indexes"], Index extends keyof Indexes>(
+    indexName: Index,
+    // TODO: Figure out how to make this variadic
+    value0: FieldTypeFromFieldPath<
+      DocumentByName<DataModel, Table>,
+      Indexes[Index][0]
+    >
+  ): PromiseEntOrNull<DataModel, EntsDataModel, Table>;
+  get(id: GenericId<Table>): PromiseEntOrNull<DataModel, EntsDataModel, Table>;
+  normalizeId(id: string): GenericId<Table> | null;
+}
+
+interface PromiseOrderedQuery<
+  DataModel extends GenericDataModel,
+  EntsDataModel extends GenericEntsDataModel<DataModel>,
+  Table extends TableNamesInDataModel<DataModel>
+> extends Promise<EntByName<DataModel, EntsDataModel, Table>[]> {
+  filter(
+    predicate: (
+      q: FilterBuilder<NamedTableInfo<DataModel, Table>>
+    ) => ExpressionOrValue<boolean>
+  ): this;
+
+  map<TOutput>(
+    callbackFn: (
+      value: EntByName<DataModel, EntsDataModel, Table>,
+      index: number,
+      array: EntByName<DataModel, EntsDataModel, Table>[]
+    ) => Promise<TOutput> | TOutput
+  ): Promise<TOutput[]>;
+
+  // TODO: entWrapper for pagination
+  paginate(
+    paginationOpts: PaginationOptions
+  ): Promise<PaginationResult<DocumentByName<DataModel, Table>>>;
+
+  take(n: number): PromiseEnts<DataModel, EntsDataModel, Table>;
+
+  first(): PromiseEntOrNull<DataModel, EntsDataModel, Table>;
+
+  unique(): PromiseEntOrNull<DataModel, EntsDataModel, Table>;
+
+  then<
+    TResult1 = EntByName<DataModel, EntsDataModel, Table>[],
+    TResult2 = never
+  >(
+    onfulfilled?:
+      | ((
+          value: EntByName<DataModel, EntsDataModel, Table>[]
+        ) => TResult1 | PromiseLike<TResult1>)
+      | undefined
+      | null,
+    onrejected?:
+      | ((reason: any) => TResult2 | PromiseLike<TResult2>)
+      | undefined
+      | null
+  ): Promise<TResult1 | TResult2>;
+}
+
+interface PromiseQuery<
+  DataModel extends GenericDataModel,
+  EntsDataModel extends GenericEntsDataModel<DataModel>,
+  Table extends TableNamesInDataModel<DataModel>
+> extends PromiseOrderedQuery<DataModel, EntsDataModel, Table> {
+  order(
+    order: "asc" | "desc",
+    indexName?: IndexNames<NamedTableInfo<DataModel, Table>>
+  ): PromiseOrderedQuery<DataModel, EntsDataModel, Table>;
+}
+
+class PromiseQueryOrNullImpl<
+    DataModel extends GenericDataModel,
+    EntsDataModel extends GenericEntsDataModel<DataModel>,
+    Table extends TableNamesInDataModel<DataModel>
+  >
+  extends Promise<EntByName<DataModel, EntsDataModel, Table>[] | null>
+  implements PromiseQueryOrNull<DataModel, EntsDataModel, Table>
+{
   constructor(
     protected ctx: GenericQueryCtx<DataModel>,
     protected entDefinitions: EntsDataModel,
@@ -49,8 +185,8 @@ class QueryQueryOrNullPromise<
     predicate: (
       q: FilterBuilder<NamedTableInfo<DataModel, Table>>
     ) => ExpressionOrValue<boolean>
-  ): QueryQueryOrNullPromise<DataModel, EntsDataModel, Table> {
-    return new QueryQueryOrNullPromise(
+  ): any {
+    return new PromiseQueryOrNullImpl(
       this.ctx,
       this.entDefinitions,
       this.table,
@@ -60,6 +196,45 @@ class QueryQueryOrNullPromise<
           return null;
         }
         return query.filter(predicate);
+      }
+    );
+  }
+
+  async map<TOutput>(
+    callbackFn: (
+      value: EntByName<DataModel, EntsDataModel, Table>,
+      index: number,
+      array: EntByName<DataModel, EntsDataModel, Table>[]
+    ) => Promise<TOutput> | TOutput
+  ) {
+    const array = await this;
+    if (array === null) {
+      return [];
+    }
+    return await Promise.all(array.map(callbackFn));
+  }
+
+  order(
+    order: "asc" | "desc",
+    indexName?: IndexNames<NamedTableInfo<DataModel, Table>>
+  ): any {
+    return new PromiseQueryOrNullImpl(
+      this.ctx,
+      this.entDefinitions,
+      this.table,
+      async (db) => {
+        const query = await this.retrieve(db);
+        if (query === null) {
+          return null;
+        }
+        if (indexName !== undefined) {
+          // TODO: We need more granular types for the QueryPromises
+          return (query as QueryInitializer<NamedTableInfo<DataModel, Table>>)
+            .withIndex(indexName)
+            .order(order);
+        }
+        // TODO: We need more granular types for the QueryPromises
+        return query.order(order) as any;
       }
     );
   }
@@ -74,8 +249,8 @@ class QueryQueryOrNullPromise<
     return await query.paginate(paginationOpts);
   }
 
-  take(n: number): QueryMultipleOrNullPromise<DataModel, EntsDataModel, Table> {
-    return new QueryMultipleOrNullPromise(
+  take(n: number) {
+    return new PromiseEntsOrNullImpl(
       this.ctx,
       this.entDefinitions,
       this.table,
@@ -89,8 +264,8 @@ class QueryQueryOrNullPromise<
     );
   }
 
-  first(): QueryOnePromise<DataModel, EntsDataModel, Table> {
-    return new QueryOnePromise(
+  first() {
+    return new PromiseEntOrNullImpl(
       this.ctx,
       this.entDefinitions,
       this.table,
@@ -104,8 +279,8 @@ class QueryQueryOrNullPromise<
     );
   }
 
-  unique(): QueryOnePromise<DataModel, EntsDataModel, Table> {
-    return new QueryOnePromise(
+  unique() {
+    return new PromiseEntOrNullImpl(
       this.ctx,
       this.entDefinitions,
       this.table,
@@ -147,145 +322,11 @@ class QueryQueryOrNullPromise<
   }
 }
 
-class QueryQueryPromise<
+class PromiseTableImpl<
   DataModel extends GenericDataModel,
   EntsDataModel extends GenericEntsDataModel<DataModel>,
   Table extends TableNamesInDataModel<DataModel>
-> extends Promise<EntByName<DataModel, EntsDataModel, Table>[]> {
-  constructor(
-    protected ctx: GenericQueryCtx<DataModel>,
-    protected entDefinitions: EntsDataModel,
-    protected table: Table,
-    protected retrieve: (
-      db: GenericDatabaseReader<DataModel>
-    ) => Promise<Query<NamedTableInfo<DataModel, Table>>>
-  ) {
-    super(() => {});
-  }
-
-  async map<TOutput>(
-    callbackFn: (
-      value: EntByName<DataModel, EntsDataModel, Table>,
-      index: number,
-      array: EntByName<DataModel, EntsDataModel, Table>[]
-    ) => Promise<TOutput> | TOutput
-  ): Promise<TOutput[]> {
-    const array = await this;
-    return await Promise.all(array.map(callbackFn));
-  }
-
-  filter(
-    predicate: (
-      q: FilterBuilder<NamedTableInfo<DataModel, Table>>
-    ) => ExpressionOrValue<boolean>
-  ): QueryQueryPromise<DataModel, EntsDataModel, Table> {
-    return new QueryQueryPromise(
-      this.ctx,
-      this.entDefinitions,
-      this.table,
-      async (db) => {
-        const query = await this.retrieve(db);
-        return query.filter(predicate);
-      }
-    );
-  }
-
-  async paginate(
-    paginationOpts: PaginationOptions
-  ): Promise<PaginationResult<DocumentByName<DataModel, Table>>> {
-    const query = await this.retrieve(this.ctx.db);
-    return await query.paginate(paginationOpts);
-  }
-
-  order(
-    order: "asc" | "desc",
-    indexName?: IndexNames<NamedTableInfo<DataModel, Table>>
-  ) {
-    return new QueryQueryPromise(
-      this.ctx,
-      this.entDefinitions,
-      this.table,
-      async (db) => {
-        const query = await this.retrieve(db);
-        if (indexName !== undefined) {
-          // TODO: We need more granular types for the QueryPromises
-          return (query as QueryInitializer<NamedTableInfo<DataModel, Table>>)
-            .withIndex(indexName)
-            .order(order);
-        }
-        // TODO: We need more granular types for the QueryPromises
-        return query.order(order) as any;
-      }
-    );
-  }
-
-  take(n: number): QueryMultiplePromise<DataModel, EntsDataModel, Table> {
-    return new QueryMultiplePromise(
-      this.ctx,
-      this.entDefinitions,
-      this.table,
-      async (db) => {
-        const query = await this.retrieve(db);
-        return query.take(n);
-      }
-    );
-  }
-
-  first(): QueryOnePromise<DataModel, EntsDataModel, Table> {
-    return new QueryOnePromise(
-      this.ctx,
-      this.entDefinitions,
-      this.table,
-      async (db) => {
-        const query = await this.retrieve(db);
-        return query.first();
-      }
-    );
-  }
-
-  unique(): QueryOnePromise<DataModel, EntsDataModel, Table> {
-    return new QueryOnePromise(
-      this.ctx,
-      this.entDefinitions,
-      this.table,
-      async (db) => {
-        const query = await this.retrieve(db);
-        return query.unique();
-      }
-    );
-  }
-
-  then<
-    TResult1 = EntByName<DataModel, EntsDataModel, Table>[],
-    TResult2 = never
-  >(
-    onfulfilled?:
-      | ((
-          value: EntByName<DataModel, EntsDataModel, Table>[]
-        ) => TResult1 | PromiseLike<TResult1>)
-      | undefined
-      | null,
-    onrejected?:
-      | ((reason: any) => TResult2 | PromiseLike<TResult2>)
-      | undefined
-      | null
-  ): Promise<TResult1 | TResult2> {
-    return this.retrieve(this.ctx.db)
-      .then((query) => query.collect())
-      .then((documents) =>
-        documents.map((doc) =>
-          entWrapper(doc, this.ctx, this.entDefinitions, this.table)
-        )
-      )
-      .then(onfulfilled, onrejected);
-  }
-}
-
-class QueryPromise<
-  DataModel extends GenericDataModel,
-  EntsDataModel extends GenericEntsDataModel<DataModel>,
-  Table extends TableNamesInDataModel<DataModel>
-> extends QueryQueryPromise<DataModel, EntsDataModel, Table> {
+> extends PromiseQueryOrNullImpl<DataModel, EntsDataModel, Table> {
   constructor(
     ctx: GenericQueryCtx<DataModel>,
     entDefinitions: EntsDataModel,
@@ -294,17 +335,8 @@ class QueryPromise<
     super(ctx, entDefinitions, table, async (db) => db.query(table));
   }
 
-  get<Indexes extends DataModel[Table]["indexes"], Index extends keyof Indexes>(
-    indexName: Index,
-    // TODO: Figure out how to make this variadic
-    value0: FieldTypeFromFieldPath<
-      DocumentByName<DataModel, Table>,
-      Indexes[Index][0]
-    >
-  ): QueryOnePromise<DataModel, EntsDataModel, Table>;
-  get(id: GenericId<Table>): QueryOnePromise<DataModel, EntsDataModel, Table>;
   get(...args: any[]) {
-    return new QueryOnePromise(
+    return new PromiseEntOrNullImpl(
       this.ctx,
       this.entDefinitions,
       this.table,
@@ -336,7 +368,38 @@ class QueryPromise<
 // This query materializes objects, so chaining to this type of query performs one operation for each
 // retrieved document in JavaScript, basically as if using
 // `Promise.all()`.
-class QueryMultipleOrNullPromise<
+interface PromiseEntsOrNull<
+  DataModel extends GenericDataModel,
+  EntsDataModel extends GenericEntsDataModel<DataModel>,
+  Table extends TableNamesInDataModel<DataModel>
+> extends Promise<EntByName<DataModel, EntsDataModel, Table>[] | null> {
+  // This just returns the first retrieved document, it does not optimize
+  // the previous steps in the query.
+  first(): PromiseEntOrNull<DataModel, EntsDataModel, Table>;
+
+  // This just returns the unique retrieved document, it does not optimize
+  // the previous steps in the query. Otherwise it behaves like db.query().unique().
+  unique(): PromiseEntOrNull<DataModel, EntsDataModel, Table>;
+}
+
+// This query materializes objects, so chaining to this type of query performs one operation for each
+// retrieved document in JavaScript, basically as if using
+// `Promise.all()`.
+interface PromiseEnts<
+  DataModel extends GenericDataModel,
+  EntsDataModel extends GenericEntsDataModel<DataModel>,
+  Table extends TableNamesInDataModel<DataModel>
+> extends Promise<EntByName<DataModel, EntsDataModel, Table>[]> {
+  // This just returns the first retrieved document, it does not optimize
+  // the previous steps in the query.
+  first(): PromiseEntOrNull<DataModel, EntsDataModel, Table>;
+
+  // This just returns the unique retrieved document, it does not optimize
+  // the previous steps in the query. Otherwise it behaves like db.query().unique().
+  unique(): PromiseEntOrNull<DataModel, EntsDataModel, Table>;
+}
+
+class PromiseEntsOrNullImpl<
   DataModel extends GenericDataModel,
   EntsDataModel extends GenericEntsDataModel<DataModel>,
   Table extends TableNamesInDataModel<DataModel>
@@ -352,10 +415,8 @@ class QueryMultipleOrNullPromise<
     super(() => {});
   }
 
-  // This just returns the first retrieved document, it does not optimize
-  // the previous steps in the query.
-  first(): QueryOnePromise<DataModel, EntsDataModel, Table> {
-    return new QueryOnePromise(
+  first() {
+    return new PromiseEntOrNullImpl(
       this.ctx,
       this.entDefinitions,
       this.table,
@@ -369,10 +430,8 @@ class QueryMultipleOrNullPromise<
     );
   }
 
-  // This just returns the unique retrieved document, it does not optimize
-  // the previous steps in the query. It behaves like db.query().unique()
-  unique(): QueryOnePromise<DataModel, EntsDataModel, Table> {
-    return new QueryOnePromise(
+  unique() {
+    return new PromiseEntOrNullImpl(
       this.ctx,
       this.entDefinitions,
       this.table,
@@ -416,63 +475,18 @@ class QueryMultipleOrNullPromise<
   }
 }
 
-// This query materializes objects, so chaining to this type of query performs one operation for each
-// retrieved document in JavaScript, basically as if using
-// `Promise.all()`.
-class QueryMultiplePromise<
+interface PromiseEntOrNull<
   DataModel extends GenericDataModel,
   EntsDataModel extends GenericEntsDataModel<DataModel>,
   Table extends TableNamesInDataModel<DataModel>
-> extends Promise<EntByName<DataModel, EntsDataModel, Table>[]> {
-  constructor(
-    private ctx: GenericQueryCtx<DataModel>,
-    private entDefinitions: EntsDataModel,
-    private table: Table,
-    private retrieve: (
-      db: GenericDatabaseReader<DataModel>
-    ) => Promise<DocumentByName<DataModel, Table>[]>
-  ) {
-    super(() => {});
-  }
-
-  // This just returns the first retrieved document, it does not optimize
-  // the previous steps in the query.
-  first(): QueryOnePromise<DataModel, EntsDataModel, Table> {
-    return new QueryOnePromise(
-      this.ctx,
-      this.entDefinitions,
-      this.table,
-      async (db) => {
-        const docs = await this.retrieve(db);
-        return docs[0] ?? null;
-      }
-    );
-  }
-
-  // This just returns the unique retrieved document, it does not optimize
-  // the previous steps in the query. It behaves like db.query().unique()
-  unique(): QueryOnePromise<DataModel, EntsDataModel, Table> {
-    return new QueryOnePromise(
-      this.ctx,
-      this.entDefinitions,
-      this.table,
-      async (db) => {
-        const docs = await this.retrieve(db);
-        if (docs.length === 2) {
-          throw new Error("unique() query returned more than one result");
-        }
-        return docs[0] ?? null;
-      }
-    );
-  }
-
+> extends Promise<EntByName<DataModel, EntsDataModel, Table> | null> {
   then<
-    TResult1 = EntByName<DataModel, EntsDataModel, Table>[],
+    TResult1 = EntByName<DataModel, EntsDataModel, Table> | null,
     TResult2 = never
   >(
     onfulfilled?:
       | ((
-          value: EntByName<DataModel, EntsDataModel, Table>[]
+          value: EntByName<DataModel, EntsDataModel, Table> | null
         ) => TResult1 | PromiseLike<TResult1>)
       | undefined
       | null,
@@ -480,23 +494,44 @@ class QueryMultiplePromise<
       | ((reason: any) => TResult2 | PromiseLike<TResult2>)
       | undefined
       | null
-  ): Promise<TResult1 | TResult2> {
-    return this.retrieve(this.ctx.db)
-      .then((docs) =>
-        docs.map((doc) =>
-          entWrapper(doc, this.ctx, this.entDefinitions, this.table)
-        )
-      )
-      .then(onfulfilled, onrejected);
-  }
+  ): Promise<TResult1 | TResult2>;
+
+  edge<Edge extends keyof EntsDataModel[Table]["edges"]>(
+    edge: Edge
+  ): PromiseEdgeOrNull<DataModel, EntsDataModel, Table, Edge>;
 }
 
-// TODO: QueryOnePromise needs to be split to QueryOnePromise and QueryOneOrNullPromise
-class QueryOnePromise<
+interface PromiseEnt<
   DataModel extends GenericDataModel,
   EntsDataModel extends GenericEntsDataModel<DataModel>,
   Table extends TableNamesInDataModel<DataModel>
-> extends Promise<EntByName<DataModel, EntsDataModel, Table> | null> {
+> extends Promise<EntByName<DataModel, EntsDataModel, Table>> {
+  then<TResult1 = EntByName<DataModel, EntsDataModel, Table>, TResult2 = never>(
+    onfulfilled?:
+      | ((
+          value: EntByName<DataModel, EntsDataModel, Table>
+        ) => TResult1 | PromiseLike<TResult1>)
+      | undefined
+      | null,
+    onrejected?:
+      | ((reason: any) => TResult2 | PromiseLike<TResult2>)
+      | undefined
+      | null
+  ): Promise<TResult1 | TResult2>;
+
+  edge<Edge extends keyof EntsDataModel[Table]["edges"]>(
+    edge: Edge
+  ): PromiseEdge<DataModel, EntsDataModel, Table, Edge>;
+}
+
+class PromiseEntOrNullImpl<
+    DataModel extends GenericDataModel,
+    EntsDataModel extends GenericEntsDataModel<DataModel>,
+    Table extends TableNamesInDataModel<DataModel>
+  >
+  extends Promise<EntByName<DataModel, EntsDataModel, Table> | null>
+  implements PromiseEntOrNull<DataModel, EntsDataModel, Table>
+{
   constructor(
     private ctx: GenericQueryCtx<DataModel>,
     private entDefinitions: EntsDataModel,
@@ -532,32 +567,14 @@ class QueryOnePromise<
       .then(onfulfilled, onrejected);
   }
 
-  edge<Edge extends keyof EntsDataModel[Table]["edges"]>(
-    edge: Edge
-  ): EntsDataModel[Table]["edges"][Edge]["cardinality"] extends "multiple"
-    ? EntsDataModel[Table]["edges"][Edge]["type"] extends "ref"
-      ? QueryMultipleOrNullPromise<
-          DataModel,
-          EntsDataModel,
-          EntsDataModel[Table]["edges"][Edge]["to"]
-        >
-      : QueryQueryOrNullPromise<
-          DataModel,
-          EntsDataModel,
-          EntsDataModel[Table]["edges"][Edge]["to"]
-        >
-    : QueryOnePromise<
-        DataModel,
-        EntsDataModel,
-        EntsDataModel[Table]["edges"][Edge]["to"]
-      > {
+  edge<Edge extends keyof EntsDataModel[Table]["edges"]>(edge: Edge) {
     const edgeDefinition: EdgeConfig = (
       this.entDefinitions[this.table].edges as any
     ).filter(({ name }: EdgeConfig) => name === edge)[0];
 
     if (edgeDefinition.cardinality === "multiple") {
       if (edgeDefinition.type === "ref") {
-        return new QueryMultipleOrNullPromise(
+        return new PromiseEntsOrNullImpl(
           this.ctx,
           this.entDefinitions,
           edgeDefinition.to,
@@ -593,7 +610,7 @@ class QueryOnePromise<
           }
         ) as any;
       }
-      return new QueryQueryOrNullPromise(
+      return new PromiseQueryOrNullImpl(
         this.ctx,
         this.entDefinitions,
         edgeDefinition.to,
@@ -611,7 +628,7 @@ class QueryOnePromise<
       ) as any;
     }
 
-    return new QueryOnePromise(
+    return new PromiseEntOrNullImpl(
       this.ctx,
       this.entDefinitions,
       edgeDefinition.to,
@@ -657,7 +674,7 @@ function entWrapper<
   entDefinitions: EntsDataModel,
   table: Table
 ): EntByName<DataModel, EntsDataModel, Table> {
-  const queryInterface = new QueryOnePromise(
+  const queryInterface = new PromiseEntOrNullImpl(
     ctx,
     entDefinitions,
     table,
@@ -685,11 +702,13 @@ export function tableFactory<
   DataModel extends GenericDataModel,
   EntsDataModel extends GenericEntsDataModel<DataModel>
 >(ctx: GenericQueryCtx<DataModel>, entDefinitions: EntsDataModel) {
-  return <Table extends TableNamesInDataModel<DataModel>>(table: Table) => {
+  return <Table extends TableNamesInDataModel<DataModel>>(
+    table: Table
+  ): PromiseTable<DataModel, EntsDataModel, Table> => {
     if (typeof table !== "string") {
       throw new Error(`Expected table name, got \`${table as any}\``);
     }
-    return new QueryPromise(ctx, entDefinitions, table);
+    return new PromiseTableImpl(ctx, entDefinitions, table) as any;
   };
 }
 
@@ -701,28 +720,52 @@ type EntByName<
   DocumentByName<DataModel, Table> & {
     edge<Edge extends keyof EntsDataModel[Table]["edges"]>(
       edge: Edge
-    ): EdgeQuery<DataModel, EntsDataModel, Table, Edge>;
+    ): PromiseEdge<DataModel, EntsDataModel, Table, Edge>;
   }
 >;
 
-type EdgeQuery<
+type PromiseEdge<
   DataModel extends GenericDataModel,
   EntsDataModel extends GenericEntsDataModel<DataModel>,
   Table extends TableNamesInDataModel<DataModel>,
   Edge extends keyof EntsDataModel[Table]["edges"]
 > = EntsDataModel[Table]["edges"][Edge]["cardinality"] extends "multiple"
   ? EntsDataModel[Table]["edges"][Edge]["type"] extends "ref"
-    ? QueryMultiplePromise<
+    ? PromiseEnts<
         DataModel,
         EntsDataModel,
         EntsDataModel[Table]["edges"][Edge]["to"]
       >
-    : QueryQueryPromise<
+    : PromiseQuery<
         DataModel,
         EntsDataModel,
         EntsDataModel[Table]["edges"][Edge]["to"]
       >
-  : QueryOnePromise<
+  : // TODO: Split the type based on optionality here
+    PromiseEnt<
+      DataModel,
+      EntsDataModel,
+      EntsDataModel[Table]["edges"][Edge]["to"]
+    >;
+
+type PromiseEdgeOrNull<
+  DataModel extends GenericDataModel,
+  EntsDataModel extends GenericEntsDataModel<DataModel>,
+  Table extends TableNamesInDataModel<DataModel>,
+  Edge extends keyof EntsDataModel[Table]["edges"]
+> = EntsDataModel[Table]["edges"][Edge]["cardinality"] extends "multiple"
+  ? EntsDataModel[Table]["edges"][Edge]["type"] extends "ref"
+    ? PromiseEntsOrNull<
+        DataModel,
+        EntsDataModel,
+        EntsDataModel[Table]["edges"][Edge]["to"]
+      >
+    : PromiseQueryOrNull<
+        DataModel,
+        EntsDataModel,
+        EntsDataModel[Table]["edges"][Edge]["to"]
+      >
+  : PromiseEntOrNull<
       DataModel,
       EntsDataModel,
       EntsDataModel[Table]["edges"][Edge]["to"]

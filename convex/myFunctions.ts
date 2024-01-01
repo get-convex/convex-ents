@@ -9,7 +9,7 @@ const query = customQuery(
   customCtx(async (ctx) => {
     return {
       table: tableFactory(ctx, entDefinitions),
-      db: undefined,
+      // db: undefined,
     };
   })
 );
@@ -51,7 +51,7 @@ export const test = query({
         "messages",
         "profile",
       ]);
-      assertEqual(usersWithMessagesAndProfile[0].profile!.bio, "Hello world");
+      assertEqual(usersWithMessagesAndProfile[0].profile.bio, "Hello world");
     }
 
     {
@@ -81,8 +81,7 @@ export const test = query({
     {
       const firstProfile = await ctx.table("profiles").first();
       const user = await firstProfile!.edge("user");
-      // TODO: Should not be nullable
-      assertEqual(user!.name, "Stark");
+      assertEqual(user.name, "Stark");
     }
     {
       const id = (await ctx.table("users").first())!._id;
