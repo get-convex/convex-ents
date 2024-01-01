@@ -26,10 +26,17 @@ const schema = defineEntSchema(
       name: v.string(),
     }).edges("messages"),
 
-    posts: defineEnt({})
+    posts: defineEnt({
+      text: v.string(),
+    })
       .field("numLikes", v.number(), { default: 0 })
       .field("type", v.union(v.literal("text"), v.literal("video")), {
         default: "text",
+      })
+      .index("numLikesAndType", ["numLikes", "type"])
+      .searchIndex("type", {
+        searchField: "text",
+        filterFields: ["type"],
       }),
   },
   { schemaValidation: false }

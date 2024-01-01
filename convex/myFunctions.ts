@@ -19,10 +19,12 @@ export const test = query({
 
   handler: async (ctx) => {
     {
+      // Default fields
       const firstPost = await ctx.table("posts").first();
       assertEqual(firstPost!.numLikes, 0);
       assertEqual(firstPost!.type, "text");
     }
+
     {
       const someFlag = false;
       const [firstUser, secondUser] = await ctx.table("users").take(2);
@@ -224,7 +226,12 @@ export const seed = mutation(async (ctx) => {
     aId: userId2,
     bId: userId,
   });
-  await ctx.db.insert("posts", {} as any);
+  await ctx.db.insert("posts", { text: "My great post" } as any);
+  await ctx.db.insert("posts", {
+    text: "My great video",
+    type: "video",
+    numLikes: 4,
+  });
 });
 
 export const list = query(async (ctx, args) => {

@@ -6,6 +6,8 @@ import {
   GenericTableSearchIndexes,
   GenericTableVectorIndexes,
   SchemaDefinition,
+  SearchIndexConfig,
+  // VectorIndexConfig,
   TableDefinition,
   TableNamesInDataModel,
   defineSchema,
@@ -175,6 +177,104 @@ interface EntDefinition<
     SearchIndexes,
     VectorIndexes
   > {
+  /**
+   * Define an index on this table.
+   *
+   * To learn about indexes, see [Defining Indexes](https://docs.convex.dev/using/indexes).
+   *
+   * @param name - The name of the index.
+   * @param fields - The fields to index, in order. Must specify at least one
+   * field.
+   * @returns A {@link TableDefinition} with this index included.
+   */
+  index<
+    IndexName extends string,
+    FirstFieldPath extends FieldPaths,
+    RestFieldPaths extends FieldPaths[]
+  >(
+    name: IndexName,
+    fields: [FirstFieldPath, ...RestFieldPaths]
+  ): EntDefinition<
+    Document,
+    FieldPaths,
+    Expand<
+      Indexes &
+        Record<IndexName, [FirstFieldPath, ...RestFieldPaths, "_creationTime"]>
+    >,
+    SearchIndexes,
+    VectorIndexes
+  >;
+
+  /**
+   * Define a search index on this table.
+   *
+   * To learn about search indexes, see [Search](https://docs.convex.dev/text-search).
+   *
+   * @param name - The name of the index.
+   * @param indexConfig - The search index configuration object.
+   * @returns A {@link TableDefinition} with this search index included.
+   */
+  searchIndex<
+    IndexName extends string,
+    SearchField extends FieldPaths,
+    FilterFields extends FieldPaths = never
+  >(
+    name: IndexName,
+    indexConfig: Expand<SearchIndexConfig<SearchField, FilterFields>>
+  ): EntDefinition<
+    Document,
+    FieldPaths,
+    Indexes,
+    Expand<
+      SearchIndexes &
+        Record<
+          IndexName,
+          {
+            searchField: SearchField;
+            filterFields: FilterFields;
+          }
+        >
+    >,
+    VectorIndexes
+  >;
+
+  // TODO: For some reason this breaks types,
+  // even though I changed VectorIndexConfig to be exported
+  // from convex/server
+  // /**
+  //  * Define a vector index on this table.
+  //  *
+  //  * To learn about vector indexes, see [Vector Search](https://docs.convex.dev/vector-search).
+  //  *
+  //  * @param name - The name of the index.
+  //  * @param indexConfig - The vector index configuration object.
+  //  * @returns A {@link TableDefinition} with this vector index included.
+  //  */
+  // vectorIndex<
+  //   IndexName extends string,
+  //   VectorField extends FieldPaths,
+  //   FilterFields extends FieldPaths = never
+  // >(
+  //   name: IndexName,
+  //   indexConfig: Expand<VectorIndexConfig<VectorField, FilterFields>>
+  // ): EntDefinition<
+  //   Document,
+  //   FieldPaths,
+  //   Indexes,
+  //   SearchIndexes,
+  //   Expand<
+  //     VectorIndexes &
+  //       Record<
+  //         IndexName,
+  //         {
+  //           vectorField: VectorField;
+  //           dimensions: number;
+  //           filterFields: FilterFields;
+  //         }
+  //       >
+  //   >
+  // >;
+
   field<FieldName extends string, T extends Validator<any, any, any>>(
     field: FieldName,
     validator: T
