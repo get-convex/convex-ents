@@ -24,7 +24,16 @@ export const test = query({
       assertEqual(firstPost!.numLikes, 0);
       assertEqual(firstPost!.type, "text");
     }
-
+    {
+      const firstVideoWithMoreThan3Likes = await ctx
+        .table("posts", "numLikesAndType", (q) =>
+          q.eq("type", "video").gt("numLikes", 3)
+        )
+        .first();
+      assertEqual(firstVideoWithMoreThan3Likes!.text, "My great video");
+      assertEqual(firstVideoWithMoreThan3Likes!.numLikes, 4);
+      assertEqual(firstVideoWithMoreThan3Likes!.type, "video");
+    }
     {
       const someFlag = false;
       const [firstUser, secondUser] = await ctx.table("users").take(2);

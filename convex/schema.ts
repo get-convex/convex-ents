@@ -33,7 +33,7 @@ const schema = defineEntSchema(
       .field("type", v.union(v.literal("text"), v.literal("video")), {
         default: "text",
       })
-      .index("numLikesAndType", ["numLikes", "type"])
+      .index("numLikesAndType", ["type", "numLikes"])
       .searchIndex("type", {
         searchField: "text",
         filterFields: ["type"],

@@ -7,6 +7,9 @@ import {
   GenericDatabaseReader,
   GenericQueryCtx,
   IndexNames,
+  IndexRange,
+  IndexRangeBuilder,
+  NamedIndex,
   NamedTableInfo,
   PaginationOptions,
   PaginationResult,
@@ -81,6 +84,8 @@ interface PromiseQueryOrNull<
   EntsDataModel extends GenericEntsDataModel<DataModel>,
   Table extends TableNamesInDataModel<DataModel>
 > extends PromiseOrderedQueryOrNull<DataModel, EntsDataModel, Table> {
+  // TODO: The index variant should not be allowed if
+  // this query already used an index
   order(
     order: "asc" | "desc",
     indexName?: IndexNames<NamedTableInfo<DataModel, Table>>
@@ -362,6 +367,28 @@ class PromiseTableImpl<
 
   normalizeId(id: string): GenericId<Table> | null {
     return this.ctx.db.normalizeId(this.table, id);
+  }
+
+  withIndex(
+    indexName: IndexNames<NamedTableInfo<DataModel, Table>>,
+    indexRange?: (
+      q: IndexRangeBuilder<
+        DocumentByName<DataModel, Table>,
+        NamedIndex<NamedTableInfo<DataModel, Table>, typeof indexName>
+      >
+    ) => IndexRange
+  ) {
+    return new PromiseQueryOrNullImpl(
+      this.ctx,
+      this.entDefinitions,
+      this.table,
+      async (db) => {
+        const query = await this.retrieve(db);
+        return (
+          query as QueryInitializer<NamedTableInfo<DataModel, Table>>
+        ).withIndex(indexName, indexRange);
+      }
+    );
   }
 }
 
@@ -701,16 +728,49 @@ function entWrapper<
 export function tableFactory<
   DataModel extends GenericDataModel,
   EntsDataModel extends GenericEntsDataModel<DataModel>
->(ctx: GenericQueryCtx<DataModel>, entDefinitions: EntsDataModel) {
-  return <Table extends TableNamesInDataModel<DataModel>>(
-    table: Table
-  ): PromiseTable<DataModel, EntsDataModel, Table> => {
+>(
+  ctx: GenericQueryCtx<DataModel>,
+  entDefinitions: EntsDataModel
+): TableFactory<DataModel, EntsDataModel> {
+  return (
+    table: TableNamesInDataModel<DataModel>,
+    indexName?: string,
+    indexRange?: any
+  ) => {
     if (typeof table !== "string") {
       throw new Error(`Expected table name, got \`${table as any}\``);
     }
-    return new PromiseTableImpl(ctx, entDefinitions, table) as any;
+    const impl = new PromiseTableImpl(ctx, entDefinitions, table);
+    if (indexName !== undefined) {
+      return impl.withIndex(indexName, indexRange);
+    }
+    return impl as any;
   };
 }
+
+type TableFactory<
+  DataModel extends GenericDataModel,
+  EntsDataModel extends GenericEntsDataModel<DataModel>
+> = {
+  <
+    Table extends TableNamesInDataModel<DataModel>,
+    IndexName extends IndexNames<NamedTableInfo<DataModel, Table>>
+  >(
+    table: Table,
+    indexName: IndexName,
+    indexRange?: (
+      q: IndexRangeBuilder<
+        DocumentByName<DataModel, Table>,
+        NamedIndex<NamedTableInfo<DataModel, Table>, IndexName>
+      >
+    ) => IndexRange
+  ): PromiseQuery<DataModel, EntsDataModel, Table>;
+  <Table extends TableNamesInDataModel<DataModel>>(table: Table): PromiseTable<
+    DataModel,
+    EntsDataModel,
+    Table
+  >;
+};
 
 type EntByName<
   DataModel extends GenericDataModel,
