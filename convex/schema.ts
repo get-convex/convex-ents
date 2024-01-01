@@ -25,6 +25,12 @@ const schema = defineEntSchema(
     tags: defineEnt({
       name: v.string(),
     }).edges("messages"),
+
+    posts: defineEnt({})
+      .field("numLikes", v.number(), { default: 0 })
+      .field("type", v.union(v.literal("text"), v.literal("video")), {
+        default: "text",
+      }),
   },
   { schemaValidation: false }
 );

@@ -198,6 +198,18 @@ interface EntDefinition<
     VectorIndexes,
     Edges
   >;
+  field<FieldName extends string, T extends Validator<any, false, any>>(
+    field: FieldName,
+    validator: T,
+    options: { default: T["type"] }
+  ): EntDefinition<
+    Document & { [key in FieldName]: T["type"] },
+    FieldPaths | FieldName,
+    Indexes,
+    SearchIndexes,
+    VectorIndexes,
+    Edges
+  >;
 
   edge<EdgeName extends string>(
     edge: EdgeName
@@ -304,6 +316,7 @@ interface EntDefinition<
 
 type FieldOptions = {
   index?: true;
+  default?: any;
 };
 
 type EdgeOptions = {
@@ -329,6 +342,8 @@ class EntDefinitionImpl {
   private documentSchema: Record<string, Validator<any, any, any>>;
 
   private edgeConfigs: EdgeConfigFromEntDefinition[];
+
+  private defaults: Record<string, any> = {};
 
   constructor(documentSchema: Record<string, Validator<any, any, any>>) {
     this.indexes = [];
@@ -378,9 +393,14 @@ class EntDefinitionImpl {
   }
 
   field(name: string, validator: any, options?: FieldOptions): this {
-    this.documentSchema = { ...this.documentSchema, [name]: validator };
+    const finalValidator =
+      options?.default !== undefined ? v.optional(validator) : validator;
+    this.documentSchema = { ...this.documentSchema, [name]: finalValidator };
     if (options?.index === true) {
       this.indexes.push({ indexDescriptor: name, fields: [name] });
+    }
+    if (options?.default !== undefined) {
+      this.defaults[name] = options.default;
     }
     return this;
   }
@@ -562,6 +582,7 @@ export function getEntDefinitions<
     (acc, tableName) => ({
       ...acc,
       [tableName]: {
+        defaults: tables[tableName].defaults,
         edges: tables[tableName].edgeConfigs,
       },
     }),
