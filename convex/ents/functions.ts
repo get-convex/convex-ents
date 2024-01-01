@@ -741,8 +741,13 @@ type PromiseEdge<
         EntsDataModel,
         EntsDataModel[Table]["edges"][Edge]["to"]
       >
-  : // TODO: Split the type based on optionality here
-    PromiseEnt<
+  : EntsDataModel[Table]["edges"][Edge]["type"] extends "ref"
+  ? PromiseEntOrNull<
+      DataModel,
+      EntsDataModel,
+      EntsDataModel[Table]["edges"][Edge]["to"]
+    >
+  : PromiseEnt<
       DataModel,
       EntsDataModel,
       EntsDataModel[Table]["edges"][Edge]["to"]

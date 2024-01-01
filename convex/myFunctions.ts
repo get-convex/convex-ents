@@ -51,7 +51,7 @@ export const test = query({
         "messages",
         "profile",
       ]);
-      assertEqual(usersWithMessagesAndProfile[0].profile.bio, "Hello world");
+      assertEqual(usersWithMessagesAndProfile[0].profile!.bio, "Hello world");
     }
 
     {
