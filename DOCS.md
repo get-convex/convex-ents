@@ -1,8 +1,108 @@
+# Ents
+
 Ents (short for entity) are Convex documents, which allow explicitly declaring
 edges (relationships) to other documents. The simplest Ent has no fields besides
-the built-in \_id and \_creationTime fields, and no declared edges. Ents can
+the built-in `_id` and `creationTime` fields, and no declared edges. Ents can
 contain all the same field types Convex documents can. Ents are stored in tables
 in the Convex database.
+
+Unlike bare documents, Ents require a schema. Here's a minimal example of the
+`schema.ts` file using Ents:
+
+```ts
+import { v } from "convex/values";
+import { defineEnt, defineEntSchema, getEntDefinitions } from "convex-ent";
+
+const schema = defineEntSchema({
+  messages: defineEnt({
+    text: v.string(),
+  }).edge("user"),
+
+  users: defineEnt({
+    name: v.string(),
+  }).edges("messages"),
+});
+
+export default schema;
+
+export const entDefinitions = getEntDefinitions(schema);
+```
+
+`defineEntSchema` replaces `defineSchema` and `defineEnt` replaces `defineTable`
+from `convex/server`. Besides exporting the `schema`, which is used by Convex
+for schema validation, we also export `entDefinitions`, which include the
+runtime information needed to enable retrieving Ents via edges and other
+features.
+
+## Fields
+
+An Ent field is a field in its backing document. Some types of [edges](#edges)
+add additional fields not directly specified in the schema.
+
+For Ents fields can be further configured.
+
+### Indexed fields
+
+`defineEnt` provides a shortcut for declaring a field and a simple index over
+the field. Indexes allow efficient point and range lookups and efficient sorting
+of the results by the indexed field. The following schema:
+
+```ts
+defineSchema({
+  users: defineEnt({}).field("email", v.string(), { index: true }),
+});
+```
+
+declares that "users" ents have one field, `"email"` of type `string`, and one
+index called `"email"` over the `"email"` field. It is exactly equivalent to the
+following schema:
+
+```ts
+defineEntSchema({
+  users: defineEnt({
+    email: v.string(),
+  }).index("email", ["email"]),
+});
+```
+
+### Field defaults
+
+When evolving a schema, especially in production, the simplest way to modify the
+shape of documents in the database is to add an optional field. Having an
+optional field means that our code either always has to handle the "missing"
+value case (the value is `undefined`), or we need to perform a careful migration
+to backfill all the documents and set the field value.
+
+Ents simplify this shape evolution by allowing to specify a default for a field.
+The following schema:
+
+```ts
+defineEntSchema({
+  posts: defineEnt({}).field(
+    "contentType",
+    v.union(v.literal("text"), v.literal("video")),
+    { default: "text" }
+  ),
+});
+```
+
+declares that "posts" ents have one **optional** field `"contentType"`,
+containing a string, either `"text"` or `"video"`. When the value is missing
+from the backing document, the default value `"text"` is returned. Without
+specifying the default value, the schema could look like:
+
+```ts
+defineEntSchema({
+  posts: defineEnt({
+    contentType: v.optional(v.union(v.literal("text"), v.literal("video"))),
+  }),
+});
+```
+
+but for this schema the `contentType` field missing must be handled by the code
+reading the ent.
+
+## Edges
 
 An edge is a representation of some business logic modelled by the database.
 Some examples are:
@@ -34,7 +134,7 @@ them: Edges are always declared on the ents that constitute its ends. Let's take
 the example of users authoring messages:
 
 ```ts
-defineSchema({
+defineEntSchema({
   users: defineEnt({
     name: v.string(),
   }).edges("messages"),
@@ -71,7 +171,7 @@ documents are created (see [circular references](#)). Here's a basic example of
 a 1:1 edge:
 
 ```ts
-defineSchema({
+defineEntSchema({
   users: defineEnt({
     name: v.string(),
   }).edge("profile", { optional: true }),
@@ -91,7 +191,7 @@ specify the field name. We can choose to specify the field name even if we have
 only one edge:
 
 ```ts
-defineSchema({
+defineEntSchema({
   users: defineEnt({
     name: v.string(),
   }).edge("profile", { ref: "ownerId", optional: true }),
@@ -110,7 +210,7 @@ symmetrical edge). We can also provide the table names specifically, from either
 or both ends:
 
 ```ts
-defineSchema({
+defineEntSchema({
   users: defineEnt({
     name: v.string(),
   }).edge("info", { to: "profiles", ref: "ownerId", optional: true }),
@@ -129,7 +229,7 @@ database (the field name is, as part of each document that stores its value).
 example:
 
 ```ts
-defineSchema({
+defineEntSchema({
   users: defineEnt({
     name: v.string(),
   }).edges("messages"),
@@ -149,7 +249,7 @@ specify the field name. We can choose to specify the field name even if we have
 only one edge:
 
 ```ts
-defineSchema({
+defineEntSchema({
   users: defineEnt({
     name: v.string(),
   }).edges("messages", { ref: "authorId" }),
@@ -165,7 +265,7 @@ symmetrical edge). We can also provide the table names explicitly, from either
 or both ends:
 
 ```ts
-defineSchema({
+defineEntSchema({
   users: defineEnt({
     name: v.string(),
   }).edges("authoredMessages", { to: "messages", ref: "authorId" }),
@@ -181,7 +281,7 @@ Many:many edges are always stored in a separate table, and both ends of the edge
 use the `edges` method:
 
 ```ts
-defineSchema({
+defineEntSchema({
   messages: defineEnt({
     name: v.string(),
   }).edges("tags"),
@@ -199,7 +299,7 @@ the same pair of tables, we have to provide the name of the table storing the
 edge. We can do this even if we have only one edge:
 
 ```ts
-defineSchema({
+defineEntSchema({
   messages: defineEnt({
     name: v.string(),
   }).edges("tags", { table: "messages_to_assignedTags" }),
@@ -216,7 +316,7 @@ them explicitly using the `field` option.
 As with 1:many edges, we can give the edges names:
 
 ```ts
-defineSchema({
+defineEntSchema({
   messages: defineEnt({
     name: v.string(),
   }).edges("assignedTags", { to: "tags", table: "messages_to_assignedTags" }),
@@ -235,7 +335,7 @@ Self-directed edges have the ents on both ends of the edge stored in the same
 table.
 
 ```ts
-defineSchema({
+defineEntSchema({
   users: defineEnt({
     name: v.string(),
   }).edges("followers", { to: "users", inverse: "followees" }),
@@ -256,7 +356,7 @@ Symmetrical edges also have the ents on both ends of the edge stored in the same
 table, but additionally they "double-write" the edge for both directions:
 
 ```ts
-defineSchema({
+defineEntSchema({
   users: defineEnt({
     name: v.string(),
   }).edges("friends", { to: "users" }),
