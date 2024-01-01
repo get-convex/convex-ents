@@ -35,6 +35,15 @@ export const test = query({
       assertEqual(firstVideoWithMoreThan3Likes!.type, "video");
     }
     {
+      const foundPost = await ctx
+        .table("posts")
+        .search("text", (q) => q.search("text", "awesome").eq("type", "video"))
+        .first();
+      assertEqual(foundPost!.text, "My awesome video");
+      assertEqual(foundPost!.numLikes, 0);
+      assertEqual(foundPost!.type, "video");
+    }
+    {
       const someFlag = false;
       const [firstUser, secondUser] = await ctx.table("users").take(2);
       const user = someFlag ? firstUser : secondUser;
@@ -240,6 +249,11 @@ export const seed = mutation(async (ctx) => {
     text: "My great video",
     type: "video",
     numLikes: 4,
+  });
+  await ctx.db.insert("posts", {
+    text: "My awesome video",
+    type: "video",
+    numLikes: 0,
   });
 });
 

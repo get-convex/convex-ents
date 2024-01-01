@@ -10,11 +10,15 @@ import {
   IndexRange,
   IndexRangeBuilder,
   NamedIndex,
+  NamedSearchIndex,
   NamedTableInfo,
   PaginationOptions,
   PaginationResult,
   Query,
   QueryInitializer,
+  SearchFilter,
+  SearchFilterBuilder,
+  SearchIndexNames,
   TableNamesInDataModel,
 } from "convex/server";
 import { GenericId } from "convex/values";
@@ -106,6 +110,36 @@ interface PromiseTable<
     >
   ): PromiseEntOrNull<DataModel, EntsDataModel, Table>;
   get(id: GenericId<Table>): PromiseEntOrNull<DataModel, EntsDataModel, Table>;
+
+  /**
+   * Query by running a full text search against a search index.
+   *
+   * Search queries must always search for some text within the index's
+   * `searchField`. This query can optionally add equality filters for any
+   * `filterFields` specified in the index.
+   *
+   * Documents will be returned in relevance order based on how well they
+   * match the search text.
+   *
+   * To learn about full text search, see [Indexes](https://docs.convex.dev/text-search).
+   *
+   * @param indexName - The name of the search index to query.
+   * @param searchFilter - A search filter expression constructed with the
+   * supplied {@link SearchFilterBuilder}. This defines the full text search to run
+   * along with equality filtering to run within the search index.
+   * @returns - A query that searches for matching documents, returning them
+   * in relevancy order.
+   */
+  search<IndexName extends SearchIndexNames<NamedTableInfo<DataModel, Table>>>(
+    indexName: IndexName,
+    searchFilter: (
+      q: SearchFilterBuilder<
+        DocumentByName<DataModel, Table>,
+        NamedSearchIndex<NamedTableInfo<DataModel, Table>, IndexName>
+      >
+    ) => SearchFilter
+  ): PromiseOrderedQuery<DataModel, EntsDataModel, Table>;
+
   normalizeId(id: string): GenericId<Table> | null;
 }
 
@@ -387,6 +421,28 @@ class PromiseTableImpl<
         return (
           query as QueryInitializer<NamedTableInfo<DataModel, Table>>
         ).withIndex(indexName, indexRange);
+      }
+    );
+  }
+
+  search<IndexName extends SearchIndexNames<NamedTableInfo<DataModel, Table>>>(
+    indexName: IndexName,
+    searchFilter: (
+      q: SearchFilterBuilder<
+        DocumentByName<DataModel, Table>,
+        NamedSearchIndex<NamedTableInfo<DataModel, Table>, IndexName>
+      >
+    ) => SearchFilter
+  ) {
+    return new PromiseQueryOrNullImpl(
+      this.ctx,
+      this.entDefinitions,
+      this.table,
+      async (db) => {
+        const query = await this.retrieve(db);
+        return (
+          query as QueryInitializer<NamedTableInfo<DataModel, Table>>
+        ).withSearchIndex(indexName, searchFilter) as any;
       }
     );
   }

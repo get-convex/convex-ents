@@ -34,7 +34,7 @@ const schema = defineEntSchema(
         default: "text",
       })
       .index("numLikesAndType", ["type", "numLikes"])
-      .searchIndex("type", {
+      .searchIndex("text", {
         searchField: "text",
         filterFields: ["type"],
       }),
