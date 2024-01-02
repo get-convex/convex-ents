@@ -24,7 +24,12 @@ export interface TableWriter<
    */
   // TODO: Chain methods to get the written document?
   insert(
-    value: WithoutSystemFields<DocumentByName<DataModel, Table>>
+    value: WithoutSystemFields<
+      WithDefaultedOptional<
+        DocumentByName<DataModel, Table>,
+        EntsDataModel[Table]["defaultedFields"]
+      >
+    >
   ): Promise<GenericId<Table>>;
 
   /**
@@ -52,7 +57,12 @@ export interface TableWriter<
    */
   replace(
     id: GenericId<Table>,
-    value: WithOptionalSystemFields<DocumentByName<DataModel, Table>>
+    value: WithOptionalSystemFields<
+      WithDefaultedOptional<
+        DocumentByName<DataModel, Table>,
+        EntsDataModel[Table]["defaultedFields"]
+      >
+    >
   ): Promise<void>;
 
   /**
@@ -124,3 +134,10 @@ export class TableWriterImpl<
     return this.ctx.db.delete(id);
   }
 }
+
+type WithDefaultedOptional<
+  Document extends Record<string, any>,
+  DefaultedFields extends string
+> = Omit<Document, DefaultedFields> & {
+  [key in DefaultedFields]?: Document[key];
+};

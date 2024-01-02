@@ -261,7 +261,7 @@ export const seed = mutation(async (ctx) => {
     aId: userId2,
     bId: userId,
   });
-  await ctx.table("posts").insert({ text: "My great post" } as any);
+  await ctx.table("posts").insert({ text: "My great post" });
   await ctx.table("posts").insert({
     text: "My great video",
     type: "video",

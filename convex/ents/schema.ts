@@ -169,7 +169,8 @@ interface EntDefinition<
   // eslint-disable-next-line @typescript-eslint/ban-types
   VectorIndexes extends GenericTableVectorIndexes = {},
   // eslint-disable-next-line @typescript-eslint/ban-types
-  Edges extends GenericEdges<any> = {}
+  Edges extends GenericEdges<any> = {},
+  DefaultedFields extends string = string
 > extends TableDefinition<
     Document,
     FieldPaths,
@@ -202,7 +203,9 @@ interface EntDefinition<
         Record<IndexName, [FirstFieldPath, ...RestFieldPaths, "_creationTime"]>
     >,
     SearchIndexes,
-    VectorIndexes
+    VectorIndexes,
+    Edges,
+    DefaultedFields
   >;
 
   /**
@@ -235,7 +238,9 @@ interface EntDefinition<
           }
         >
     >,
-    VectorIndexes
+    VectorIndexes,
+    Edges,
+    DefaultedFields
   >;
 
   // TODO: For some reason this breaks types,
@@ -284,7 +289,8 @@ interface EntDefinition<
     Indexes,
     SearchIndexes,
     VectorIndexes,
-    Edges
+    Edges,
+    DefaultedFields
   >;
   field<FieldName extends string, T extends Validator<any, any, any>>(
     field: FieldName,
@@ -296,7 +302,8 @@ interface EntDefinition<
     Indexes & { [key in FieldName]: [FieldName] },
     SearchIndexes,
     VectorIndexes,
-    Edges
+    Edges,
+    DefaultedFields | FieldName
   >;
   field<FieldName extends string, T extends Validator<any, false, any>>(
     field: FieldName,
@@ -308,7 +315,8 @@ interface EntDefinition<
     Indexes,
     SearchIndexes,
     VectorIndexes,
-    Edges
+    Edges,
+    DefaultedFields
   >;
 
   edge<EdgeName extends string>(
@@ -326,7 +334,8 @@ interface EntDefinition<
         type: "field";
         cardinality: "single";
       };
-    }
+    },
+    DefaultedFields
   >;
   edge<EdgeName extends string>(
     edge: EdgeName,
@@ -344,7 +353,8 @@ interface EntDefinition<
         type: "ref";
         cardinality: "single";
       };
-    }
+    },
+    DefaultedFields
   >;
 
   edges<EdgesName extends string>(
@@ -362,7 +372,8 @@ interface EntDefinition<
         type: "ref";
         cardinality: "multiple";
       };
-    }
+    },
+    DefaultedFields
   >;
   edges<EdgesName extends string, TableName extends string>(
     edge: EdgesName,
@@ -380,7 +391,8 @@ interface EntDefinition<
         type: "ref";
         cardinality: "multiple";
       };
-    }
+    },
+    DefaultedFields
   >;
   edges<
     EdgesName extends string,
@@ -409,7 +421,8 @@ interface EntDefinition<
         type: "ref";
         cardinality: "multiple";
       };
-    }
+    },
+    DefaultedFields
   >;
   edges(table: string, options: EdgesOptions): this;
 }
@@ -654,6 +667,7 @@ export type GenericEntsDataModel<DataModel extends GenericDataModel> = Record<
 
 export type GenericEntModel<DataModel extends GenericDataModel> = {
   edges: Record<string, GenericEdgeConfig<DataModel>>;
+  defaultedFields: string;
 };
 
 export type EntDataModelFromSchema<
@@ -666,10 +680,12 @@ export type EntDataModelFromSchema<
     any,
     any,
     any,
-    infer Edges
+    infer Edges,
+    infer DefaultedFields
   >
     ? {
         edges: Edges;
+        defaultedFields: DefaultedFields;
       }
     : never;
 };
