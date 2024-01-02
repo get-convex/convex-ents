@@ -1,6 +1,13 @@
-import { customCtx, customQuery } from "convex-helpers/server/customFunctions";
-import { query as baseQuery, mutation } from "./_generated/server";
-import { tableFactory } from "./ents/functions";
+import {
+  customCtx,
+  customMutation,
+  customQuery,
+} from "convex-helpers/server/customFunctions";
+import {
+  query as baseQuery,
+  mutation as baseMutation,
+} from "./_generated/server";
+import { entsReaderFactory, entsWriterFactory } from "./ents/functions";
 import expect from "@storybook/expect";
 import { entDefinitions } from "./schema";
 
@@ -8,8 +15,18 @@ const query = customQuery(
   baseQuery,
   customCtx(async (ctx) => {
     return {
-      table: tableFactory(ctx, entDefinitions),
-      // db: undefined,
+      table: entsReaderFactory(ctx, entDefinitions),
+      db: undefined,
+    };
+  })
+);
+
+const mutation = customMutation(
+  baseMutation,
+  customCtx(async (ctx) => {
+    return {
+      table: entsWriterFactory(ctx, entDefinitions),
+      db: undefined,
     };
   })
 );
@@ -196,61 +213,61 @@ export const test = query({
 });
 
 export const seed = mutation(async (ctx) => {
+  // Note: Currently not deleting edges
   for (const table of [
     "users",
     "messages",
     "profiles",
     "tags",
-    "documents",
-    "messages_to_tags",
-  ]) {
-    for (const { _id } of await ctx.db.query(table as any).collect()) {
-      await ctx.db.delete(_id);
+    "posts",
+  ] as const) {
+    for (const { _id } of await ctx.table(table)) {
+      await ctx.table(table).delete(_id);
     }
   }
 
-  const userId = await ctx.db.insert("users", {
+  const userId = await ctx.table("users").insert({
     name: "Stark",
     email: "tony@stark.com",
   });
-  const userId2 = await ctx.db.insert("users", {
+  const userId2 = await ctx.table("users").insert({
     name: "Musk",
     email: "elon@musk.com",
   });
-  const messageId = await ctx.db.insert("messages", {
+  const messageId = await ctx.table("messages").insert({
     text: "Hello world",
     userId,
   });
-  await ctx.db.insert("profiles", {
+  await ctx.table("profiles").insert({
     bio: "Hello world",
     userId,
   });
-  const tagsId = await ctx.db.insert("tags", {
+  const tagsId = await ctx.table("tags").insert({
     name: "Orange",
   });
-  await ctx.db.insert("messages_to_tags" as any, {
+  await ctx.table("messages_to_tags" as any).insert({
     messagesId: messageId,
     tagsId: tagsId,
   });
-  await ctx.db.insert("users_followees_to_followers" as any, {
+  await ctx.table("users_followees_to_followers" as any).insert({
     followeesId: userId2,
     followersId: userId,
   });
-  await ctx.db.insert("users_friends" as any, {
+  await ctx.table("users_friends" as any).insert({
     aId: userId,
     bId: userId2,
   });
-  await ctx.db.insert("users_friends" as any, {
+  await ctx.table("users_friends" as any).insert({
     aId: userId2,
     bId: userId,
   });
-  await ctx.db.insert("posts", { text: "My great post" } as any);
-  await ctx.db.insert("posts", {
+  await ctx.table("posts").insert({ text: "My great post" } as any);
+  await ctx.table("posts").insert({
     text: "My great video",
     type: "video",
     numLikes: 4,
   });
-  await ctx.db.insert("posts", {
+  await ctx.table("posts").insert({
     text: "My awesome video",
     type: "video",
     numLikes: 0,

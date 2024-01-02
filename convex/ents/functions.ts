@@ -5,6 +5,7 @@ import {
   FilterBuilder,
   GenericDataModel,
   GenericDatabaseReader,
+  GenericMutationCtx,
   GenericQueryCtx,
   IndexNames,
   IndexRange,
@@ -23,6 +24,7 @@ import {
 } from "convex/server";
 import { GenericId } from "convex/values";
 import { EdgeConfig, Expand, GenericEntsDataModel } from "./schema";
+import { TableWriter, TableWriterImpl } from "./writer";
 
 // TODO: Figure out how to make get() variadic
 // type FieldTypes<
@@ -96,7 +98,7 @@ interface PromiseQueryOrNull<
   ): PromiseOrderedQueryOrNull<DataModel, EntsDataModel, Table>;
 }
 
-interface PromiseTable<
+export interface PromiseTable<
   DataModel extends GenericDataModel,
   EntsDataModel extends GenericEntsDataModel<DataModel>,
   Table extends TableNamesInDataModel<DataModel>
@@ -361,7 +363,7 @@ class PromiseQueryOrNullImpl<
   }
 }
 
-class PromiseTableImpl<
+export class PromiseTableImpl<
   DataModel extends GenericDataModel,
   EntsDataModel extends GenericEntsDataModel<DataModel>,
   Table extends TableNamesInDataModel<DataModel>
@@ -781,13 +783,13 @@ function entWrapper<
   return doc as any;
 }
 
-export function tableFactory<
+export function entsReaderFactory<
   DataModel extends GenericDataModel,
   EntsDataModel extends GenericEntsDataModel<DataModel>
 >(
   ctx: GenericQueryCtx<DataModel>,
   entDefinitions: EntsDataModel
-): TableFactory<DataModel, EntsDataModel> {
+): EntsReaderFactory<DataModel, EntsDataModel> {
   return (
     table: TableNamesInDataModel<DataModel>,
     indexName?: string,
@@ -804,7 +806,22 @@ export function tableFactory<
   };
 }
 
-type TableFactory<
+export function entsWriterFactory<
+  DataModel extends GenericDataModel,
+  EntsDataModel extends GenericEntsDataModel<DataModel>
+>(
+  ctx: GenericMutationCtx<DataModel>,
+  entDefinitions: EntsDataModel
+): EntsWriterFactory<DataModel, EntsDataModel> {
+  return (table: TableNamesInDataModel<DataModel>) => {
+    if (typeof table !== "string") {
+      throw new Error(`Expected table name, got \`${table as any}\``);
+    }
+    return new TableWriterImpl(ctx, entDefinitions, table) as any;
+  };
+}
+
+type EntsReaderFactory<
   DataModel extends GenericDataModel,
   EntsDataModel extends GenericEntsDataModel<DataModel>
 > = {
@@ -822,6 +839,17 @@ type TableFactory<
     ) => IndexRange
   ): PromiseQuery<DataModel, EntsDataModel, Table>;
   <Table extends TableNamesInDataModel<DataModel>>(table: Table): PromiseTable<
+    DataModel,
+    EntsDataModel,
+    Table
+  >;
+};
+
+type EntsWriterFactory<
+  DataModel extends GenericDataModel,
+  EntsDataModel extends GenericEntsDataModel<DataModel>
+> = {
+  <Table extends TableNamesInDataModel<DataModel>>(table: Table): TableWriter<
     DataModel,
     EntsDataModel,
     Table
