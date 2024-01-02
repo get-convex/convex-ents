@@ -7,7 +7,7 @@ import {
   GenericTableVectorIndexes,
   SchemaDefinition,
   SearchIndexConfig,
-  // VectorIndexConfig,
+  VectorIndexConfig,
   TableDefinition,
   TableNamesInDataModel,
   defineSchema,
@@ -202,7 +202,8 @@ interface EntDefinition<
         Record<IndexName, [FirstFieldPath, ...RestFieldPaths, "_creationTime"]>
     >,
     SearchIndexes,
-    VectorIndexes
+    VectorIndexes,
+    Edges
   >;
 
   /**
@@ -235,7 +236,8 @@ interface EntDefinition<
           }
         >
     >,
-    VectorIndexes
+    VectorIndexes,
+    Edges
   >;
 
   // TODO: For some reason this breaks types,
@@ -272,7 +274,8 @@ interface EntDefinition<
   //           filterFields: FilterFields;
   //         }
   //       >
-  //   >
+  //   >,
+  //   Edges
   // >;
 
   field<FieldName extends string, T extends Validator<any, any, any>>(
