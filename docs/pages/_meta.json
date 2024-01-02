@@ -1,0 +1,10 @@
+{
+  "index": "Introduction",
+  "schema": "Ent Schema",
+  "contact": {
+    "title": "Community ↗",
+    "type": "page",
+    "href": "https://www.convex.dev/community",
+    "newWindow": true
+  }
+}
