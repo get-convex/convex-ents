@@ -166,10 +166,16 @@ export class TableWriterImpl<
           return;
         }
         if (edgeDefinition.cardinality === "single") {
-          const oldDoc = (await this.ctx.db.get(docId))!;
+          const existing = await this.ctx.db
+            .query(edgeDefinition.to)
+            .withIndex(edgeDefinition.ref, (q) =>
+              q.eq(edgeDefinition.ref, docId as any)
+            )
+            .unique();
+
           edges[key] = {
             add: value[key] as GenericId<any>,
-            remove: oldDoc[key] as GenericId<any> | undefined,
+            remove: existing?._id as GenericId<any> | undefined,
           };
         } else {
           edges[key] = value[key] as any;

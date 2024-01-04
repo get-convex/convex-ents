@@ -220,6 +220,9 @@ export const test2 = mutation(async (ctx) => {
       bio: "Hello world",
       userId: someUser!._id,
     });
+    // This should not be possible, type-wise and at runtime,
+    // because profile's user edge is not optional, so it
+    // cannot be removed, if there was an existing one
     const newUserId = await ctx.table("users").insert({
       name: "Gates",
       email: "bill@gates.com",
@@ -268,6 +271,43 @@ export const test2 = mutation(async (ctx) => {
     // TODO: Implement some edge deletion behavior
     await ctx.table("messages").delete(newMessageId);
     await ctx.table("tags").delete(newTagId);
+  }
+
+  // TODO: Enforce uniqueness for 1:1 field edges
+  // Patch 1:1 from ref side
+  {
+    const newUserId = await ctx.table("users").insert({
+      name: "Gates",
+      email: "bill@gates.com",
+    });
+    const newProfileId1 = await ctx.table("profiles").insert({
+      bio: "Hello world",
+      userId: newUserId,
+    });
+    // TODO: Enforce uniqueness for 1:1 field edges
+    const someUser = await ctx.table("users").first();
+    const newProfileId2 = await ctx.table("profiles").insert({
+      bio: "Hello world",
+      userId: someUser!._id,
+    });
+    // This should not be possible, type-wise and at runtime,
+    // because profile's user edge is not optional, so it
+    // cannot be removed, if there was an existing one
+    await ctx.table("users").patch(newUserId, {
+      profile: newProfileId2,
+    });
+    {
+      const updatedProfile1 = await ctx.table("profiles").get(newProfileId1);
+      assertEqual(updatedProfile1!.userId, undefined);
+    }
+    {
+      const updatedProfile2 = await ctx.table("profiles").get(newProfileId2);
+      assertEqual(updatedProfile2!.userId, newUserId);
+    }
+
+    await ctx.table("profiles").delete(newProfileId1);
+    await ctx.table("profiles").delete(newProfileId2);
+    await ctx.table("users").delete(newUserId);
   }
 });
 
