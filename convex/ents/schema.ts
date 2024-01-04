@@ -72,6 +72,7 @@ export function defineEntSchema<
           );
         }
         (edge as any).ref = inverseEdge.field;
+        (inverseEdge as any).unique = true;
       }
       if (edge.cardinality === "multiple") {
         if (edge.type !== null) {
@@ -565,6 +566,7 @@ export type EdgeConfig = {
       | {
           type: "field";
           field: string;
+          unique: boolean;
         }
       | { type: "ref"; ref: string }
     ))

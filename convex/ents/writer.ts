@@ -107,6 +107,7 @@ export class TableWriterImpl<
       >
     >
   ) {
+    await this.checkUniqueness(value);
     const fields = this.fieldsOnly(value as any);
     const docId = await this.ctx.db.insert(this.table, fields as any);
     const edges: EdgeChanges = {};
@@ -148,6 +149,7 @@ export class TableWriterImpl<
       >
     >
   ) {
+    await this.checkUniqueness(value, id);
     const fields = this.fieldsOnly(value);
     const docId = this.normalizeIdX(id);
     await this.ctx.db.patch(this.normalizeIdX(id), fields);
@@ -202,6 +204,7 @@ export class TableWriterImpl<
       >
     >
   ) {
+    await this.checkUniqueness(value, id);
     const fields = this.fieldsOnly(value as any);
     const docId = this.normalizeIdX(id);
     await this.ctx.db.replace(docId, fields as any);
@@ -271,6 +274,44 @@ export class TableWriterImpl<
    */
   delete(id: GenericId<TableNamesInDataModel<DataModel>>) {
     return this.ctx.db.delete(this.normalizeIdX(id));
+  }
+
+  async checkUniqueness(value: Partial<GenericDocument>, id?: GenericId<any>) {
+    await Promise.all(
+      (this.entDefinitions[this.table].edges as unknown as EdgeConfig[]).map(
+        async (edgeDefinition) => {
+          if (
+            edgeDefinition.cardinality === "single" &&
+            edgeDefinition.type === "field" &&
+            edgeDefinition.unique
+          ) {
+            const key = edgeDefinition.field;
+            if (value[key] === undefined) {
+              return;
+            }
+            // Enforce uniqueness
+            const existing = await this.ctx.db
+              .query(this.table)
+              .withIndex(key, (q) => q.eq(key, value[key] as any))
+              .unique();
+            if (
+              existing !== null &&
+              (id === undefined || existing._id !== id)
+            ) {
+              throw new Error(
+                `In table "${this.table}" cannot create a duplicate 1:1 edge "${
+                  edgeDefinition.name
+                }" to ID "${
+                  value[key] as string
+                }", existing document with ID "${
+                  existing._id as string
+                }" already has it.`
+              );
+            }
+          }
+        }
+      )
+    );
   }
 
   async writeEdges(docId: GenericId<any>, changes: EdgeChanges) {

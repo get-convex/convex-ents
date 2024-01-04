@@ -213,6 +213,28 @@ export const test = query({
 });
 
 export const test2 = mutation(async (ctx) => {
+  {
+    const newUserId = await ctx.table("users").insert({
+      name: "Gates",
+      email: "bill@gates.com",
+    });
+    const newProfileId = await ctx.table("profiles").insert({
+      bio: "Hello world",
+      userId: newUserId,
+    });
+    await expect(async () => {
+      await ctx.table("profiles").insert({
+        bio: "Better world",
+        userId: newUserId,
+      });
+    }).rejects.toThrowError(
+      `In table "profiles" cannot create a duplicate 1:1 edge "user"`
+    );
+    await ctx.table("profiles").delete(newProfileId);
+    await ctx.table("users").delete(newUserId);
+  }
+
+  return;
   // Insert 1:1 from ref side
   {
     const someUser = await ctx.table("users").first();
