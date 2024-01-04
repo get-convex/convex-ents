@@ -37,28 +37,28 @@ export const test = query({
   handler: async (ctx) => {
     {
       // Default fields
-      const firstPost = await ctx.table("posts").first();
-      assertEqual(firstPost!.numLikes, 0);
-      assertEqual(firstPost!.type, "text");
+      const firstPost = await ctx.table("posts").firstX();
+      assertEqual(firstPost.numLikes, 0);
+      assertEqual(firstPost.type, "text");
     }
     {
       const firstVideoWithMoreThan3Likes = await ctx
         .table("posts", "numLikesAndType", (q) =>
           q.eq("type", "video").gt("numLikes", 3)
         )
-        .first();
-      assertEqual(firstVideoWithMoreThan3Likes!.text, "My great video");
-      assertEqual(firstVideoWithMoreThan3Likes!.numLikes, 4);
-      assertEqual(firstVideoWithMoreThan3Likes!.type, "video");
+        .firstX();
+      assertEqual(firstVideoWithMoreThan3Likes.text, "My great video");
+      assertEqual(firstVideoWithMoreThan3Likes.numLikes, 4);
+      assertEqual(firstVideoWithMoreThan3Likes.type, "video");
     }
     {
       const foundPost = await ctx
         .table("posts")
         .search("text", (q) => q.search("text", "awesome").eq("type", "video"))
-        .first();
-      assertEqual(foundPost!.text, "My awesome video");
-      assertEqual(foundPost!.numLikes, 0);
-      assertEqual(foundPost!.type, "video");
+        .firstX();
+      assertEqual(foundPost.text, "My awesome video");
+      assertEqual(foundPost.numLikes, 0);
+      assertEqual(foundPost.type, "video");
     }
     {
       const someFlag = false;
@@ -116,44 +116,50 @@ export const test = query({
     }
 
     {
-      const firstProfile = await ctx.table("profiles").first();
-      const user = await firstProfile!.edge("user");
+      const firstProfile = await ctx.table("profiles").firstX();
+      const user = await firstProfile.edge("user");
       assertEqual(user.name, "Stark");
     }
     {
-      const id = (await ctx.table("users").first())!._id;
-      const message = await ctx.table("messages").get("userId", id);
-      assertEqual(message!.text, "Hello world");
+      const id = (await ctx.table("users").firstX())._id;
+      const message = await ctx.table("messages").getX("userId", id);
+      assertEqual(message.text, "Hello world");
     }
     {
       const foo = ctx.table("users").normalizeId("blabla");
       assertEqual(foo, null);
-      const id = (await ctx.table("users").first())!._id;
+      const id = (await ctx.table("users").firstX())._id;
       const idToo = ctx.table("users").normalizeId(id);
       assertEqual(id, idToo);
     }
     {
-      const friends = await ctx.table("users").first().edge("friends");
-      assertEqual(friends!.length, 1);
-      assertEqual(friends![0].name, "Musk");
+      const friends = await ctx.table("users").firstX().edge("friends");
+      assertEqual(friends.length, 1);
+      assertEqual(friends[0].name, "Musk");
     }
 
     {
       const firstsFirstFollowee = await ctx
         .table("users")
-        .first()
+        .firstX()
         .edge("followees")
-        .first();
-      assertEqual(firstsFirstFollowee!.name, "Musk");
+        .firstX();
+      assertEqual(firstsFirstFollowee.name, "Musk");
     }
     {
-      const firstMessageTags = await ctx.table("messages").first().edge("tags");
-      assertEqual(firstMessageTags!.length, 1);
-      assertEqual(firstMessageTags![0].name, "Orange");
+      const firstMessageTags = await ctx
+        .table("messages")
+        .firstX()
+        .edge("tags");
+      assertEqual(firstMessageTags.length, 1);
+      assertEqual(firstMessageTags[0].name, "Orange");
     }
     {
-      const firstUserProfile = await ctx.table("users").first().edge("profile");
-      assertEqual(firstUserProfile!.bio, "Hello world");
+      const firstUserProfile = await ctx
+        .table("users")
+        .firstX()
+        .edgeX("profile");
+      assertEqual(firstUserProfile.bio, "Hello world");
     }
     {
       const paginatedUsersByEmail = await ctx
@@ -167,26 +173,26 @@ export const test = query({
       const lastMessageAuthorsMessages = await ctx
         .table("messages")
         .order("desc")
-        .first()
+        .firstX()
         .edge("user")
         .edge("messages");
-      assertEqual(lastMessageAuthorsMessages!.length, 1);
-      assertEqual(lastMessageAuthorsMessages![0].text, "Hello world");
+      assertEqual(lastMessageAuthorsMessages.length, 1);
+      assertEqual(lastMessageAuthorsMessages[0].text, "Hello world");
     }
     {
       const lastMessageAuthor = await ctx
         .table("messages")
-        .first()
+        .firstX()
         .edge("user");
-      assertEqual(lastMessageAuthor!.name, "Stark");
+      assertEqual(lastMessageAuthor.name, "Stark");
     }
     {
       const messagesByUser = await ctx
         .table("users")
-        .get("email", "tony@stark.com")
+        .getX("email", "tony@stark.com")
         .edge("messages");
-      assertEqual(messagesByUser!.length, 1);
-      assertEqual(messagesByUser![0].text, "Hello world");
+      assertEqual(messagesByUser.length, 1);
+      assertEqual(messagesByUser[0].text, "Hello world");
     }
 
     {
@@ -195,13 +201,13 @@ export const test = query({
       assertEqual(messages[0].text, "Hello world");
     }
     {
-      const id = (await ctx.table("messages").first())!._id;
+      const id = (await ctx.table("messages").firstX())._id;
       const message = await ctx.table("messages").get(id);
       assertEqual(message!.text, "Hello world");
     }
     {
-      const messages = await ctx.table("messages").first();
-      assertEqual(messages!.text, "Hello world");
+      const messages = await ctx.table("messages").firstX();
+      assertEqual(messages.text, "Hello world");
     }
 
     // // For single field indexes, we should be able to eq or lt gt directly - but that doesn't
@@ -234,50 +240,42 @@ export const test2 = mutation(async (ctx) => {
     await ctx.table("users").delete(newUserId);
   }
 
-  return;
-  // Insert 1:1 from ref side
+  // Insert 1:1 from ref side is not possible, because the required side of
+  // the edge cannot be removed.
   {
-    const someUser = await ctx.table("users").first();
-    const newProfileId = await ctx.table("profiles").insert({
-      bio: "Hello world",
-      userId: someUser!._id,
-    });
-    // This should not be possible, type-wise and at runtime,
-    // because profile's user edge is not optional, so it
-    // cannot be removed, if there was an existing one
-    const newUserId = await ctx.table("users").insert({
-      name: "Gates",
-      email: "bill@gates.com",
-      profile: newProfileId,
-    });
-    const updatedProfile = await ctx.table("profiles").get(newProfileId);
-    assertEqual(updatedProfile!.userId, newUserId);
-    await ctx.table("profiles").delete(newProfileId);
-    await ctx.table("users").delete(newUserId);
+    async () => {
+      const someProfile = await ctx.table("profiles").first();
+      await ctx.table("users").insert({
+        name: "Gates",
+        email: "bill@gates.com",
+        // @ts-expect-error This is not allowed
+        profile: someProfile._id,
+      });
+    };
   }
   // Insert 1:many from ref side
   {
-    const someUser = await ctx.table("users").first();
+    const someUser = await ctx.table("users").firstX();
     const newMessageId = await ctx.table("messages").insert({
       text: "Hello world",
-      userId: someUser!._id,
+      userId: someUser._id,
     });
     const newUserId = await ctx.table("users").insert({
       name: "Gates",
       email: "bill@gates.com",
       messages: [newMessageId],
     });
-    const updatedMessage = await ctx.table("messages").get(newMessageId);
-    assertEqual(updatedMessage!.userId, newUserId);
+    const updatedMessage = await ctx.table("messages").getX(newMessageId);
+    assertEqual(updatedMessage.userId, newUserId);
     await ctx.table("messages").delete(newMessageId);
     await ctx.table("users").delete(newUserId);
   }
   // Insert many:many
   {
-    const someUser = await ctx.table("users").first();
+    const someUser = await ctx.table("users").firstX();
     const newMessageId = await ctx.table("messages").insert({
       text: "Hello world",
-      userId: someUser!._id,
+      userId: someUser._id,
     });
     const newTagId = await ctx.table("tags").insert({
       name: "Blue",
@@ -295,41 +293,17 @@ export const test2 = mutation(async (ctx) => {
     await ctx.table("tags").delete(newTagId);
   }
 
-  // TODO: Enforce uniqueness for 1:1 field edges
-  // Patch 1:1 from ref side
+  // Patch 1:1 from ref side is not possible, because the required side of
+  // the edge cannot be removed.
   {
-    const newUserId = await ctx.table("users").insert({
-      name: "Gates",
-      email: "bill@gates.com",
-    });
-    const newProfileId1 = await ctx.table("profiles").insert({
-      bio: "Hello world",
-      userId: newUserId,
-    });
-    // TODO: Enforce uniqueness for 1:1 field edges
-    const someUser = await ctx.table("users").first();
-    const newProfileId2 = await ctx.table("profiles").insert({
-      bio: "Hello world",
-      userId: someUser!._id,
-    });
-    // This should not be possible, type-wise and at runtime,
-    // because profile's user edge is not optional, so it
-    // cannot be removed, if there was an existing one
-    await ctx.table("users").patch(newUserId, {
-      profile: newProfileId2,
-    });
-    {
-      const updatedProfile1 = await ctx.table("profiles").get(newProfileId1);
-      assertEqual(updatedProfile1!.userId, undefined);
-    }
-    {
-      const updatedProfile2 = await ctx.table("profiles").get(newProfileId2);
-      assertEqual(updatedProfile2!.userId, newUserId);
-    }
-
-    await ctx.table("profiles").delete(newProfileId1);
-    await ctx.table("profiles").delete(newProfileId2);
-    await ctx.table("users").delete(newUserId);
+    const someUser = await ctx.table("users").firstX();
+    const someProfile = await ctx.table("profiles").firstX();
+    async () => {
+      await ctx.table("users").patch(someUser._id, {
+        // @ts-expect-error This is not allowed
+        profile: someProfile._id,
+      });
+    };
   }
 });
 

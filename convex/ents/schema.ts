@@ -64,6 +64,23 @@ export function defineEntSchema<
 
       if (edge.cardinality === "single" && edge.type === "ref") {
         if (
+          inverseEdge?.cardinality === "single" &&
+          inverseEdge.type === "ref"
+        ) {
+          // TODO: If we want to support optional 1:1 edges in the future
+          // throw new Error(
+          //   `Both edge "${edge.name}" on ent "${inverseEdge.to}" and ` +
+          //     `edge "${inverseEdge.name}" on ent "${edge.to}" are marked ` +
+          //     `as optional, specify which table should store the 1:1 edge by ` +
+          //     `providing a \`field\` name.`
+          // );
+          throw new Error(
+            `Both edge "${edge.name}" on ent "${inverseEdge.to}" and ` +
+              `edge "${inverseEdge.name}" on ent "${edge.to}" are marked ` +
+              `as optional, choose one to be required.`
+          );
+        }
+        if (
           inverseEdge?.cardinality !== "single" ||
           inverseEdge?.type !== "field"
         ) {

@@ -103,7 +103,6 @@ export interface PromiseTable<
   EntsDataModel extends GenericEntsDataModel<DataModel>,
   Table extends TableNamesInDataModel<DataModel>
 > extends PromiseQuery<DataModel, EntsDataModel, Table> {
-  // TODO: getX with index
   get<Indexes extends DataModel[Table]["indexes"], Index extends keyof Indexes>(
     indexName: Index,
     // TODO: Figure out how to make this variadic
@@ -113,6 +112,18 @@ export interface PromiseTable<
     >
   ): PromiseEntOrNull<DataModel, EntsDataModel, Table>;
   get(id: GenericId<Table>): PromiseEntOrNull<DataModel, EntsDataModel, Table>;
+
+  getX<
+    Indexes extends DataModel[Table]["indexes"],
+    Index extends keyof Indexes
+  >(
+    indexName: Index,
+    // TODO: Figure out how to make this variadic
+    value0: FieldTypeFromFieldPath<
+      DocumentByName<DataModel, Table>,
+      Indexes[Index][0]
+    >
+  ): PromiseEnt<DataModel, EntsDataModel, Table>;
   getX(id: GenericId<Table>): PromiseEnt<DataModel, EntsDataModel, Table>;
 
   /**
@@ -175,7 +186,11 @@ interface PromiseOrderedQuery<
 
   first(): PromiseEntOrNull<DataModel, EntsDataModel, Table>;
 
+  firstX(): PromiseEnt<DataModel, EntsDataModel, Table>;
+
   unique(): PromiseEntOrNull<DataModel, EntsDataModel, Table>;
+
+  uniqueX(): PromiseEnt<DataModel, EntsDataModel, Table>;
 
   then<
     TResult1 = EntByName<DataModel, EntsDataModel, Table>[],
@@ -322,6 +337,25 @@ class PromiseQueryOrNullImpl<
     );
   }
 
+  firstX() {
+    return new PromiseEntOrNullImpl(
+      this.ctx,
+      this.entDefinitions,
+      this.table,
+      async (db) => {
+        const query = await this.retrieve(db);
+        if (query === null) {
+          return null;
+        }
+        const doc = query.first();
+        if (doc === null) {
+          throw new Error("Query returned no documents");
+        }
+        return doc;
+      }
+    );
+  }
+
   unique() {
     return new PromiseEntOrNullImpl(
       this.ctx,
@@ -333,6 +367,25 @@ class PromiseQueryOrNullImpl<
           return null;
         }
         return query.unique();
+      }
+    );
+  }
+
+  uniqueX() {
+    return new PromiseEntOrNullImpl(
+      this.ctx,
+      this.entDefinitions,
+      this.table,
+      async (db) => {
+        const query = await this.retrieve(db);
+        if (query === null) {
+          return null;
+        }
+        const doc = query.unique();
+        if (doc === null) {
+          throw new Error("Query returned no documents");
+        }
+        return doc;
       }
     );
   }
@@ -430,7 +483,7 @@ export class PromiseTableImpl<
               .unique();
             if (doc === null) {
               throw new Error(
-                `Document not found with index \`${indexName}\` = \`${value}\``
+                `Table "${this.table}" does not contain document with field "${indexName}" = \`${value}\``
               );
             }
             return doc;
@@ -497,8 +550,7 @@ export class PromiseTableImpl<
 }
 
 // This query materializes objects, so chaining to this type of query performs one operation for each
-// retrieved document in JavaScript, basically as if using
-// `Promise.all()`.
+// retrieved document in JavaScript, basically as if using `Promise.all()`.
 interface PromiseEntsOrNull<
   DataModel extends GenericDataModel,
   EntsDataModel extends GenericEntsDataModel<DataModel>,
@@ -525,9 +577,18 @@ interface PromiseEnts<
   // the previous steps in the query.
   first(): PromiseEntOrNull<DataModel, EntsDataModel, Table>;
 
+  // This just returns the first retrieved document, or throws if there
+  // are no documents. It does not optimize the previous steps in the query.
+  firstX(): PromiseEnt<DataModel, EntsDataModel, Table>;
+
   // This just returns the unique retrieved document, it does not optimize
   // the previous steps in the query. Otherwise it behaves like db.query().unique().
   unique(): PromiseEntOrNull<DataModel, EntsDataModel, Table>;
+
+  // This just returns the unique retrieved document, or thorws if there
+  // are no documents. It does not optimize the previous steps in the query.
+  // Otherwise it behaves like db.query().unique().
+  uniqueX(): PromiseEnt<DataModel, EntsDataModel, Table>;
 }
 
 class PromiseEntsOrNullImpl<
@@ -561,6 +622,25 @@ class PromiseEntsOrNullImpl<
     );
   }
 
+  firstX() {
+    return new PromiseEntOrNullImpl(
+      this.ctx,
+      this.entDefinitions,
+      this.table,
+      async (db) => {
+        const docs = await this.retrieve(db);
+        if (docs === null) {
+          return null;
+        }
+        const doc = docs[0] ?? null;
+        if (doc === null) {
+          throw new Error("Query returned no documents");
+        }
+        return doc;
+      }
+    );
+  }
+
   unique() {
     return new PromiseEntOrNullImpl(
       this.ctx,
@@ -571,10 +651,31 @@ class PromiseEntsOrNullImpl<
         if (docs === null) {
           return null;
         }
-        if (docs.length === 2) {
+        if (docs.length > 1) {
           throw new Error("unique() query returned more than one result");
         }
         return docs[0] ?? null;
+      }
+    );
+  }
+
+  uniqueX() {
+    return new PromiseEntOrNullImpl(
+      this.ctx,
+      this.entDefinitions,
+      this.table,
+      async (db) => {
+        const docs = await this.retrieve(db);
+        if (docs === null) {
+          return null;
+        }
+        if (docs.length > 1) {
+          throw new Error("unique() query returned more than one result");
+        }
+        if (docs.length < 1) {
+          throw new Error("unique() query returned no documents");
+        }
+        return docs[0];
       }
     );
   }
@@ -653,6 +754,10 @@ interface PromiseEnt<
   edge<Edge extends keyof EntsDataModel[Table]["edges"]>(
     edge: Edge
   ): PromiseEdge<DataModel, EntsDataModel, Table, Edge>;
+
+  edgeX<Edge extends keyof EntsDataModel[Table]["edges"]>(
+    edge: Edge
+  ): PromiseEdgeOrThrow<DataModel, EntsDataModel, Table, Edge>;
 }
 
 class PromiseEntOrNullImpl<
@@ -699,6 +804,17 @@ class PromiseEntOrNullImpl<
   }
 
   edge<Edge extends keyof EntsDataModel[Table]["edges"]>(edge: Edge) {
+    return this.edgeImpl(edge);
+  }
+
+  edgeX<Edge extends keyof EntsDataModel[Table]["edges"]>(edge: Edge) {
+    return this.edgeImpl(edge, true);
+  }
+
+  edgeImpl<Edge extends keyof EntsDataModel[Table]["edges"]>(
+    edge: Edge,
+    throwIfNull = false
+  ) {
     const edgeDefinition: EdgeConfig = (
       this.entDefinitions[this.table].edges as any
     ).filter(({ name }: EdgeConfig) => name === edge)[0];
@@ -770,26 +886,31 @@ class PromiseEntOrNullImpl<
         }
 
         if (edgeDefinition.type === "ref") {
-          const inverseEdgeDefinition: EdgeConfig = (
-            this.entDefinitions[edgeDefinition.to].edges as any
-          ).filter(({ to }: EdgeConfig) => to === this.table)[0];
-          if (inverseEdgeDefinition.type !== "field") {
-            throw new Error(
-              `Unexpected inverse edge type for edge: ${edgeDefinition.name}, ` +
-                `expected field, got ${inverseEdgeDefinition.type} ` +
-                `named ${inverseEdgeDefinition.name}`
-            );
-          }
-
-          return await this.ctx.db
+          const otherDoc = await this.ctx.db
             .query(edgeDefinition.to)
             .withIndex(edgeDefinition.ref, (q) =>
               q.eq(edgeDefinition.ref, doc._id as any)
             )
             .unique();
+          if (throwIfNull && otherDoc === null) {
+            throw new Error("Query returned no documents");
+          }
+          return otherDoc;
         }
 
-        return await this.ctx.db.get(doc[edgeDefinition.field] as any);
+        const otherDoc = await this.ctx.db.get(
+          doc[edgeDefinition.field] as any
+        );
+        if (otherDoc === null) {
+          throw new Error(
+            `Dangling reference "${
+              doc[edgeDefinition.field] as string
+            }" found in document with _id "${
+              doc._id as string
+            }", expected to find a document with the first ID.`
+          );
+        }
+        return otherDoc;
       }
     ) as any;
   }
@@ -933,6 +1054,35 @@ type PromiseEdge<
       >
   : EntsDataModel[Table]["edges"][Edge]["type"] extends "ref"
   ? PromiseEntOrNull<
+      DataModel,
+      EntsDataModel,
+      EntsDataModel[Table]["edges"][Edge]["to"]
+    >
+  : PromiseEnt<
+      DataModel,
+      EntsDataModel,
+      EntsDataModel[Table]["edges"][Edge]["to"]
+    >;
+
+type PromiseEdgeOrThrow<
+  DataModel extends GenericDataModel,
+  EntsDataModel extends GenericEntsDataModel<DataModel>,
+  Table extends TableNamesInDataModel<DataModel>,
+  Edge extends keyof EntsDataModel[Table]["edges"]
+> = EntsDataModel[Table]["edges"][Edge]["cardinality"] extends "multiple"
+  ? EntsDataModel[Table]["edges"][Edge]["type"] extends "ref"
+    ? PromiseEnts<
+        DataModel,
+        EntsDataModel,
+        EntsDataModel[Table]["edges"][Edge]["to"]
+      >
+    : PromiseQuery<
+        DataModel,
+        EntsDataModel,
+        EntsDataModel[Table]["edges"][Edge]["to"]
+      >
+  : EntsDataModel[Table]["edges"][Edge]["type"] extends "ref"
+  ? PromiseEnt<
       DataModel,
       EntsDataModel,
       EntsDataModel[Table]["edges"][Edge]["to"]

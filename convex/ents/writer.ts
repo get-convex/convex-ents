@@ -414,7 +414,9 @@ type WithEdges<
   Edges extends Record<string, GenericEdgeConfig<DataModel>>
 > = Document & {
   [key in keyof Edges]?: Edges[key]["cardinality"] extends "single"
-    ? GenericId<Edges[key]["to"]>
+    ? Edges[key]["type"] extends "ref"
+      ? never
+      : GenericId<Edges[key]["to"]>
     : GenericId<Edges[key]["to"]>[];
 };
 
@@ -424,7 +426,9 @@ type WithEdgePatches<
   Edges extends Record<string, GenericEdgeConfig<DataModel>>
 > = Document & {
   [key in keyof Edges]?: Edges[key]["cardinality"] extends "single"
-    ? GenericId<Edges[key]["to"]>
+    ? Edges[key]["type"] extends "ref"
+      ? never
+      : GenericId<Edges[key]["to"]>
     : {
         add?: GenericId<Edges[key]["to"]>[];
         remove?: GenericId<Edges[key]["to"]>[];
