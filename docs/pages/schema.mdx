@@ -172,6 +172,8 @@ edge must be optional, because there is no way to "allocate" IDs before
 documents are created (see [circular references](#)). Here's a basic example of
 a 1:1 edge:
 
+{/* TODO: Support optional on both sides, one side needs to choose to store the field */}
+
 ```ts
 defineEntSchema({
   users: defineEnt({

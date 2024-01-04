@@ -212,6 +212,65 @@ export const test = query({
   },
 });
 
+export const test2 = mutation(async (ctx) => {
+  // Insert 1:1 from ref side
+  {
+    const someUser = await ctx.table("users").first();
+    const newProfileId = await ctx.table("profiles").insert({
+      bio: "Hello world",
+      userId: someUser!._id,
+    });
+    const newUserId = await ctx.table("users").insert({
+      name: "Gates",
+      email: "bill@gates.com",
+      profile: newProfileId,
+    });
+    const updatedProfile = await ctx.table("profiles").get(newProfileId);
+    assertEqual(updatedProfile!.userId, newUserId);
+    await ctx.table("profiles").delete(newProfileId);
+    await ctx.table("users").delete(newUserId);
+  }
+  // Insert 1:many from ref side
+  {
+    const someUser = await ctx.table("users").first();
+    const newMessageId = await ctx.table("messages").insert({
+      text: "Hello world",
+      userId: someUser!._id,
+    });
+    const newUserId = await ctx.table("users").insert({
+      name: "Gates",
+      email: "bill@gates.com",
+      messages: [newMessageId],
+    });
+    const updatedMessage = await ctx.table("messages").get(newMessageId);
+    assertEqual(updatedMessage!.userId, newUserId);
+    await ctx.table("messages").delete(newMessageId);
+    await ctx.table("users").delete(newUserId);
+  }
+  // Insert many:many
+  {
+    const someUser = await ctx.table("users").first();
+    const newMessageId = await ctx.table("messages").insert({
+      text: "Hello world",
+      userId: someUser!._id,
+    });
+    const newTagId = await ctx.table("tags").insert({
+      name: "Blue",
+      messages: [newMessageId],
+    });
+    const messageTags = await ctx
+      .table("messages")
+      .getX(newMessageId)
+      .edge("tags");
+    assertEqual(messageTags.length, 1);
+    assertEqual(messageTags[0].name, "Blue");
+
+    // TODO: Implement some edge deletion behavior
+    await ctx.table("messages").delete(newMessageId);
+    await ctx.table("tags").delete(newTagId);
+  }
+});
+
 export const seed = mutation(async (ctx) => {
   // Note: Currently not deleting edges
   for (const table of [
@@ -245,9 +304,8 @@ export const seed = mutation(async (ctx) => {
   const tagsId = await ctx.table("tags").insert({
     name: "Orange",
   });
-  await ctx.table("messages_to_tags" as any).insert({
-    messagesId: messageId,
-    tagsId: tagsId,
+  await ctx.table("messages").patch(messageId, {
+    tags: { add: [tagsId] },
   });
   await ctx.table("users_followees_to_followers" as any).insert({
     followeesId: userId2,

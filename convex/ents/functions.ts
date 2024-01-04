@@ -103,6 +103,7 @@ export interface PromiseTable<
   EntsDataModel extends GenericEntsDataModel<DataModel>,
   Table extends TableNamesInDataModel<DataModel>
 > extends PromiseQuery<DataModel, EntsDataModel, Table> {
+  // TODO: getX with index
   get<Indexes extends DataModel[Table]["indexes"], Index extends keyof Indexes>(
     indexName: Index,
     // TODO: Figure out how to make this variadic
@@ -112,6 +113,7 @@ export interface PromiseTable<
     >
   ): PromiseEntOrNull<DataModel, EntsDataModel, Table>;
   get(id: GenericId<Table>): PromiseEntOrNull<DataModel, EntsDataModel, Table>;
+  getX(id: GenericId<Table>): PromiseEnt<DataModel, EntsDataModel, Table>;
 
   /**
    * Query by running a full text search against a search index.
@@ -401,8 +403,52 @@ export class PromiseTableImpl<
     );
   }
 
+  getX(...args: any[]) {
+    return new PromiseEntOrNullImpl(
+      this.ctx,
+      this.entDefinitions,
+      this.table,
+      args.length === 1
+        ? (db) => {
+            const id = args[0] as GenericId<Table>;
+            if (this.ctx.db.normalizeId(this.table, id) === null) {
+              return Promise.reject(
+                new Error(`Invalid id \`${id}\` for table "${this.table}"`)
+              );
+            }
+            const doc = db.get(id);
+            if (doc === null) {
+              throw new Error(`Document not found with id \`${id}\``);
+            }
+            return doc;
+          }
+        : (db) => {
+            const [indexName, value] = args;
+            const doc = db
+              .query(this.table)
+              .withIndex(indexName, (q) => q.eq(indexName, value))
+              .unique();
+            if (doc === null) {
+              throw new Error(
+                `Document not found with index \`${indexName}\` = \`${value}\``
+              );
+            }
+            return doc;
+          }
+    );
+  }
+
   normalizeId(id: string): GenericId<Table> | null {
     return this.ctx.db.normalizeId(this.table, id);
+  }
+
+  // normalizeId or throw
+  normalizeIdX(id: string): GenericId<Table> {
+    const normalized = this.normalizeId(id);
+    if (normalized === null) {
+      throw new Error(`Invalid id \`${id}\` for table "${this.table}"`);
+    }
+    return normalized;
   }
 
   withIndex(

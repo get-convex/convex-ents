@@ -152,7 +152,7 @@ type GenericEdges<DataModel extends GenericDataModel> = Record<
   GenericEdgeConfig<DataModel>
 >;
 
-type GenericEdgeConfig<DataModel extends GenericDataModel> = {
+export type GenericEdgeConfig<DataModel extends GenericDataModel> = {
   name: string;
   to: TableNamesInDataModel<DataModel>;
   cardinality: "single" | "multiple";
