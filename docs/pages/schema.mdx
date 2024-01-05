@@ -69,6 +69,19 @@ defineEntSchema({
 });
 ```
 
+### Unique fields
+
+Similar to an indexed field, you can declare that a field must be unique in the
+table. This comes at a cost: On every write to the backing a table, it must be
+checked for an existing document with the same field value. Every unique field
+is also an indexed field (as the index is used for an efficient lookup).
+
+```ts
+defineSchema({
+  users: defineEnt({}).field("email", v.string(), { unique: true }),
+});
+```
+
 ### Field defaults
 
 When evolving a schema, especially in production, the simplest way to modify the
