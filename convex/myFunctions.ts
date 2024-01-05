@@ -354,9 +354,8 @@ export const seed = mutation(async (ctx) => {
   await ctx.table("messages").patch(messageId, {
     tags: { add: [tagsId] },
   });
-  await ctx.table("users_followees_to_followers" as any).insert({
-    followeesId: userId2,
-    followersId: userId,
+  await ctx.table("users").patch(userId, {
+    followees: { add: [userId2] },
   });
   await ctx.table("users_friends" as any).insert({
     aId: userId,
@@ -367,16 +366,18 @@ export const seed = mutation(async (ctx) => {
     bId: userId,
   });
   await ctx.table("posts").insert({ text: "My great post" } as any);
-  await ctx.table("posts").insert({
-    text: "My great video",
-    type: "video",
-    numLikes: 4,
-  });
-  await ctx.table("posts").insert({
-    text: "My awesome video",
-    type: "video",
-    numLikes: 0,
-  });
+  await ctx.table("posts").insertMany([
+    {
+      text: "My great video",
+      type: "video",
+      numLikes: 4,
+    },
+    {
+      text: "My awesome video",
+      type: "video",
+      numLikes: 0,
+    },
+  ]);
 });
 
 export const list = query(async (ctx, args) => {

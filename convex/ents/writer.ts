@@ -20,8 +20,8 @@ export interface TableWriter<
    * Insert a new document into a table.
    *
    * @param table - The name of the table to insert a new document into.
-   * @param value - The {@link values.Value} to insert into the given table.
-   * @returns - {@link values.GenericId} of the new document.
+   * @param value - The {@link Value} to insert into the given table.
+   * @returns - {@link GenericId} of the new document.
    */
   // TODO: Chain methods to get the written document?
   insert(
@@ -33,6 +33,24 @@ export interface TableWriter<
       >
     >
   ): Promise<GenericId<Table>>;
+
+  /**
+   * Insert new documents into a table.
+   *
+   * @param table - The name of the table to insert a new document into.
+   * @param value - The {@link Value} to insert into the given table.
+   * @returns - {@link GenericId} of the new document.
+   */
+  // TODO: Chain methods to get the written documents?
+  insertMany(
+    values: WithoutSystemFields<
+      WithEdges<
+        DataModel,
+        DocumentByName<DataModel, Table>,
+        EntsDataModel[Table]["edges"]
+      >
+    >[]
+  ): Promise<GenericId<Table>[]>;
 
   /**
    * Patch an existing document, shallow merging it with the given partial
@@ -129,6 +147,18 @@ export class TableWriterImpl<
     });
     await this.writeEdges(docId, edges);
     return docId;
+  }
+
+  async insertMany(
+    values: WithoutSystemFields<
+      WithEdges<
+        DataModel,
+        DocumentByName<DataModel, Table>,
+        EntsDataModel[Table]["edges"]
+      >
+    >[]
+  ) {
+    return await Promise.all(values.map((value) => this.insert(value)));
   }
 
   /**
