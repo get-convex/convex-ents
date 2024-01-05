@@ -1,21 +1,40 @@
 import {
   DocumentByName,
   GenericDataModel,
+  GenericDatabaseWriter,
   GenericDocument,
   GenericMutationCtx,
   TableNamesInDataModel,
   WithOptionalSystemFields,
   WithoutSystemFields,
 } from "convex/server";
-import { PromiseTable, PromiseTableImpl } from "./functions";
-import { EdgeConfig, GenericEdgeConfig, GenericEntsDataModel } from "./schema";
 import { GenericId } from "convex/values";
+import {
+  EntByName,
+  PromiseEdge,
+  PromiseEdgeOrThrow,
+  PromiseEnt,
+  PromiseEntOrNullImpl,
+  PromiseTable,
+  PromiseTableImpl,
+} from "./functions";
+import {
+  EdgeConfig,
+  Expand,
+  GenericEdgeConfig,
+  GenericEntsDataModel,
+} from "./schema";
 
-export interface TableWriter<
+export interface PromiseTableWriter<
   DataModel extends GenericDataModel,
   EntsDataModel extends GenericEntsDataModel<DataModel>,
   Table extends TableNamesInDataModel<DataModel>
 > extends PromiseTable<DataModel, EntsDataModel, Table> {
+  /**
+   * Fetch a document from the DB for a given ID, throw if it doesn't exist.
+   */
+  getX(id: GenericId<Table>): PromiseEntWriter<DataModel, EntsDataModel, Table>;
+
   /**
    * Insert a new document into a table.
    *
@@ -32,7 +51,7 @@ export interface TableWriter<
         EntsDataModel[Table]["edges"]
       >
     >
-  ): Promise<GenericId<Table>>;
+  ): PromiseEntId<DataModel, EntsDataModel, Table>;
 
   /**
    * Insert new documents into a table.
@@ -51,72 +70,25 @@ export interface TableWriter<
       >
     >[]
   ): Promise<GenericId<Table>[]>;
-
-  /**
-   * Patch an existing document, shallow merging it with the given partial
-   * document.
-   *
-   * New fields are added. Existing fields are overwritten. Fields set to
-   * `undefined` are removed.
-   *
-   * @param id - The {@link GenericId} of the document to patch.
-   * @param value - The partial {@link GenericDocument} to merge into the specified document. If this new value
-   * specifies system fields like `_id`, they must match the document's existing field values.
-   */
-  patch(
-    id: GenericId<Table>,
-    value: Partial<
-      WithEdgePatches<
-        DataModel,
-        DocumentByName<DataModel, Table>,
-        EntsDataModel[Table]["edges"]
-      >
-    >
-  ): Promise<void>;
-
-  /**
-   * Replace the value of an existing document, overwriting its old value.
-   *
-   * @param id - The {@link GenericId} of the document to replace.
-   * @param value - The new {@link GenericDocument} for the document. This value can omit the system fields,
-   * and the database will fill them in.
-   */
-  replace(
-    id: GenericId<Table>,
-    value: WithOptionalSystemFields<
-      WithEdges<
-        DataModel,
-        DocumentByName<DataModel, Table>,
-        EntsDataModel[Table]["edges"]
-      >
-    >
-  ): Promise<void>;
-
-  /**
-   * Delete an existing document.
-   *
-   * @param id - The {@link GenericId} of the document to remove.
-   */
-  delete(id: GenericId<TableNamesInDataModel<DataModel>>): Promise<void>;
 }
 
-export class TableWriterImpl<
+export class PromiseTableWriterImpl<
   DataModel extends GenericDataModel,
   EntsDataModel extends GenericEntsDataModel<DataModel>,
   Table extends TableNamesInDataModel<DataModel>
 > extends PromiseTableImpl<DataModel, EntsDataModel, Table> {
-  protected ctx: GenericMutationCtx<DataModel>;
+  private base: WriterImplBase<DataModel, EntsDataModel, Table>;
 
   constructor(
-    ctx: GenericMutationCtx<DataModel>,
+    protected ctx: GenericMutationCtx<DataModel>,
     entDefinitions: EntsDataModel,
     table: Table
   ) {
     super(ctx, entDefinitions, table);
-    this.ctx = ctx;
+    this.base = new WriterImplBase(ctx, entDefinitions, table);
   }
 
-  async insert(
+  insert(
     value: WithoutSystemFields<
       WithEdges<
         DataModel,
@@ -125,30 +97,38 @@ export class TableWriterImpl<
       >
     >
   ) {
-    await this.checkUniqueness(value);
-    const fields = this.fieldsOnly(value as any);
-    const docId = await this.ctx.db.insert(this.table, fields as any);
-    const edges: EdgeChanges = {};
-    Object.keys(value).forEach((key) => {
-      const edgeDefinition: EdgeConfig | undefined = (
-        this.entDefinitions[this.table].edges as any
-      ).filter(({ name }: EdgeConfig) => name === key)[0];
-      if (
-        edgeDefinition === undefined ||
-        (edgeDefinition.cardinality === "single" &&
-          edgeDefinition.type === "field")
-      ) {
-        return;
+    return new PromiseEntIdImpl(
+      this.ctx,
+      this.entDefinitions,
+      this.table,
+      async (db) => {
+        await this.base.checkUniqueness(value);
+        const fields = this.base.fieldsOnly(value as any);
+        const docId = await db.insert(this.table, fields as any);
+        const edges: EdgeChanges = {};
+        Object.keys(value).forEach((key) => {
+          const edgeDefinition: EdgeConfig | undefined = (
+            this.entDefinitions[this.table].edges as any
+          ).filter(({ name }: EdgeConfig) => name === key)[0];
+          if (
+            edgeDefinition === undefined ||
+            (edgeDefinition.cardinality === "single" &&
+              edgeDefinition.type === "field")
+          ) {
+            return;
+          }
+          if (edgeDefinition.cardinality === "single") {
+            throw new Error("Cannot set 1:1 edge from optional end.");
+          }
+          edges[key] = { add: value[key] };
+        });
+        await this.base.writeEdges(docId, edges);
+        return docId;
       }
-      if (edgeDefinition.cardinality === "single") {
-        throw new Error("Cannot set 1:1 edge from optional end.");
-      }
-      edges[key] = { add: value[key] };
-    });
-    await this.writeEdges(docId, edges);
-    return docId;
+    );
   }
 
+  // TODO: fluent API
   async insertMany(
     values: WithoutSystemFields<
       WithEdges<
@@ -160,20 +140,105 @@ export class TableWriterImpl<
   ) {
     return await Promise.all(values.map((value) => this.insert(value)));
   }
+}
+
+export interface PromiseEntWriter<
+  DataModel extends GenericDataModel,
+  EntsDataModel extends GenericEntsDataModel<DataModel>,
+  Table extends TableNamesInDataModel<DataModel>
+> extends Promise<EntWriterByName<DataModel, EntsDataModel, Table>> {
+  then<
+    TResult1 = EntWriterByName<DataModel, EntsDataModel, Table>,
+    TResult2 = never
+  >(
+    onfulfilled?:
+      | ((
+          value: EntWriterByName<DataModel, EntsDataModel, Table>
+        ) => TResult1 | PromiseLike<TResult1>)
+      | undefined
+      | null,
+    onrejected?:
+      | ((reason: any) => TResult2 | PromiseLike<TResult2>)
+      | undefined
+      | null
+  ): Promise<TResult1 | TResult2>;
+
+  edge<Edge extends keyof EntsDataModel[Table]["edges"]>(
+    edge: Edge
+  ): PromiseEdge<DataModel, EntsDataModel, Table, Edge>;
+
+  edgeX<Edge extends keyof EntsDataModel[Table]["edges"]>(
+    edge: Edge
+  ): PromiseEdgeOrThrow<DataModel, EntsDataModel, Table, Edge>;
 
   /**
-   * Patch an existing document, shallow merging it with the given partial
+   * Patch this existing document, shallow merging it with the given partial
    * document.
    *
    * New fields are added. Existing fields are overwritten. Fields set to
    * `undefined` are removed.
    *
-   * @param id - The {@link GenericId} of the document to patch.
-   * @param value - The partial {@link GenericDocument} to merge into the specified document. If this new value
+   * @param value - The partial {@link GenericDocument} to merge into this document. If this new value
    * specifies system fields like `_id`, they must match the document's existing field values.
    */
-  async patch(
-    id: GenericId<Table>,
+  patch(
+    value: Partial<
+      WithEdgePatches<
+        DataModel,
+        DocumentByName<DataModel, Table>,
+        EntsDataModel[Table]["edges"]
+      >
+    >
+  ): Promise<void>;
+
+  /**
+   * Replace the value of an existing document, overwriting its old value.
+   *
+   * @param value - The new {@link GenericDocument} for the document. This value can omit the system fields,
+   * and the database will preserve them in.
+   */
+  replace(
+    value: WithOptionalSystemFields<
+      WithEdges<
+        DataModel,
+        DocumentByName<DataModel, Table>,
+        EntsDataModel[Table]["edges"]
+      >
+    >
+  ): Promise<void>;
+
+  /**
+   * Delete this existing document.
+   *
+   * @param id - The {@link GenericId} of the document to remove.
+   */
+  delete(): Promise<GenericId<Table>>;
+}
+
+export class PromiseEntWriterImpl<
+  DataModel extends GenericDataModel,
+  EntsDataModel extends GenericEntsDataModel<DataModel>,
+  Table extends TableNamesInDataModel<DataModel>
+> extends PromiseEntOrNullImpl<DataModel, EntsDataModel, Table> {
+  private base: WriterImplBase<DataModel, EntsDataModel, Table>;
+
+  constructor(
+    protected ctx: GenericMutationCtx<DataModel>,
+    protected entDefinitions: EntsDataModel,
+    protected table: Table,
+    protected retrieveId: (db: GenericDatabaseWriter<DataModel>) => Promise<{
+      id: GenericId<Table>;
+      doc: () => Promise<DocumentByName<DataModel, Table>>;
+    }>
+  ) {
+    super(ctx, entDefinitions, table, async () => {
+      const { doc } = await this.retrieveId(this.ctx.db);
+      return doc();
+    });
+    this.base = new WriterImplBase(ctx, entDefinitions, table);
+  }
+
+  patch(
     value: Partial<
       WithEdgePatches<
         DataModel,
@@ -182,54 +247,54 @@ export class TableWriterImpl<
       >
     >
   ) {
-    await this.checkUniqueness(value, id);
-    const fields = this.fieldsOnly(value);
-    const docId = this.normalizeIdX(id);
-    await this.ctx.db.patch(this.normalizeIdX(id), fields);
+    return new PromiseEntIdImpl(
+      this.ctx,
+      this.entDefinitions,
+      this.table,
+      async () => {
+        const { id } = await this.retrieveId(this.ctx.db);
+        await this.base.checkUniqueness(value, id);
+        const fields = this.base.fieldsOnly(value);
+        await this.ctx.db.patch(id, fields);
 
-    const edges: EdgeChanges = {};
-    await Promise.all(
-      Object.keys(value).map(async (key) => {
-        const edgeDefinition: EdgeConfig | undefined = (
-          this.entDefinitions[this.table].edges as any
-        ).filter(({ name }: EdgeConfig) => name === key)[0];
-        if (
-          edgeDefinition === undefined ||
-          (edgeDefinition.cardinality === "single" &&
-            edgeDefinition.type === "field")
-        ) {
-          return;
-        }
-        if (edgeDefinition.cardinality === "single") {
-          throw new Error("Cannot set 1:1 edge from optional end.");
-          // const existing = await this.ctx.db
-          //   .query(edgeDefinition.to)
-          //   .withIndex(edgeDefinition.ref, (q) =>
-          //     q.eq(edgeDefinition.ref, docId as any)
-          //   )
-          //   .unique();
+        const edges: EdgeChanges = {};
+        await Promise.all(
+          Object.keys(value).map(async (key) => {
+            const edgeDefinition: EdgeConfig | undefined = (
+              this.entDefinitions[this.table].edges as any
+            ).filter(({ name }: EdgeConfig) => name === key)[0];
+            if (
+              edgeDefinition === undefined ||
+              (edgeDefinition.cardinality === "single" &&
+                edgeDefinition.type === "field")
+            ) {
+              return;
+            }
+            if (edgeDefinition.cardinality === "single") {
+              throw new Error("Cannot set 1:1 edge from optional end.");
+              // const existing = await this.ctx.db
+              //   .query(edgeDefinition.to)
+              //   .withIndex(edgeDefinition.ref, (q) =>
+              //     q.eq(edgeDefinition.ref, docId as any)
+              //   )
+              //   .unique();
 
-          // edges[key] = {
-          //   add: value[key] as GenericId<any>,
-          //   remove: existing?._id as GenericId<any> | undefined,
-          // };
-        } else {
-          edges[key] = value[key] as any;
-        }
-      })
+              // edges[key] = {
+              //   add: value[key] as GenericId<any>,
+              //   remove: existing?._id as GenericId<any> | undefined,
+              // };
+            } else {
+              edges[key] = value[key] as any;
+            }
+          })
+        );
+        await this.base.writeEdges(id, edges);
+        return id;
+      }
     );
-    await this.writeEdges(docId, edges);
   }
 
-  /**
-   * Replace the value of an existing document, overwriting its old value.
-   *
-   * @param id - The {@link GenericId} of the document to replace.
-   * @param value - The new {@link GenericDocument} for the document. This value can omit the system fields,
-   * and the database will fill them in.
-   */
-  async replace(
-    id: GenericId<Table>,
+  replace(
     value: WithOptionalSystemFields<
       WithEdges<
         DataModel,
@@ -238,101 +303,104 @@ export class TableWriterImpl<
       >
     >
   ) {
-    await this.checkUniqueness(value, id);
-    const fields = this.fieldsOnly(value as any);
-    const docId = this.normalizeIdX(id);
-    await this.ctx.db.replace(docId, fields as any);
+    return new PromiseEntIdImpl(
+      this.ctx,
+      this.entDefinitions,
+      this.table,
+      async () => {
+        const { id: docId } = await this.retrieveId(this.ctx.db);
+        await this.base.checkUniqueness(value, docId);
+        const fields = this.base.fieldsOnly(value as any);
+        await this.ctx.db.replace(docId, fields as any);
 
-    const edges: EdgeChanges = {};
+        const edges: EdgeChanges = {};
 
-    await Promise.all(
-      (this.entDefinitions[this.table].edges as unknown as EdgeConfig[]).map(
-        async (edgeDefinition) => {
-          const key = edgeDefinition.name;
-          const idOrIds = value[key];
-          if (edgeDefinition.cardinality === "single") {
-            if (edgeDefinition.type === "ref") {
-              const oldDoc = (await this.ctx.db.get(docId))!;
-              if (oldDoc[key] !== undefined && oldDoc[key] !== idOrIds) {
-                // This should be only allowed if the edge is optional
-                // on the field side.
-                // TODO: Write this info into the ref side of the edge in defineEntSchema.
-                // TODO: Even better encode this in types so that replace
-                // doesn't have this single edge in the signature.
-                throw new Error("Cannot set 1:1 edge from optional end.");
-                // edges[key] = {
-                //   add: idOrIds as GenericId<any>,
-                //   remove: oldDoc[key] as GenericId<any> | undefined,
-                // };
+        await Promise.all(
+          (
+            this.entDefinitions[this.table].edges as unknown as EdgeConfig[]
+          ).map(async (edgeDefinition) => {
+            const key = edgeDefinition.name;
+            const idOrIds = value[key];
+            if (edgeDefinition.cardinality === "single") {
+              if (edgeDefinition.type === "ref") {
+                const oldDoc = (await this.ctx.db.get(docId))!;
+                if (oldDoc[key] !== undefined && oldDoc[key] !== idOrIds) {
+                  // This should be only allowed if the edge is optional
+                  // on the field side.
+                  // TODO: Write this info into the ref side of the edge in defineEntSchema.
+                  // TODO: Even better encode this in types so that replace
+                  // doesn't have this single edge in the signature.
+                  throw new Error("Cannot set 1:1 edge from optional end.");
+                  // edges[key] = {
+                  //   add: idOrIds as GenericId<any>,
+                  //   remove: oldDoc[key] as GenericId<any> | undefined,
+                  // };
+                }
+              }
+            } else {
+              if (edgeDefinition.type === "field") {
+                // TODO: Same issue around optionality as above
+                const existing = (
+                  await this.ctx.db
+                    .query(edgeDefinition.to)
+                    .withIndex(edgeDefinition.ref, (q) =>
+                      q.eq(edgeDefinition.ref, docId as any)
+                    )
+                    .collect()
+                ).map((doc) => doc._id);
+                edges[key] = {
+                  add: idOrIds as GenericId<any>[],
+                  remove: existing as GenericId<any>[],
+                };
+              } else {
+                const requested = new Set(idOrIds ?? []);
+                const remove = (
+                  await this.ctx.db
+                    .query(edgeDefinition.table)
+                    .withIndex(edgeDefinition.field, (q) =>
+                      q.eq(edgeDefinition.field, docId as any)
+                    )
+                    .collect()
+                )
+                  .map((doc) => [doc._id, doc[edgeDefinition.ref]] as const)
+                  .concat(
+                    edgeDefinition.symmetric
+                      ? (
+                          await this.ctx.db
+                            .query(edgeDefinition.table)
+                            .withIndex(edgeDefinition.ref, (q) =>
+                              q.eq(edgeDefinition.ref, docId as any)
+                            )
+                            .collect()
+                        ).map(
+                          (doc) => [doc._id, doc[edgeDefinition.field]] as const
+                        )
+                      : []
+                  )
+                  .filter(([_edgeId, otherId]) => {
+                    if (requested.has(otherId as any)) {
+                      requested.delete(otherId as any);
+                      return false;
+                    }
+                    return true;
+                  })
+                  .map(([edgeId]) => edgeId);
+                edges[key] = {
+                  add: Array.from(requested) as GenericId<any>[],
+                  removeEdges: remove as GenericId<any>[],
+                };
               }
             }
-          } else {
-            if (edgeDefinition.type === "field") {
-              // TODO: Same issue around optionality as above
-              const existing = (
-                await this.ctx.db
-                  .query(edgeDefinition.to)
-                  .withIndex(edgeDefinition.ref, (q) =>
-                    q.eq(edgeDefinition.ref, docId as any)
-                  )
-                  .collect()
-              ).map((doc) => doc._id);
-              edges[key] = {
-                add: idOrIds as GenericId<any>[],
-                remove: existing as GenericId<any>[],
-              };
-            } else {
-              const requested = new Set(idOrIds ?? []);
-              const remove = (
-                await this.ctx.db
-                  .query(edgeDefinition.table)
-                  .withIndex(edgeDefinition.field, (q) =>
-                    q.eq(edgeDefinition.field, docId as any)
-                  )
-                  .collect()
-              )
-                .map((doc) => [doc._id, doc[edgeDefinition.ref]] as const)
-                .concat(
-                  edgeDefinition.symmetric
-                    ? (
-                        await this.ctx.db
-                          .query(edgeDefinition.table)
-                          .withIndex(edgeDefinition.ref, (q) =>
-                            q.eq(edgeDefinition.ref, docId as any)
-                          )
-                          .collect()
-                      ).map(
-                        (doc) => [doc._id, doc[edgeDefinition.field]] as const
-                      )
-                    : []
-                )
-                .filter(([_edgeId, otherId]) => {
-                  if (requested.has(otherId as any)) {
-                    requested.delete(otherId as any);
-                    return false;
-                  }
-                  return true;
-                })
-                .map(([edgeId]) => edgeId);
-              edges[key] = {
-                add: Array.from(requested) as GenericId<any>[],
-                removeEdges: remove as GenericId<any>[],
-              };
-            }
-          }
-        }
-      )
+          })
+        );
+        await this.base.writeEdges(docId, edges);
+        return docId;
+      }
     );
-    await this.writeEdges(docId, edges);
   }
 
-  /**
-   * Delete an existing document. Delete all associated edges, and for
-   * 1:1 edges deletes the document holding the edge (cascading delete).
-   *
-   * @param id - The {@link GenericId} of the document to remove.
-   */
-  async delete(id: GenericId<TableNamesInDataModel<DataModel>>) {
+  async delete() {
+    const { id } = await this.retrieveId(this.ctx.db);
     let memoized: GenericDocument | undefined = undefined;
     const oldDoc = async () => {
       if (memoized !== undefined) {
@@ -388,47 +456,166 @@ export class TableWriterImpl<
         }
       )
     );
-    await this.ctx.db.delete(this.normalizeIdX(id));
-    await this.writeEdges(id, edges);
+    await this.ctx.db.delete(id);
+    await this.base.writeEdges(id, edges);
+    return id;
+  }
+}
+
+type WithEdges<
+  DataModel extends GenericDataModel,
+  Document extends GenericDocument,
+  Edges extends Record<string, GenericEdgeConfig<DataModel>>
+> = Document & {
+  [key in keyof Edges]?: Edges[key]["cardinality"] extends "single"
+    ? Edges[key]["type"] extends "ref"
+      ? never
+      : GenericId<Edges[key]["to"]>
+    : GenericId<Edges[key]["to"]>[];
+};
+
+type WithEdgePatches<
+  DataModel extends GenericDataModel,
+  Document extends GenericDocument,
+  Edges extends Record<string, GenericEdgeConfig<DataModel>>
+> = Document & {
+  [key in keyof Edges]?: Edges[key]["cardinality"] extends "single"
+    ? Edges[key]["type"] extends "ref"
+      ? never
+      : GenericId<Edges[key]["to"]>
+    : {
+        add?: GenericId<Edges[key]["to"]>[];
+        remove?: GenericId<Edges[key]["to"]>[];
+      };
+};
+
+type EdgeChanges = Record<
+  string,
+  {
+    add?: GenericId<any>[] | GenericId<any>;
+    remove?: GenericId<any>[] | GenericId<any>;
+    removeEdges?: GenericId<any>[];
+  }
+>;
+
+type EntWriterByName<
+  DataModel extends GenericDataModel,
+  EntsDataModel extends GenericEntsDataModel<DataModel>,
+  Table extends TableNamesInDataModel<DataModel>
+> = Expand<
+  EntByName<DataModel, EntsDataModel, Table> & {
+    /**
+     * Patch this existing document, shallow merging it with the given partial
+     * document.
+     *
+     * New fields are added. Existing fields are overwritten. Fields set to
+     * `undefined` are removed.
+     *
+     * @param value - The partial {@link GenericDocument} to merge into this document. If this new value
+     * specifies system fields like `_id`, they must match the document's existing field values.
+     */
+    patch(
+      value: Partial<
+        WithEdgePatches<
+          DataModel,
+          DocumentByName<DataModel, Table>,
+          EntsDataModel[Table]["edges"]
+        >
+      >
+    ): Promise<void>;
+
+    /**
+     * Replace the value of this existing document, overwriting its old value.
+     *
+     * @param value - The new {@link GenericDocument} for the document. This value can omit the system fields,
+     * and the database will preserve them in.
+     */
+    replace(
+      value: WithOptionalSystemFields<
+        WithEdges<
+          DataModel,
+          DocumentByName<DataModel, Table>,
+          EntsDataModel[Table]["edges"]
+        >
+      >
+    ): PromiseEntId<DataModel, EntsDataModel, Table>;
+  }
+>;
+
+interface PromiseEntId<
+  DataModel extends GenericDataModel,
+  EntsDataModel extends GenericEntsDataModel<DataModel>,
+  Table extends TableNamesInDataModel<DataModel>
+> extends Promise<GenericId<Table>> {
+  get(): PromiseEntWriter<DataModel, EntsDataModel, Table>;
+
+  then<TResult1 = GenericId<Table>, TResult2 = never>(
+    onfulfilled?:
+      | ((value: GenericId<Table>) => TResult1 | PromiseLike<TResult1>)
+      | undefined
+      | null,
+    onrejected?:
+      | ((reason: any) => TResult2 | PromiseLike<TResult2>)
+      | undefined
+      | null
+  ): Promise<TResult1 | TResult2>;
+}
+
+class PromiseEntIdImpl<
+    DataModel extends GenericDataModel,
+    EntsDataModel extends GenericEntsDataModel<DataModel>,
+    Table extends TableNamesInDataModel<DataModel>
+  >
+  extends Promise<GenericId<Table>>
+  implements PromiseEntId<DataModel, EntsDataModel, Table>
+{
+  constructor(
+    private ctx: GenericMutationCtx<DataModel>,
+    private entDefinitions: EntsDataModel,
+    private table: Table,
+    private retrieve: (
+      db: GenericDatabaseWriter<DataModel>
+    ) => Promise<GenericId<Table>>
+  ) {
+    super(() => {});
   }
 
-  async checkUniqueness(value: Partial<GenericDocument>, id?: GenericId<any>) {
-    await Promise.all(
-      (this.entDefinitions[this.table].edges as unknown as EdgeConfig[]).map(
-        async (edgeDefinition) => {
-          if (
-            edgeDefinition.cardinality === "single" &&
-            edgeDefinition.type === "field" &&
-            edgeDefinition.unique
-          ) {
-            const key = edgeDefinition.field;
-            if (value[key] === undefined) {
-              return;
-            }
-            // Enforce uniqueness
-            const existing = await this.ctx.db
-              .query(this.table)
-              .withIndex(key, (q) => q.eq(key, value[key] as any))
-              .unique();
-            if (
-              existing !== null &&
-              (id === undefined || existing._id !== id)
-            ) {
-              throw new Error(
-                `In table "${this.table}" cannot create a duplicate 1:1 edge "${
-                  edgeDefinition.name
-                }" to ID "${
-                  value[key] as string
-                }", existing document with ID "${
-                  existing._id as string
-                }" already has it.`
-              );
-            }
-          }
-        }
-      )
-    );
+  get() {
+    return new PromiseEntOrNullImpl(
+      this.ctx,
+      this.entDefinitions,
+      this.table,
+      async (db) => {
+        const id = await this.retrieve(this.ctx.db);
+        return db.get(id);
+      }
+    ) as any;
   }
+
+  then<TResult1 = GenericId<Table>, TResult2 = never>(
+    onfulfilled?:
+      | ((value: GenericId<Table>) => TResult1 | PromiseLike<TResult1>)
+      | undefined
+      | null,
+    onrejected?:
+      | ((reason: any) => TResult2 | PromiseLike<TResult2>)
+      | undefined
+      | null
+  ): Promise<TResult1 | TResult2> {
+    return this.retrieve(this.ctx.db).then(onfulfilled, onrejected);
+  }
+}
+
+class WriterImplBase<
+  DataModel extends GenericDataModel,
+  EntsDataModel extends GenericEntsDataModel<DataModel>,
+  Table extends TableNamesInDataModel<DataModel>
+> {
+  constructor(
+    protected ctx: GenericMutationCtx<DataModel>,
+    protected entDefinitions: EntsDataModel,
+    protected table: Table
+  ) {}
 
   async writeEdges(docId: GenericId<any>, changes: EdgeChanges) {
     await Promise.all(
@@ -543,6 +730,44 @@ export class TableWriterImpl<
     );
   }
 
+  async checkUniqueness(value: Partial<GenericDocument>, id?: GenericId<any>) {
+    await Promise.all(
+      (this.entDefinitions[this.table].edges as unknown as EdgeConfig[]).map(
+        async (edgeDefinition) => {
+          if (
+            edgeDefinition.cardinality === "single" &&
+            edgeDefinition.type === "field" &&
+            edgeDefinition.unique
+          ) {
+            const key = edgeDefinition.field;
+            if (value[key] === undefined) {
+              return;
+            }
+            // Enforce uniqueness
+            const existing = await this.ctx.db
+              .query(this.table)
+              .withIndex(key, (q) => q.eq(key, value[key] as any))
+              .unique();
+            if (
+              existing !== null &&
+              (id === undefined || existing._id !== id)
+            ) {
+              throw new Error(
+                `In table "${this.table}" cannot create a duplicate 1:1 edge "${
+                  edgeDefinition.name
+                }" to ID "${
+                  value[key] as string
+                }", existing document with ID "${
+                  existing._id as string
+                }" already has it.`
+              );
+            }
+          }
+        }
+      )
+    );
+  }
+
   fieldsOnly(
     value: Partial<
       WithEdgePatches<
@@ -568,39 +793,3 @@ export class TableWriterImpl<
     return fields;
   }
 }
-
-type WithEdges<
-  DataModel extends GenericDataModel,
-  Document extends GenericDocument,
-  Edges extends Record<string, GenericEdgeConfig<DataModel>>
-> = Document & {
-  [key in keyof Edges]?: Edges[key]["cardinality"] extends "single"
-    ? Edges[key]["type"] extends "ref"
-      ? never
-      : GenericId<Edges[key]["to"]>
-    : GenericId<Edges[key]["to"]>[];
-};
-
-type WithEdgePatches<
-  DataModel extends GenericDataModel,
-  Document extends GenericDocument,
-  Edges extends Record<string, GenericEdgeConfig<DataModel>>
-> = Document & {
-  [key in keyof Edges]?: Edges[key]["cardinality"] extends "single"
-    ? Edges[key]["type"] extends "ref"
-      ? never
-      : GenericId<Edges[key]["to"]>
-    : {
-        add?: GenericId<Edges[key]["to"]>[];
-        remove?: GenericId<Edges[key]["to"]>[];
-      };
-};
-
-type EdgeChanges = Record<
-  string,
-  {
-    add?: GenericId<any>[] | GenericId<any>;
-    remove?: GenericId<any>[] | GenericId<any>;
-    removeEdges?: GenericId<any>[];
-  }
->;

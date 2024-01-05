@@ -238,8 +238,8 @@ export const test2 = mutation(async (ctx) => {
     }).rejects.toThrowError(
       `In table "profiles" cannot create a duplicate 1:1 edge "user"`
     );
-    await ctx.table("profiles").delete(newProfileId);
-    await ctx.table("users").delete(newUserId);
+    await ctx.table("profiles").getX(newProfileId).delete();
+    await ctx.table("users").getX(newUserId).delete();
   }
 
   // Insert 1:1 from ref side is not possible, because the required side of
@@ -269,7 +269,7 @@ export const test2 = mutation(async (ctx) => {
     });
     const updatedMessage = await ctx.table("messages").getX(newMessageId);
     assertEqual(updatedMessage.userId, newUserId);
-    await ctx.table("users").delete(newUserId);
+    await ctx.table("users").getX(newUserId).delete();
     // Messages get deleted automatically via cascading delete:
     const deletedMessage = await ctx.table("messages").get(newMessageId);
     assertEqual(deletedMessage, null);
@@ -297,13 +297,13 @@ export const test2 = mutation(async (ctx) => {
       (await (ctx.db as any).query("messages_to_tags").collect()).length,
       2
     );
-    await ctx.table("messages").delete(newMessageId);
+    await ctx.table("messages").getX(newMessageId).delete();
     assertEqual(
       (await (ctx.db as any).query("messages_to_tags").collect()).length,
       1
     );
 
-    await ctx.table("tags").delete(newTagId);
+    await ctx.table("tags").getX(newTagId).delete();
   }
   // Test symmetric many:many
   {
@@ -325,10 +325,10 @@ export const test2 = mutation(async (ctx) => {
     assertEqual(newUserFriends[0].name, "Jobs");
 
     // Test correct deletion
-    await ctx
-      .table("users")
-      .replace(newUserId, { name: "Gates", email: "bill@gates.com" });
-    const updatedFriends = await newUser.edge("friends");
+    const updatedFriends = await newUser
+      .replace({ name: "Gates", email: "bill@gates.com" })
+      .get()
+      .edge("friends");
     assertEqual(updatedFriends.length, 0);
     const updatedSomeUserFriends = await friend.edge("friends");
     assertEqual(updatedSomeUserFriends.length, 0);
@@ -340,7 +340,7 @@ export const test2 = mutation(async (ctx) => {
     const someUser = await ctx.table("users").firstX();
     const someProfile = await ctx.table("profiles").firstX();
     async () => {
-      await ctx.table("users").patch(someUser._id, {
+      await ctx.table("users").getX(someUser._id).patch({
         // @ts-expect-error This is not allowed
         profile: someProfile._id,
       });
@@ -356,51 +356,34 @@ export const seed = mutation(async (ctx) => {
     "tags",
     "posts",
   ] as const) {
-    for (const { _id } of await ctx.table(table as any)) {
-      await ctx.table(table as any).delete(_id);
+    // TODO: in the future
+    // await ctx.table(table).map(doc => doc.delete());
+    for (const { _id } of await ctx.table(table)) {
+      await ctx.table(table).getX(_id).delete();
     }
   }
 
-  const userId = await ctx.table("users").insert({
-    name: "Stark",
-    email: "tony@stark.com",
-  });
-  const userId2 = await ctx.table("users").insert({
-    name: "Musk",
-    email: "elon@musk.com",
-  });
-  const messageId = await ctx.table("messages").insert({
-    text: "Hello world",
-    userId,
-  });
-  await ctx.table("profiles").insert({
-    bio: "Hello world",
-    userId,
-  });
-  const tagsId = await ctx.table("tags").insert({
-    name: "Orange",
-  });
-  await ctx.table("messages").patch(messageId, {
-    tags: { add: [tagsId] },
-  });
-  await ctx.table("users").patch(userId, {
-    followees: { add: [userId2] },
-  });
-  await ctx.table("users").patch(userId, {
-    friends: { add: [userId2] },
-  });
+  const user1 = await ctx
+    .table("users")
+    .insert({ name: "Stark", email: "tony@stark.com" })
+    .get();
+  const user2 = await ctx
+    .table("users")
+    .insert({ name: "Musk", email: "elon@musk.com" })
+    .get();
+  const message = await ctx
+    .table("messages")
+    .insert({ text: "Hello world", userId: user1._id })
+    .get();
+  await ctx.table("profiles").insert({ bio: "Hello world", userId: user1._id });
+  const tagsId = await ctx.table("tags").insert({ name: "Orange" });
+  await message.patch({ tags: { add: [tagsId] } });
+  await user1.patch({ followees: { add: [user2._id] } });
+  await user2.patch({ friends: { add: [user1._id] } });
   await ctx.table("posts").insert({ text: "My great post" } as any);
   await ctx.table("posts").insertMany([
-    {
-      text: "My great video",
-      type: "video",
-      numLikes: 4,
-    },
-    {
-      text: "My awesome video",
-      type: "video",
-      numLikes: 0,
-    },
+    { text: "My great video", type: "video", numLikes: 4 },
+    { text: "My awesome video", type: "video", numLikes: 0 },
   ]);
 });
 

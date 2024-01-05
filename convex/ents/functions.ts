@@ -24,7 +24,11 @@ import {
 } from "convex/server";
 import { GenericId } from "convex/values";
 import { EdgeConfig, Expand, GenericEntsDataModel } from "./schema";
-import { TableWriter, TableWriterImpl } from "./writer";
+import {
+  PromiseEntWriterImpl,
+  PromiseTableWriter,
+  PromiseTableWriterImpl,
+} from "./writer";
 
 // TODO: Figure out how to make get() variadic
 // type FieldTypes<
@@ -457,27 +461,30 @@ export class PromiseTableImpl<
   }
 
   getX(...args: any[]) {
-    return new PromiseEntOrNullImpl(
-      this.ctx,
-      this.entDefinitions,
+    return new PromiseEntWriterImpl(
+      this.ctx as any,
+      this.entDefinitions as any,
       this.table,
       args.length === 1
-        ? (db) => {
+        ? async (db) => {
             const id = args[0] as GenericId<Table>;
             if (this.ctx.db.normalizeId(this.table, id) === null) {
-              return Promise.reject(
-                new Error(`Invalid id \`${id}\` for table "${this.table}"`)
-              );
+              throw new Error(`Invalid id \`${id}\` for table "${this.table}"`);
             }
-            const doc = db.get(id);
-            if (doc === null) {
-              throw new Error(`Document not found with id \`${id}\``);
-            }
-            return doc;
+            return {
+              id,
+              doc: async () => {
+                const doc = await db.get(id);
+                if (doc === null) {
+                  throw new Error(`Document not found with id \`${id}\``);
+                }
+                return doc;
+              },
+            };
           }
-        : (db) => {
+        : async (db) => {
             const [indexName, value] = args;
-            const doc = db
+            const doc = await db
               .query(this.table)
               .withIndex(indexName, (q) => q.eq(indexName, value))
               .unique();
@@ -486,7 +493,7 @@ export class PromiseTableImpl<
                 `Table "${this.table}" does not contain document with field "${indexName}" = \`${value}\``
               );
             }
-            return doc;
+            return { id: doc._id as any, doc: async () => doc };
           }
     );
   }
@@ -707,7 +714,7 @@ class PromiseEntsOrNullImpl<
   }
 }
 
-interface PromiseEntOrNull<
+export interface PromiseEntOrNull<
   DataModel extends GenericDataModel,
   EntsDataModel extends GenericEntsDataModel<DataModel>,
   Table extends TableNamesInDataModel<DataModel>
@@ -733,7 +740,7 @@ interface PromiseEntOrNull<
   ): PromiseEdgeOrNull<DataModel, EntsDataModel, Table, Edge>;
 }
 
-interface PromiseEnt<
+export interface PromiseEnt<
   DataModel extends GenericDataModel,
   EntsDataModel extends GenericEntsDataModel<DataModel>,
   Table extends TableNamesInDataModel<DataModel>
@@ -760,7 +767,7 @@ interface PromiseEnt<
   ): PromiseEdgeOrThrow<DataModel, EntsDataModel, Table, Edge>;
 }
 
-class PromiseEntOrNullImpl<
+export class PromiseEntOrNullImpl<
     DataModel extends GenericDataModel,
     EntsDataModel extends GenericEntsDataModel<DataModel>,
     Table extends TableNamesInDataModel<DataModel>
@@ -769,10 +776,10 @@ class PromiseEntOrNullImpl<
   implements PromiseEntOrNull<DataModel, EntsDataModel, Table>
 {
   constructor(
-    private ctx: GenericQueryCtx<DataModel>,
-    private entDefinitions: EntsDataModel,
-    private table: Table,
-    private retrieve: (
+    protected ctx: GenericQueryCtx<DataModel>,
+    protected entDefinitions: EntsDataModel,
+    protected table: Table,
+    protected retrieve: (
       db: GenericDatabaseReader<DataModel>
     ) => Promise<DocumentByName<DataModel, Table> | null>
   ) {
@@ -926,15 +933,39 @@ function entWrapper<
   entDefinitions: EntsDataModel,
   table: Table
 ): EntByName<DataModel, EntsDataModel, Table> {
-  const queryInterface = new PromiseEntOrNullImpl(
-    ctx,
-    entDefinitions,
+  const queryInterface = new PromiseEntWriterImpl(
+    ctx as any,
+    entDefinitions as any,
     table,
-    async () => doc
+    async () => ({ id: doc._id as any, doc: async () => doc })
   );
   Object.defineProperty(doc, "edge", {
     value: (edge: any) => {
       return queryInterface.edge(edge);
+    },
+    enumerable: false,
+    writable: false,
+    configurable: false,
+  });
+  Object.defineProperty(doc, "patch", {
+    value: (value: any) => {
+      return queryInterface.patch(value);
+    },
+    enumerable: false,
+    writable: false,
+    configurable: false,
+  });
+  Object.defineProperty(doc, "replace", {
+    value: (value: any) => {
+      return queryInterface.replace(value);
+    },
+    enumerable: false,
+    writable: false,
+    configurable: false,
+  });
+  Object.defineProperty(doc, "delete", {
+    value: () => {
+      return queryInterface.delete();
     },
     enumerable: false,
     writable: false,
@@ -984,7 +1015,7 @@ export function entsWriterFactory<
     if (typeof table !== "string") {
       throw new Error(`Expected table name, got \`${table as any}\``);
     }
-    return new TableWriterImpl(ctx, entDefinitions, table) as any;
+    return new PromiseTableWriterImpl(ctx, entDefinitions, table) as any;
   };
 }
 
@@ -1016,14 +1047,12 @@ type EntsWriterFactory<
   DataModel extends GenericDataModel,
   EntsDataModel extends GenericEntsDataModel<DataModel>
 > = {
-  <Table extends TableNamesInDataModel<DataModel>>(table: Table): TableWriter<
-    DataModel,
-    EntsDataModel,
-    Table
-  >;
+  <Table extends TableNamesInDataModel<DataModel>>(
+    table: Table
+  ): PromiseTableWriter<DataModel, EntsDataModel, Table>;
 };
 
-type EntByName<
+export type EntByName<
   DataModel extends GenericDataModel,
   EntsDataModel extends GenericEntsDataModel<DataModel>,
   Table extends TableNamesInDataModel<DataModel>
@@ -1035,7 +1064,7 @@ type EntByName<
   }
 >;
 
-type PromiseEdge<
+export type PromiseEdge<
   DataModel extends GenericDataModel,
   EntsDataModel extends GenericEntsDataModel<DataModel>,
   Table extends TableNamesInDataModel<DataModel>,
@@ -1064,7 +1093,7 @@ type PromiseEdge<
       EntsDataModel[Table]["edges"][Edge]["to"]
     >;
 
-type PromiseEdgeOrThrow<
+export type PromiseEdgeOrThrow<
   DataModel extends GenericDataModel,
   EntsDataModel extends GenericEntsDataModel<DataModel>,
   Table extends TableNamesInDataModel<DataModel>,
