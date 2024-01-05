@@ -220,6 +220,22 @@ export const test = query({
 });
 
 export const test2 = mutation(async (ctx) => {
+  // Test field uniqueness check
+  {
+    const newUserId = await ctx.table("users").insert({
+      name: "Gates",
+      email: "bill@gates.com",
+    });
+    await expect(async () => {
+      await ctx.table("users").insert({
+        name: "Mellinda",
+        email: "bill@gates.com",
+      });
+    }).rejects.toThrowError(
+      `In table "users" cannot create a duplicate document with field "email" of value \`bill@gates.com\``
+    );
+    await ctx.table("users").getX(newUserId).delete();
+  }
   // Test uniqueness check
   {
     const newUserId = await ctx.table("users").insert({

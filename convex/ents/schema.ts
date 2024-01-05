@@ -7,7 +7,6 @@ import {
   GenericTableVectorIndexes,
   SchemaDefinition,
   SearchIndexConfig,
-  VectorIndexConfig,
   TableDefinition,
   TableNamesInDataModel,
   defineSchema,
@@ -32,8 +31,9 @@ export function defineEntSchema<
   const tableNames = Object.keys(schema);
   for (const tableName of tableNames) {
     const table = schema[tableName];
-    for (const edge of (table as any)
-      .edgeConfigs as EdgeConfigFromEntDefinition[]) {
+    for (const edge of Object.values(
+      (table as any).edgeConfigs as Record<string, EdgeConfigFromEntDefinition>
+    )) {
       const otherTableName = edge.to;
       const otherTable = schema[otherTableName];
       if (otherTable === undefined) {
@@ -42,8 +42,11 @@ export function defineEntSchema<
 
       const isSelfDirected = edge.to === tableName;
 
-      const inverseEdgeCandidates = (
-        (otherTable as any).edgeConfigs as EdgeConfigFromEntDefinition[]
+      const inverseEdgeCandidates = Object.values(
+        (otherTable as any).edgeConfigs as Record<
+          string,
+          EdgeConfigFromEntDefinition
+        >
       ).filter(
         (candidate) =>
           candidate.to === tableName &&
@@ -320,6 +323,18 @@ interface EntDefinition<
     VectorIndexes,
     Edges
   >;
+  field<FieldName extends string, T extends Validator<any, any, any>>(
+    field: FieldName,
+    validator: T,
+    options: { unique: true }
+  ): EntDefinition<
+    Document & { [key in FieldName]: T["type"] },
+    FieldPaths | FieldName,
+    Indexes & { [key in FieldName]: [FieldName] },
+    SearchIndexes,
+    VectorIndexes,
+    Edges
+  >;
   field<FieldName extends string, T extends Validator<any, false, any>>(
     field: FieldName,
     validator: T,
@@ -438,6 +453,7 @@ interface EntDefinition<
 
 type FieldOptions = {
   index?: true;
+  unique?: true;
   default?: any;
 };
 
@@ -453,26 +469,24 @@ type EdgesOptions = {
 class EntDefinitionImpl {
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
   // @ts-ignore
-  private indexes: Index[];
+  private indexes: Index[] = [];
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
   // @ts-ignore
-  private searchIndexes: SearchIndex[];
+  private searchIndexes: SearchIndex[] = [];
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
   // @ts-ignore
-  private vectorIndexes: VectorIndex[];
+  private vectorIndexes: VectorIndex[] = [];
 
   private documentSchema: Record<string, Validator<any, any, any>>;
 
-  private edgeConfigs: EdgeConfigFromEntDefinition[];
+  private edgeConfigs: Record<string, EdgeConfigFromEntDefinition> = {};
+
+  private fieldConfigs: Record<string, FieldConfig> = {};
 
   private defaults: Record<string, any> = {};
 
   constructor(documentSchema: Record<string, Validator<any, any, any>>) {
-    this.indexes = [];
-    this.searchIndexes = [];
-    this.vectorIndexes = [];
     this.documentSchema = documentSchema;
-    this.edgeConfigs = [];
   }
 
   index(name: any, fields: any) {
@@ -518,24 +532,27 @@ class EntDefinitionImpl {
     const finalValidator =
       options?.default !== undefined ? v.optional(validator) : validator;
     this.documentSchema = { ...this.documentSchema, [name]: finalValidator };
-    if (options?.index === true) {
+    if (options?.unique === true || options?.index === true) {
       this.indexes.push({ indexDescriptor: name, fields: [name] });
     }
     if (options?.default !== undefined) {
       this.defaults[name] = options.default;
+    }
+    if (options?.unique === true) {
+      this.fieldConfigs[name] = { name, unique: true };
     }
     return this;
   }
 
   edge(table: string, options?: EdgeOptions): this {
     if (options === undefined) {
-      this.edgeConfigs.push({
+      this.edgeConfigs[table] = {
         name: table,
         to: table + "s",
         cardinality: "single",
         type: "field",
         field: table + "Id",
-      });
+      };
       this.indexes.push({
         indexDescriptor: table + "Id",
         fields: [table + "Id"],
@@ -543,32 +560,32 @@ class EntDefinitionImpl {
       return this;
     }
     if (options.optional === true) {
-      this.edgeConfigs.push({
+      this.edgeConfigs[table] = {
         name: table,
         to: table + "s",
         cardinality: "single",
         type: "ref",
         ref: null, // gets filled in by defineEntSchema
-      });
+      };
     }
     return this;
   }
 
   edges(name: string, options?: EdgesOptions): this {
-    this.edgeConfigs.push({
+    this.edgeConfigs[name] = {
       name: name,
       to: options?.to ?? name,
       cardinality: "multiple",
       type: null, // gets filled in by defineEntSchema
-    });
+    };
     if (typeof options?.inverse === "string") {
-      this.edgeConfigs.push({
+      this.edgeConfigs[name] = {
         name: options?.inverse,
         to: options?.to ?? name,
         cardinality: "multiple",
         type: null, // gets filled in by defineEntSchema
         inverse: true,
-      });
+      };
     }
     return this;
   }
@@ -630,6 +647,11 @@ type EdgeConfigFromEntDefinition = {
         }
     ))
 );
+
+export type FieldConfig = {
+  name: string;
+  unique: boolean;
+};
 
 type ExtractDocument<T extends Validator<any, any, any>> =
   // Add the system fields to `Value` (except `_id` because it depends on
@@ -708,6 +730,7 @@ export function getEntDefinitions<
       [tableName]: {
         defaults: tables[tableName].defaults,
         edges: tables[tableName].edgeConfigs,
+        fields: tables[tableName].fieldConfigs,
       },
     }),
     {}

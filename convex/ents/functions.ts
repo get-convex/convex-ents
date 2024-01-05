@@ -823,8 +823,8 @@ export class PromiseEntOrNullImpl<
     throwIfNull = false
   ) {
     const edgeDefinition: EdgeConfig = (
-      this.entDefinitions[this.table].edges as any
-    ).filter(({ name }: EdgeConfig) => name === edge)[0];
+      this.entDefinitions[this.table].edges as EntsDataModel[Table]["edges"]
+    )[edge] as any;
 
     if (edgeDefinition.cardinality === "multiple") {
       if (edgeDefinition.type === "ref") {
