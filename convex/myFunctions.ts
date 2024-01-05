@@ -136,6 +136,7 @@ export const test = query({
       const friends = await ctx.table("users").firstX().edge("friends");
       assertEqual(friends.length, 1);
       assertEqual(friends[0].name, "Musk");
+      assertEqual((await friends[0].edge("friends"))[0].name, "Stark");
     }
 
     {
@@ -304,6 +305,34 @@ export const test2 = mutation(async (ctx) => {
 
     await ctx.table("tags").delete(newTagId);
   }
+  // Test symmetric many:many
+  {
+    const friendId = await ctx.table("users").insert({
+      name: "Jobs",
+      email: "steve@jobs.com",
+    });
+    const friend = await ctx.table("users").getX(friendId);
+    const newUserId = await ctx.table("users").insert({
+      name: "Gates",
+      email: "bill@gates.com",
+      friends: [friendId],
+    });
+    const newUser = await ctx.table("users").getX(newUserId);
+    const newUserFriends = await newUser.edge("friends");
+    assertEqual(newUserFriends.length, 1);
+    const someUserFriends = await friend.edge("friends");
+    assertEqual(someUserFriends.length, 1);
+    assertEqual(newUserFriends[0].name, "Jobs");
+
+    // Test correct deletion
+    await ctx
+      .table("users")
+      .replace(newUserId, { name: "Gates", email: "bill@gates.com" });
+    const updatedFriends = await newUser.edge("friends");
+    assertEqual(updatedFriends.length, 0);
+    const updatedSomeUserFriends = await friend.edge("friends");
+    assertEqual(updatedSomeUserFriends.length, 0);
+  }
 
   // Patch 1:1 from ref side is not possible, because the required side of
   // the edge cannot be removed.
@@ -357,13 +386,8 @@ export const seed = mutation(async (ctx) => {
   await ctx.table("users").patch(userId, {
     followees: { add: [userId2] },
   });
-  await ctx.table("users_friends" as any).insert({
-    aId: userId,
-    bId: userId2,
-  });
-  await ctx.table("users_friends" as any).insert({
-    aId: userId2,
-    bId: userId,
+  await ctx.table("users").patch(userId, {
+    friends: { add: [userId2] },
   });
   await ctx.table("posts").insert({ text: "My great post" } as any);
   await ctx.table("posts").insertMany([

@@ -282,17 +282,41 @@ export class TableWriterImpl<
                 remove: existing as GenericId<any>[],
               };
             } else {
-              const existing = (
+              const requested = new Set(idOrIds ?? []);
+              const remove = (
                 await this.ctx.db
                   .query(edgeDefinition.table)
                   .withIndex(edgeDefinition.field, (q) =>
                     q.eq(edgeDefinition.field, docId as any)
                   )
                   .collect()
-              ).map((doc) => doc._id);
+              )
+                .map((doc) => [doc._id, doc[edgeDefinition.ref]] as const)
+                .concat(
+                  edgeDefinition.symmetric
+                    ? (
+                        await this.ctx.db
+                          .query(edgeDefinition.table)
+                          .withIndex(edgeDefinition.ref, (q) =>
+                            q.eq(edgeDefinition.ref, docId as any)
+                          )
+                          .collect()
+                      ).map(
+                        (doc) => [doc._id, doc[edgeDefinition.field]] as const
+                      )
+                    : []
+                )
+                .filter(([_edgeId, otherId]) => {
+                  if (requested.has(otherId as any)) {
+                    requested.delete(otherId as any);
+                    return false;
+                  }
+                  return true;
+                })
+                .map(([edgeId]) => edgeId);
               edges[key] = {
-                add: idOrIds as GenericId<any>[],
-                remove: existing as GenericId<any>[],
+                add: Array.from(requested) as GenericId<any>[],
+                removeEdges: remove as GenericId<any>[],
               };
             }
           }
@@ -346,8 +370,19 @@ export class TableWriterImpl<
                     q.eq(edgeDefinition.field, id as any)
                   )
                   .collect()
-              ).map((doc) => doc._id);
-              edges[key] = { remove: existing as GenericId<any>[] };
+              )
+                .concat(
+                  edgeDefinition.symmetric
+                    ? await this.ctx.db
+                        .query(edgeDefinition.table)
+                        .withIndex(edgeDefinition.ref, (q) =>
+                          q.eq(edgeDefinition.ref, id as any)
+                        )
+                        .collect()
+                    : []
+                )
+                .map((doc) => doc._id);
+              edges[key] = { removeEdges: existing as GenericId<any>[] };
             }
           }
         }
@@ -446,21 +481,59 @@ export class TableWriterImpl<
                 );
               }
             } else {
+              let removeEdges: GenericId<any>[] = [];
               if (idOrIds.remove !== undefined) {
-                await Promise.all(
-                  (idOrIds.remove as GenericId<any>[]).map((id) =>
-                    this.ctx.db.delete(id)
+                removeEdges = (
+                  await Promise.all(
+                    (idOrIds.remove as GenericId<any>[]).map(async (id) =>
+                      (
+                        await this.ctx.db
+                          .query(edgeDefinition.table)
+                          .withIndex(edgeDefinition.field, (q) =>
+                            (
+                              q.eq(edgeDefinition.field, docId as any) as any
+                            ).eq(edgeDefinition.ref, id)
+                          )
+                          .collect()
+                      ).concat(
+                        edgeDefinition.symmetric
+                          ? await this.ctx.db
+                              .query(edgeDefinition.table)
+                              .withIndex(edgeDefinition.ref, (q) =>
+                                (
+                                  q.eq(edgeDefinition.ref, docId as any) as any
+                                ).eq(edgeDefinition.field, id)
+                              )
+                              .collect()
+                          : []
+                      )
+                    )
                   )
+                ).map((doc) => (doc as any)._id);
+              }
+              if (idOrIds.removeEdges !== undefined) {
+                removeEdges = idOrIds.removeEdges;
+              }
+              if (removeEdges.length > 0) {
+                await Promise.all(
+                  removeEdges.map((id) => this.ctx.db.delete(id))
                 );
               }
+
               if (idOrIds.add !== undefined) {
                 await Promise.all(
-                  (idOrIds.add as GenericId<any>[]).map(async (id) =>
-                    this.ctx.db.insert(edgeDefinition.table, {
+                  (idOrIds.add as GenericId<any>[]).map(async (id) => {
+                    await this.ctx.db.insert(edgeDefinition.table, {
                       [edgeDefinition.field]: docId,
                       [edgeDefinition.ref]: id,
-                    } as any)
-                  )
+                    } as any);
+                    if (edgeDefinition.symmetric) {
+                      await this.ctx.db.insert(edgeDefinition.table, {
+                        [edgeDefinition.field]: id,
+                        [edgeDefinition.ref]: docId,
+                      } as any);
+                    }
+                  })
                 );
               }
             }
@@ -528,5 +601,6 @@ type EdgeChanges = Record<
   {
     add?: GenericId<any>[] | GenericId<any>;
     remove?: GenericId<any>[] | GenericId<any>;
+    removeEdges?: GenericId<any>[];
   }
 >;

@@ -134,13 +134,14 @@ export function defineEntSchema<
             [forwardId]: v.id(tableName),
             [inverseId]: v.id(otherTableName),
           })
-            .index(forwardId, [forwardId])
-            .index(inverseId, [inverseId]);
+            .index(forwardId, [forwardId, inverseId])
+            .index(inverseId, [inverseId, forwardId]);
 
           (edge as any).type = "ref";
           (edge as any).table = edgeTableName;
           (edge as any).field = forwardId;
           (edge as any).ref = inverseId;
+          (edge as any).symmetric = inverseEdge === undefined;
           if (inverseEdge !== undefined) {
             inverseEdge.type = "ref";
             (inverseEdge as any).table = edgeTableName;
@@ -597,6 +598,7 @@ export type EdgeConfig = {
           field: string;
           ref: string;
           inverse: boolean;
+          symmetric: boolean;
         }
     ))
 );
