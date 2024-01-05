@@ -1,0 +1,299 @@
+# Reading Ents from the Database
+
+Convex Ents provide a `ctx.table` method which replaces the built-in `ctx.db`
+object. The result of calling the method is a custom object which acts as a lazy
+`Promise`. If you `await` it, you will get a list of results. But you can
+instead call another method on it which will return a different lazy `Promise`,
+and so on. This enables a powerful and efficient fluent API.
+
+## Security
+
+The Convex Ents API was designed to add an additional level of security to your
+backend code. The built-in `ctx.db` object allows reading data from and writing
+data to any table. Therefore in vanilla Convex you must correctly use both
+[argument validation](https://docs.convex.dev/functions/args-validation) and
+[strict schema validation](https://docs.convex.dev/database/schemas) to avoid
+exposing a function which could be misused by an attacker to act on a table it
+was not designed to act on.
+
+All Convex Ents APIs require specifying a table up-front. If you need to read
+data from an arbitrary table, you must the
+[use the built-in `ctx.db`](/setup/config) object.
+
+## Reading a single ent by ID
+
+```ts
+const task = await ctx.table("tasks").get(taskId);
+```
+
+This is equivalent to the built-in:
+
+```ts
+const task = await ctx.db.get(taskId);
+```
+
+with the addition of checking that `taskId` belongs to `"tasks"`.
+
+## Reading a single ent by indexed field
+
+```ts
+const task = await ctx.table("users").get("email", "steve@apple.com");
+```
+
+This is equivalent to the built-in:
+
+```ts
+const task = await ctx.db
+  .query("users")
+  .withIndex("email", (q) => q.eq("email", "steve@apple.com"))
+  .unique();
+```
+
+## Reading a single ent or throwing
+
+The `getX` method (pronounced "get or throw") throws an `Error` if the read
+produced no ents:
+
+```ts
+const task = await ctx.table("tasks").getX(taskId);
+```
+
+```ts
+const task = await ctx.table("users").getX("email", "steve@apple.com");
+```
+
+## Listing all ents
+
+To list all ents backed by a single table, simply `await` the `ctx.table` call:
+
+```ts
+const tasks = await ctx.table("users");
+```
+
+This is equivalent to the built-in:
+
+```ts
+const tasks = await ctx.db.query("users").collect();
+```
+
+## Listing ents filtered by index
+
+To list ents from a table and efficiently filter them by an index, pass the
+index name and filter callback to `ctx.table`:
+
+```ts
+const posts = await ctx.table("posts", "numLikes", (q) =>
+  q.gt("numLikes", 100)
+);
+```
+
+This is equivalent to the built-in:
+
+```ts
+const posts = await ctx.db
+  .query("posts")
+  .withIndex("numLikes", (q) => q.gt("numLikes", 100))
+  .collect();
+```
+
+## Filtering
+
+Use the `filter` method, which works the same as the
+[built-in `filter` method](https://docs.convex.dev/database/reading-data#filtering):
+
+```ts
+const posts = await ctx
+  .table("posts")
+  .filter((q) => q.gt(q.field("numLikes"), 100));
+```
+
+This is equivalent to the built-in:
+
+```ts
+const posts = await ctx.db
+  .query("posts")
+  .filter((q) => q.gt(q.field("numLikes"), 100))
+  .collect();
+```
+
+## Ordering
+
+Use the `order` method. The default sort is by `_creationTime` in ascending
+order (from oldest created to newest created):
+
+```ts
+const posts = await ctx.table("posts").order("desc");
+```
+
+This is equivalent to the built-in:
+
+```ts
+const posts = await ctx.db.query("posts").order("desc").collect();
+```
+
+## Ordering by index
+
+The `order` method takes an index name as a shortcut to sorting by a given
+index:
+
+```ts
+const posts = await ctx.table("posts").order("desc", "numLikes");
+```
+
+This is equivalent to the built-in:
+
+```ts
+const posts = await ctx
+  .table("posts")
+  .withIndex("numLikes")
+  .order("desc")
+  .collect();
+```
+
+## Limiting results
+
+### Taking first `n` ents
+
+```ts
+const users = await ctx.table("users").take(5);
+```
+
+### Finding the first ent
+
+Useful chained, either to a `ctx.table` call using an index, or after `filter`,
+`order`, `edge`.
+
+```ts
+const latestUser = await ctx.table("users").order("desc").first();
+```
+
+### Finding the first ent or throwing
+
+The `firstX` method (pronounced "first or throw") throws an `Error` if the read
+produced no ents:
+
+```ts
+const latestUser = await ctx.table("users").order("desc").firstX();
+```
+
+### Finding a unique ent
+
+Throws if the listing produced more than 1 result, returns `null` if there were
+no results:
+
+```ts
+const counter = await ctx.table("counters").unique();
+```
+
+### Finding a unique ent or throwing
+
+The `uniqueX` method (pronounced "unique or throw") throws if the listing
+produced more or less than 1 result:
+
+```ts
+const counter = await ctx.table("counters").uniqueX();
+```
+
+### Loading a page of ents
+
+A `paginate` functions works the same as
+[the built-in pagination](https://docs.convex.dev/database/pagination).
+Currently it cannot be chained.
+
+## Traversing edges
+
+Convex Ents allow easily traversing edges declared in the [schema](/schema).
+
+### Traversing 1:1 edge
+
+The `edge` method returns an ent for 1:1 edges, or `null` if starting from the
+"optional" end of the edge:
+
+```ts
+const profile = await ctx.table("users").getX(userId).edge("profile");
+```
+
+The `edgeX` method (edge or throw) throws if the edge does not exist:
+
+```ts
+const profile = await ctx.table("users").getX(userId).edgeX("profile");
+```
+
+### Traversing 1:many edges
+
+The `edge` method returns either a list of ents, or a single ent (or null) for
+1:many edges, depending on which end of the edge is used:
+
+```ts
+const messages = await ctx.table("users").getX(userId).edge("messages");
+```
+
+```ts
+const user = await ctx.table("message").getX(messageId).edge("user");
+```
+
+### Traversing many:many edges
+
+The `edge` method returns either a list of ents for many:many edges:
+
+```ts
+const tags = await ctx.table("messages").getX(messageId).edge("tags");
+const messages = await ctx.table("tags").getX(tagId).edge("messages");
+```
+
+### Traversing edges on retrieved ents
+
+All the methods for reading ents return the underlying document(s), enriched
+with the `edge` and `edgeX` methods. This allows traversing edges even after
+loading the ent from the database:
+
+```ts
+const user = await ctx.table("users").firstX();
+const profile = user.edgeX("profile");
+```
+
+## Mapping ents
+
+To map, that is to produce a new Array by calling a function on each element of
+the original Array, using `async` functions is quite unwieldy in JavaScript
+without the use of libraries. For this reason all lazy promises of a list of
+ents support the `map` method:
+
+```ts
+const usersWithMessagesAndProfile = await ctx
+  .table("users")
+  .map(async (user) => ({
+    ...user,
+    messages: await user.edge("messages"),
+    profile: await user.edgeX("profile"),
+  }));
+```
+
+This code is equivalent to this code using only built-in Convex and JavaScript
+functionality:
+
+```ts
+const usersWithMessagesAndProfile = await Promise.all(
+  (
+    await ctx.db.query("users").collect()
+  ).map(async (user) => ({
+    ...user,
+    posts: await ctx.db
+      .query("messages")
+      .withIndex("userId", (q) => q.eq("userId", user._id))
+      .collect(),
+    profile: (async () => {
+      const profile = await ctx.db
+        .query("profiles")
+        .withIndex("userId", (q) => q.eq("userId", user._id))
+        .unique();
+      if (profile === null) {
+        throw new Error(
+          `Edge "profile" does not exist for document wit ID ${user._id}`
+        );
+      }
+      return profile;
+    })(),
+  }))
+);
+```

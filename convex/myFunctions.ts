@@ -1,35 +1,5 @@
-import {
-  customCtx,
-  customMutation,
-  customQuery,
-} from "convex-helpers/server/customFunctions";
-import {
-  query as baseQuery,
-  mutation as baseMutation,
-} from "./_generated/server";
-import { entsReaderFactory, entsWriterFactory } from "./ents/functions";
 import expect from "@storybook/expect";
-import { entDefinitions } from "./schema";
-
-const query = customQuery(
-  baseQuery,
-  customCtx(async (ctx) => {
-    return {
-      table: entsReaderFactory(ctx, entDefinitions),
-      db: ctx.db as unknown as undefined,
-    };
-  })
-);
-
-const mutation = customMutation(
-  baseMutation,
-  customCtx(async (ctx) => {
-    return {
-      table: entsWriterFactory(ctx, entDefinitions),
-      db: ctx.db as unknown as undefined,
-    };
-  })
-);
+import { mutation, query } from "./functions";
 
 export const test = query({
   args: {},

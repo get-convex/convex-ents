@@ -1,6 +1,9 @@
 {
   "index": "Introduction",
+  "setup": "Setup",
   "schema": "Ent Schema",
+  "read": "Reading Ents",
+  "write": "Writing Ents",
   "contact": {
     "title": "Community ↗",
     "type": "page",

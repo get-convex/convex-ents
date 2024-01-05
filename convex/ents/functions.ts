@@ -854,9 +854,11 @@ export class PromiseEntOrNullImpl<
                 throw new Error(
                   `Dangling reference "${
                     edgeDocs[i][edgeDefinition.field] as string
-                  }" found in document with _id "${
+                  }" found in edge document with ID "${
                     edgeDocs[i]._id as string
-                  }", expected to find a document with the first ID.`
+                  }", expected to find a document with the first ID in table ${
+                    edgeDefinition.to
+                  }.`
                 );
               }
               return true;
@@ -900,7 +902,11 @@ export class PromiseEntOrNullImpl<
             )
             .unique();
           if (throwIfNull && otherDoc === null) {
-            throw new Error("Query returned no documents");
+            throw new Error(
+              `Edge "${
+                edgeDefinition.name
+              }" does not exist for document with ID ${doc._id as string}`
+            );
           }
           return otherDoc;
         }
@@ -912,9 +918,11 @@ export class PromiseEntOrNullImpl<
           throw new Error(
             `Dangling reference "${
               doc[edgeDefinition.field] as string
-            }" found in document with _id "${
+            }" found in document with ID "${
               doc._id as string
-            }", expected to find a document with the first ID.`
+            }", expected to find a document with the first ID in table ${
+              edgeDefinition.to
+            }.`
           );
         }
         return otherDoc;
@@ -942,6 +950,14 @@ function entWrapper<
   Object.defineProperty(doc, "edge", {
     value: (edge: any) => {
       return queryInterface.edge(edge);
+    },
+    enumerable: false,
+    writable: false,
+    configurable: false,
+  });
+  Object.defineProperty(doc, "edgeX", {
+    value: (edge: any) => {
+      return queryInterface.edgeX(edge);
     },
     enumerable: false,
     writable: false,
@@ -1061,6 +1077,9 @@ export type EntByName<
     edge<Edge extends keyof EntsDataModel[Table]["edges"]>(
       edge: Edge
     ): PromiseEdge<DataModel, EntsDataModel, Table, Edge>;
+    edgeX<Edge extends keyof EntsDataModel[Table]["edges"]>(
+      edge: Edge
+    ): PromiseEdgeOrThrow<DataModel, EntsDataModel, Table, Edge>;
   }
 >;
 

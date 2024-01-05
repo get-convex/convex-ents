@@ -1,0 +1,149 @@
+import { Steps } from "nextra/components";
+
+# Setup Ents in your Convex project
+
+<Steps>
+### Install the NPM library
+ 
+```sh
+npm install convex-ents convex-helpers
+```
+
+This also installs `convex-helpers`, used in step 3.
+
+### Create a schema
+
+Create or update your schema file, for example:
+
+```ts copy filename="convex/schema.ts"
+import { v } from "convex/values";
+import { defineEnt, defineEntSchema, getEntDefinitions } from "convex-ent";
+
+const schema = defineEntSchema({
+  messages: defineEnt({
+    text: v.string(),
+  })
+    .edge("user")
+    .edges("tags"),
+
+  users: defineEnt({
+    name: v.string(),
+  }).edges("messages"),
+
+  tags: defineEnt({
+    name: v.string(),
+  }).edges("messages"),
+});
+
+export default schema;
+
+export const entDefinitions = getEntDefinitions(schema);
+```
+
+For more details on declaring the schema see [Ent Schema](/schema).
+
+### Setup custom functions
+
+Add a `functions.ts` file with the following contents:
+
+<details>
+<summary>Click to show</summary>
+
+```ts copy filename="convex/functions.ts"
+import {
+  customCtx,
+  customMutation,
+  customQuery,
+} from "convex-helpers/server/customFunctions";
+import {
+  query as baseQuery,
+  mutation as baseMutation,
+  internalQuery as baseInternalQuery,
+  internalMutation as baseInternalMutation,
+} from "./_generated/server";
+import { entsReaderFactory, entsWriterFactory } from "./ents/functions";
+import { entDefinitions } from "./schema";
+
+export const query = customQuery(
+  baseQuery,
+  customCtx(async (ctx) => {
+    return {
+      table: entsReaderFactory(ctx, entDefinitions),
+      db: undefined,
+    };
+  })
+);
+
+export const internalQuery = customQuery(
+  baseInternalQuery,
+  customCtx(async (ctx) => {
+    return {
+      table: entsReaderFactory(ctx, entDefinitions),
+      db: undefined,
+    };
+  })
+);
+
+export const mutation = customMutation(
+  baseMutation,
+  customCtx(async (ctx) => {
+    return {
+      table: entsWriterFactory(ctx, entDefinitions),
+      db: undefined,
+    };
+  })
+);
+
+export const internalMutation = customMutation(
+  baseInternalMutation,
+  customCtx(async (ctx) => {
+    return {
+      table: entsWriterFactory(ctx, entDefinitions),
+      db: undefined,
+    };
+  })
+);
+```
+
+</details>
+
+For more details see [Configuring Functions](/setup/config).
+
+### Use custom functions to read and write ents
+
+In any of your Convex backend code, use the custom functions you set up in the
+previous step instead of the ones that come from `_generated`, which will
+provide `ctx.table` instead of `ctx.db`:
+
+```ts copy filename="convex/messages.ts"
+import { v } from "convex/values";
+import { mutation, query } from "./functions";
+
+export const list = query(async (ctx) => {
+  return await ctx.table("messages").map((message) => ({
+    text: message.text,
+    author: (await message.edge("user")).name,
+  }));
+});
+
+export const send = mutation({
+  args: { text: v.string(), authorId: v.id("users") },
+  handler: async (ctx, { text, authorId }) => {
+    await ctx.table("messages").insert({ text, authorId });
+  },
+});
+
+export const tag = mutation({
+  args: { messageId: v.id("messages"), tagId: v.id("tags") },
+  handler: async (ctx, { text, authorId }) => {
+    await ctx
+      .table("messages")
+      .getX(messageId)
+      .patch({ tags: { add: [tagId] } });
+  },
+});
+```
+
+For more details see [Reading Ents](/read) and [Writing Ents](/write).
+
+</Steps>
