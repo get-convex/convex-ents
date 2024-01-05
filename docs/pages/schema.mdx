@@ -1,3 +1,5 @@
+import { Callout } from "nextra/components";
+
 # Ent Schema
 
 Ents (short for entity) are Convex documents, which allow explicitly declaring
@@ -226,6 +228,8 @@ defineEntSchema({
 
 The edge names are used when querying the edges, but they are not stored in the
 database (the field name is, as part of each document that stores its value).
+
+<Callout type="info">Optional 1:1 edges are not supported for now.</Callout>
 
 ### 1:many edges
 

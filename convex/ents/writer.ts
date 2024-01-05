@@ -122,6 +122,9 @@ export class TableWriterImpl<
       ) {
         return;
       }
+      if (edgeDefinition.cardinality === "single") {
+        throw new Error("Cannot set 1:1 edge from optional end.");
+      }
       edges[key] = { add: value[key] };
     });
     await this.writeEdges(docId, edges);
@@ -168,17 +171,18 @@ export class TableWriterImpl<
           return;
         }
         if (edgeDefinition.cardinality === "single") {
-          const existing = await this.ctx.db
-            .query(edgeDefinition.to)
-            .withIndex(edgeDefinition.ref, (q) =>
-              q.eq(edgeDefinition.ref, docId as any)
-            )
-            .unique();
+          throw new Error("Cannot set 1:1 edge from optional end.");
+          // const existing = await this.ctx.db
+          //   .query(edgeDefinition.to)
+          //   .withIndex(edgeDefinition.ref, (q) =>
+          //     q.eq(edgeDefinition.ref, docId as any)
+          //   )
+          //   .unique();
 
-          edges[key] = {
-            add: value[key] as GenericId<any>,
-            remove: existing?._id as GenericId<any> | undefined,
-          };
+          // edges[key] = {
+          //   add: value[key] as GenericId<any>,
+          //   remove: existing?._id as GenericId<any> | undefined,
+          // };
         } else {
           edges[key] = value[key] as any;
         }
@@ -225,10 +229,11 @@ export class TableWriterImpl<
                 // TODO: Write this info into the ref side of the edge in defineEntSchema.
                 // TODO: Even better encode this in types so that replace
                 // doesn't have this single edge in the signature.
-                edges[key] = {
-                  add: idOrIds as GenericId<any>,
-                  remove: oldDoc[key] as GenericId<any> | undefined,
-                };
+                throw new Error("Cannot set 1:1 edge from optional end.");
+                // edges[key] = {
+                //   add: idOrIds as GenericId<any>,
+                //   remove: oldDoc[key] as GenericId<any> | undefined,
+                // };
               }
             }
           } else {
@@ -268,12 +273,58 @@ export class TableWriterImpl<
   }
 
   /**
-   * Delete an existing document.
+   * Delete an existing document. Delete all associated edges, and for
+   * 1:1 edges deletes the document holding the edge (cascading delete).
    *
    * @param id - The {@link GenericId} of the document to remove.
    */
-  delete(id: GenericId<TableNamesInDataModel<DataModel>>) {
-    return this.ctx.db.delete(this.normalizeIdX(id));
+  async delete(id: GenericId<TableNamesInDataModel<DataModel>>) {
+    let memoized: GenericDocument | undefined = undefined;
+    const oldDoc = async () => {
+      if (memoized !== undefined) {
+        return memoized;
+      }
+      return (memoized = (await this.ctx.db.get(id))!);
+    };
+    const edges: EdgeChanges = {};
+    await Promise.all(
+      (this.entDefinitions[this.table].edges as unknown as EdgeConfig[]).map(
+        async (edgeDefinition) => {
+          const key = edgeDefinition.name;
+          if (edgeDefinition.cardinality === "single") {
+            if (edgeDefinition.type === "ref") {
+              edges[key] = {
+                remove: (await oldDoc())[key] as GenericId<any> | undefined,
+              };
+            }
+          } else {
+            if (edgeDefinition.type === "field") {
+              const existing = (
+                await this.ctx.db
+                  .query(edgeDefinition.to)
+                  .withIndex(edgeDefinition.ref, (q) =>
+                    q.eq(edgeDefinition.ref, id as any)
+                  )
+                  .collect()
+              ).map((doc) => doc._id);
+              edges[key] = { remove: existing as GenericId<any>[] };
+            } else {
+              const existing = (
+                await this.ctx.db
+                  .query(edgeDefinition.table)
+                  .withIndex(edgeDefinition.field, (q) =>
+                    q.eq(edgeDefinition.field, id as any)
+                  )
+                  .collect()
+              ).map((doc) => doc._id);
+              edges[key] = { remove: existing as GenericId<any>[] };
+            }
+          }
+        }
+      )
+    );
+    await this.ctx.db.delete(this.normalizeIdX(id));
+    await this.writeEdges(id, edges);
   }
 
   async checkUniqueness(value: Partial<GenericDocument>, id?: GenericId<any>) {
@@ -325,10 +376,9 @@ export class TableWriterImpl<
           if (edgeDefinition.cardinality === "single") {
             if (edgeDefinition.type === "ref") {
               if (idOrIds.remove !== undefined) {
-                await this.ctx.db.patch(
-                  idOrIds.remove as GenericId<any>,
-                  { [edgeDefinition.ref]: undefined } as any
-                );
+                // Cascading delete because 1:1 edges are not optional
+                // on the stored field end.
+                await this.ctx.db.delete(idOrIds.remove as GenericId<any>);
               }
               if (idOrIds.add !== undefined) {
                 await this.ctx.db.patch(
@@ -340,13 +390,21 @@ export class TableWriterImpl<
           } else {
             if (edgeDefinition.type === "field") {
               if (idOrIds.remove !== undefined) {
+                // Cascading delete because 1:many edges are not optional
+                // on the stored field end.
                 await Promise.all(
                   (idOrIds.remove as GenericId<any>[]).map((id) =>
-                    this.ctx.db.patch(id, {
-                      [edgeDefinition.ref]: undefined,
-                    } as any)
+                    this.ctx.db.delete(id)
                   )
                 );
+                // This would be behavior for optional edge:
+                // await Promise.all(
+                //   (idOrIds.remove as GenericId<any>[]).map((id) =>
+                //     this.ctx.db.patch(id, {
+                //       [edgeDefinition.ref]: undefined,
+                //     } as any)
+                //   )
+                // );
               }
               if (idOrIds.add !== undefined) {
                 await Promise.all(

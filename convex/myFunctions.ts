@@ -16,7 +16,7 @@ const query = customQuery(
   customCtx(async (ctx) => {
     return {
       table: entsReaderFactory(ctx, entDefinitions),
-      db: undefined,
+      db: ctx.db as unknown as undefined,
     };
   })
 );
@@ -26,7 +26,7 @@ const mutation = customMutation(
   customCtx(async (ctx) => {
     return {
       table: entsWriterFactory(ctx, entDefinitions),
-      db: undefined,
+      db: ctx.db as unknown as undefined,
     };
   })
 );
@@ -219,6 +219,7 @@ export const test = query({
 });
 
 export const test2 = mutation(async (ctx) => {
+  // Test uniqueness check
   {
     const newUserId = await ctx.table("users").insert({
       name: "Gates",
@@ -267,8 +268,10 @@ export const test2 = mutation(async (ctx) => {
     });
     const updatedMessage = await ctx.table("messages").getX(newMessageId);
     assertEqual(updatedMessage.userId, newUserId);
-    await ctx.table("messages").delete(newMessageId);
     await ctx.table("users").delete(newUserId);
+    // Messages get deleted automatically via cascading delete:
+    const deletedMessage = await ctx.table("messages").get(newMessageId);
+    assertEqual(deletedMessage, null);
   }
   // Insert many:many
   {
@@ -288,8 +291,17 @@ export const test2 = mutation(async (ctx) => {
     assertEqual(messageTags.length, 1);
     assertEqual(messageTags[0].name, "Blue");
 
-    // TODO: Implement some edge deletion behavior
+    // Test the edge deletion behavior
+    assertEqual(
+      (await (ctx.db as any).query("messages_to_tags").collect()).length,
+      2
+    );
     await ctx.table("messages").delete(newMessageId);
+    assertEqual(
+      (await (ctx.db as any).query("messages_to_tags").collect()).length,
+      1
+    );
+
     await ctx.table("tags").delete(newTagId);
   }
 
@@ -308,7 +320,6 @@ export const test2 = mutation(async (ctx) => {
 });
 
 export const seed = mutation(async (ctx) => {
-  // Note: Currently not deleting edges
   for (const table of [
     "users",
     "messages",
@@ -316,8 +327,8 @@ export const seed = mutation(async (ctx) => {
     "tags",
     "posts",
   ] as const) {
-    for (const { _id } of await ctx.table(table)) {
-      await ctx.table(table).delete(_id);
+    for (const { _id } of await ctx.table(table as any)) {
+      await ctx.table(table as any).delete(_id);
     }
   }
 
