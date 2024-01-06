@@ -227,13 +227,13 @@ export class PromiseEntWriterImpl<
     protected ctx: GenericMutationCtx<DataModel>,
     protected entDefinitions: EntsDataModel,
     protected table: Table,
-    protected retrieveId: (db: GenericDatabaseWriter<DataModel>) => Promise<{
+    protected retrieveId: () => Promise<{
       id: GenericId<Table>;
       doc: () => Promise<DocumentByName<DataModel, Table>>;
     }>
   ) {
     super(ctx, entDefinitions, table, async () => {
-      const { doc } = await this.retrieveId(this.ctx.db);
+      const { doc } = await this.retrieveId();
       return doc();
     });
     this.base = new WriterImplBase(ctx, entDefinitions, table);
@@ -253,7 +253,7 @@ export class PromiseEntWriterImpl<
       this.entDefinitions,
       this.table,
       async () => {
-        const { id } = await this.retrieveId(this.ctx.db);
+        const { id } = await this.retrieveId();
         await this.base.checkUniqueness(value, id);
         const fields = this.base.fieldsOnly(value);
         await this.ctx.db.patch(id, fields);
@@ -310,7 +310,7 @@ export class PromiseEntWriterImpl<
       this.entDefinitions,
       this.table,
       async () => {
-        const { id: docId } = await this.retrieveId(this.ctx.db);
+        const { id: docId } = await this.retrieveId();
         await this.base.checkUniqueness(value, docId);
         const fields = this.base.fieldsOnly(value as any);
         await this.ctx.db.replace(docId, fields as any);
@@ -402,7 +402,7 @@ export class PromiseEntWriterImpl<
   }
 
   async delete() {
-    const { id } = await this.retrieveId(this.ctx.db);
+    const { id } = await this.retrieveId();
     let memoized: GenericDocument | undefined = undefined;
     const oldDoc = async () => {
       if (memoized !== undefined) {

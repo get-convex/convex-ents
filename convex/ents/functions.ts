@@ -4,7 +4,6 @@ import {
   FieldTypeFromFieldPath,
   FilterBuilder,
   GenericDataModel,
-  GenericDatabaseReader,
   GenericMutationCtx,
   GenericQueryCtx,
   IndexNames,
