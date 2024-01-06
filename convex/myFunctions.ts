@@ -377,6 +377,10 @@ export const list = query(async (ctx, args) => {
   return await ctx.table(args.table as any);
 });
 
+export const messages = query(async (ctx) => {
+  return await ctx.table("messages");
+});
+
 function assertEqual(actual: any, expected: any) {
   expect(actual).toEqual(expected);
 }
