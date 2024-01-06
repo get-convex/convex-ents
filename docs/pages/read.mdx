@@ -197,7 +197,7 @@ const counter = await ctx.table("counters").uniqueX();
 
 ### Loading a page of ents
 
-A `paginate` functions works the same as
+A `paginate` method works the same as
 [the built-in pagination](https://docs.convex.dev/database/pagination).
 Currently it cannot be chained.
 
@@ -240,6 +240,27 @@ The `edge` method returns either a list of ents for many:many edges:
 ```ts
 const tags = await ctx.table("messages").getX(messageId).edge("tags");
 const messages = await ctx.table("tags").getX(tagId).edge("messages");
+```
+
+### Testing many:many edge presence
+
+You can efficiently test whether two ents are connected by a many:many edge
+using the `has` method:
+
+```ts
+const hasTag = ctx.table("messages").getX(messageId).edge("tags").has(tagId);
+```
+
+This is equivalent to the built-in:
+
+```ts
+const hasTag =
+  (await ctx.db
+    .query("messages_to_tags")
+    .withIndex("messagesId", (q) =>
+      q.eq("messagesId", message._id).eq("tagsId", tagId)
+    )
+    .first()) !== null;
 ```
 
 ### Traversing edges on retrieved ents

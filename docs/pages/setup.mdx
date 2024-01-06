@@ -15,7 +15,7 @@ This also installs `convex-helpers`, used in step 3.
 
 Create or update your schema file, for example:
 
-```ts copy filename="convex/schema.ts"
+```ts filename="convex/schema.ts"
 import { v } from "convex/values";
 import { defineEnt, defineEntSchema, getEntDefinitions } from "convex-ent";
 
@@ -49,7 +49,7 @@ Add a `functions.ts` file with the following contents:
 <details>
 <summary>Click to show</summary>
 
-```ts copy filename="convex/functions.ts"
+```ts filename="convex/functions.ts"
 import {
   customCtx,
   customMutation,
@@ -115,7 +115,7 @@ In any of your Convex backend code, use the custom functions you set up in the
 previous step instead of the ones that come from `_generated`, which will
 provide `ctx.table` instead of `ctx.db`:
 
-```ts copy filename="convex/messages.ts"
+```ts filename="convex/messages.ts"
 import { v } from "convex/values";
 import { mutation, query } from "./functions";
 
