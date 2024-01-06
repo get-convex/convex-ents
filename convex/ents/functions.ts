@@ -236,9 +236,9 @@ class PromiseQueryOrNullImpl<
     protected ctx: GenericQueryCtx<DataModel>,
     protected entDefinitions: EntsDataModel,
     protected table: Table,
-    protected retrieve: (
-      db: GenericDatabaseReader<DataModel>
-    ) => Promise<Query<NamedTableInfo<DataModel, Table>> | null>
+    protected retrieve: () => Promise<Query<
+      NamedTableInfo<DataModel, Table>
+    > | null>
   ) {
     super(() => {});
   }
@@ -252,8 +252,8 @@ class PromiseQueryOrNullImpl<
       this.ctx,
       this.entDefinitions,
       this.table,
-      async (db) => {
-        const query = await this.retrieve(db);
+      async () => {
+        const query = await this.retrieve();
         if (query === null) {
           return null;
         }
@@ -284,8 +284,8 @@ class PromiseQueryOrNullImpl<
       this.ctx,
       this.entDefinitions,
       this.table,
-      async (db) => {
-        const query = await this.retrieve(db);
+      async () => {
+        const query = await this.retrieve();
         if (query === null) {
           return null;
         }
@@ -304,7 +304,7 @@ class PromiseQueryOrNullImpl<
   async paginate(
     paginationOpts: PaginationOptions
   ): Promise<PaginationResult<DocumentByName<DataModel, Table>> | null> {
-    const query = await this.retrieve(this.ctx.db);
+    const query = await this.retrieve();
     if (query === null) {
       return null;
     }
@@ -316,8 +316,8 @@ class PromiseQueryOrNullImpl<
       this.ctx,
       this.entDefinitions,
       this.table,
-      async (db) => {
-        const query = await this.retrieve(db);
+      async () => {
+        const query = await this.retrieve();
         if (query === null) {
           return null;
         }
@@ -331,8 +331,8 @@ class PromiseQueryOrNullImpl<
       this.ctx,
       this.entDefinitions,
       this.table,
-      async (db) => {
-        const query = await this.retrieve(db);
+      async () => {
+        const query = await this.retrieve();
         if (query === null) {
           return null;
         }
@@ -346,8 +346,8 @@ class PromiseQueryOrNullImpl<
       this.ctx,
       this.entDefinitions,
       this.table,
-      async (db) => {
-        const query = await this.retrieve(db);
+      async () => {
+        const query = await this.retrieve();
         if (query === null) {
           return null;
         }
@@ -365,8 +365,8 @@ class PromiseQueryOrNullImpl<
       this.ctx,
       this.entDefinitions,
       this.table,
-      async (db) => {
-        const query = await this.retrieve(db);
+      async () => {
+        const query = await this.retrieve();
         if (query === null) {
           return null;
         }
@@ -380,8 +380,8 @@ class PromiseQueryOrNullImpl<
       this.ctx,
       this.entDefinitions,
       this.table,
-      async (db) => {
-        const query = await this.retrieve(db);
+      async () => {
+        const query = await this.retrieve();
         if (query === null) {
           return null;
         }
@@ -409,7 +409,7 @@ class PromiseQueryOrNullImpl<
       | undefined
       | null
   ): Promise<TResult1 | TResult2> {
-    return this.retrieve(this.ctx.db)
+    return this.retrieve()
       .then((query) => (query === null ? null : query.collect()))
       .then((documents) =>
         documents === null
@@ -432,7 +432,7 @@ export class PromiseTableImpl<
     entDefinitions: EntsDataModel,
     table: Table
   ) {
-    super(ctx, entDefinitions, table, async (db) => db.query(table));
+    super(ctx, entDefinitions, table, async () => ctx.db.query(table));
   }
 
   get(...args: any[]) {
@@ -441,18 +441,18 @@ export class PromiseTableImpl<
       this.entDefinitions,
       this.table,
       args.length === 1
-        ? (db) => {
+        ? () => {
             const id = args[0] as GenericId<Table>;
             if (this.ctx.db.normalizeId(this.table, id) === null) {
               return Promise.reject(
                 new Error(`Invalid id \`${id}\` for table "${this.table}"`)
               );
             }
-            return db.get(id);
+            return this.ctx.db.get(id);
           }
-        : (db) => {
+        : () => {
             const [indexName, value] = args;
-            return db
+            return this.ctx.db
               .query(this.table)
               .withIndex(indexName, (q) => q.eq(indexName, value))
               .unique();
@@ -466,7 +466,7 @@ export class PromiseTableImpl<
       this.entDefinitions as any,
       this.table,
       args.length === 1
-        ? async (db) => {
+        ? async () => {
             const id = args[0] as GenericId<Table>;
             if (this.ctx.db.normalizeId(this.table, id) === null) {
               throw new Error(`Invalid id \`${id}\` for table "${this.table}"`);
@@ -474,7 +474,7 @@ export class PromiseTableImpl<
             return {
               id,
               doc: async () => {
-                const doc = await db.get(id);
+                const doc = await this.ctx.db.get(id);
                 if (doc === null) {
                   throw new Error(`Document not found with id \`${id}\``);
                 }
@@ -482,9 +482,9 @@ export class PromiseTableImpl<
               },
             };
           }
-        : async (db) => {
+        : async () => {
             const [indexName, value] = args;
-            const doc = await db
+            const doc = await this.ctx.db
               .query(this.table)
               .withIndex(indexName, (q) => q.eq(indexName, value))
               .unique();
@@ -524,8 +524,8 @@ export class PromiseTableImpl<
       this.ctx,
       this.entDefinitions,
       this.table,
-      async (db) => {
-        const query = await this.retrieve(db);
+      async () => {
+        const query = await this.retrieve();
         return (
           query as QueryInitializer<NamedTableInfo<DataModel, Table>>
         ).withIndex(indexName, indexRange);
@@ -546,8 +546,8 @@ export class PromiseTableImpl<
       this.ctx,
       this.entDefinitions,
       this.table,
-      async (db) => {
-        const query = await this.retrieve(db);
+      async () => {
+        const query = await this.retrieve();
         return (
           query as QueryInitializer<NamedTableInfo<DataModel, Table>>
         ).withSearchIndex(indexName, searchFilter) as any;
@@ -607,9 +607,7 @@ class PromiseEntsOrNullImpl<
     private ctx: GenericQueryCtx<DataModel>,
     private entDefinitions: EntsDataModel,
     private table: Table,
-    private retrieve: (
-      db: GenericDatabaseReader<DataModel>
-    ) => Promise<DocumentByName<DataModel, Table>[] | null>
+    private retrieve: () => Promise<DocumentByName<DataModel, Table>[] | null>
   ) {
     super(() => {});
   }
@@ -619,8 +617,8 @@ class PromiseEntsOrNullImpl<
       this.ctx,
       this.entDefinitions,
       this.table,
-      async (db) => {
-        const docs = await this.retrieve(db);
+      async () => {
+        const docs = await this.retrieve();
         if (docs === null) {
           return null;
         }
@@ -634,8 +632,8 @@ class PromiseEntsOrNullImpl<
       this.ctx,
       this.entDefinitions,
       this.table,
-      async (db) => {
-        const docs = await this.retrieve(db);
+      async () => {
+        const docs = await this.retrieve();
         if (docs === null) {
           return null;
         }
@@ -653,8 +651,8 @@ class PromiseEntsOrNullImpl<
       this.ctx,
       this.entDefinitions,
       this.table,
-      async (db) => {
-        const docs = await this.retrieve(db);
+      async () => {
+        const docs = await this.retrieve();
         if (docs === null) {
           return null;
         }
@@ -671,8 +669,8 @@ class PromiseEntsOrNullImpl<
       this.ctx,
       this.entDefinitions,
       this.table,
-      async (db) => {
-        const docs = await this.retrieve(db);
+      async () => {
+        const docs = await this.retrieve();
         if (docs === null) {
           return null;
         }
@@ -702,7 +700,7 @@ class PromiseEntsOrNullImpl<
       | undefined
       | null
   ): Promise<TResult1 | TResult2> {
-    return this.retrieve(this.ctx.db)
+    return this.retrieve()
       .then((docs) =>
         docs === null
           ? null
@@ -779,9 +777,7 @@ export class PromiseEntOrNullImpl<
     protected ctx: GenericQueryCtx<DataModel>,
     protected entDefinitions: EntsDataModel,
     protected table: Table,
-    protected retrieve: (
-      db: GenericDatabaseReader<DataModel>
-    ) => Promise<DocumentByName<DataModel, Table> | null>
+    protected retrieve: () => Promise<DocumentByName<DataModel, Table> | null>
   ) {
     super(() => {});
   }
@@ -801,7 +797,7 @@ export class PromiseEntOrNullImpl<
       | undefined
       | null
   ): Promise<TResult1 | TResult2> {
-    return this.retrieve(this.ctx.db)
+    return this.retrieve()
       .then((doc) =>
         doc === null
           ? null
@@ -832,12 +828,12 @@ export class PromiseEntOrNullImpl<
           this.ctx,
           this.entDefinitions,
           edgeDefinition.to,
-          async (db) => {
-            const doc = await this.retrieve(db);
+          async () => {
+            const doc = await this.retrieve();
             if (doc === null) {
               return null;
             }
-            const edgeDocs = await db
+            const edgeDocs = await this.ctx.db
               .query(edgeDefinition.table)
               .withIndex(edgeDefinition.field, (q) =>
                 q.eq(edgeDefinition.field, doc._id as any)
@@ -846,7 +842,7 @@ export class PromiseEntOrNullImpl<
             return (
               await Promise.all(
                 edgeDocs.map((edgeDoc) =>
-                  db.get(edgeDoc[edgeDefinition.ref] as any)
+                  this.ctx.db.get(edgeDoc[edgeDefinition.ref] as any)
                 )
               )
             ).filter(<TValue>(doc: TValue | null, i: number): doc is TValue => {
@@ -870,12 +866,12 @@ export class PromiseEntOrNullImpl<
         this.ctx,
         this.entDefinitions,
         edgeDefinition.to,
-        async (db) => {
-          const doc = await this.retrieve(db);
+        async () => {
+          const doc = await this.retrieve();
           if (doc === null) {
             return null;
           }
-          return db
+          return this.ctx.db
             .query(edgeDefinition.to)
             .withIndex(edgeDefinition.ref, (q) =>
               q.eq(edgeDefinition.ref, doc._id as any)
@@ -888,8 +884,8 @@ export class PromiseEntOrNullImpl<
       this.ctx,
       this.entDefinitions,
       edgeDefinition.to,
-      async (db) => {
-        const doc = await this.retrieve(db);
+      async () => {
+        const doc = await this.retrieve();
         if (doc === null) {
           return null;
         }

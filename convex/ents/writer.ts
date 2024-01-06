@@ -587,9 +587,9 @@ class PromiseEntIdImpl<
       this.ctx,
       this.entDefinitions,
       this.table,
-      async (db) => {
+      async () => {
         const id = await this.retrieve(this.ctx.db);
-        return db.get(id);
+        return this.ctx.db.get(id);
       }
     ) as any;
   }
