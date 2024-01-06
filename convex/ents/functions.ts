@@ -333,9 +333,9 @@ class PromiseQueryOrNullImpl<
       async () => {
         const query = await this.retrieve();
         if (query === null) {
-          return null;
+          return nullRetriever;
         }
-        return query.first();
+        return loadedRetriever(await query.first());
       }
     );
   }
@@ -348,13 +348,13 @@ class PromiseQueryOrNullImpl<
       async () => {
         const query = await this.retrieve();
         if (query === null) {
-          return null;
+          return nullRetriever;
         }
-        const doc = query.first();
+        const doc = await query.first();
         if (doc === null) {
           throw new Error("Query returned no documents");
         }
-        return doc;
+        return loadedRetriever(doc);
       }
     );
   }
@@ -367,9 +367,9 @@ class PromiseQueryOrNullImpl<
       async () => {
         const query = await this.retrieve();
         if (query === null) {
-          return null;
+          return nullRetriever;
         }
-        return query.unique();
+        return loadedRetriever(await query.unique());
       }
     );
   }
@@ -382,13 +382,13 @@ class PromiseQueryOrNullImpl<
       async () => {
         const query = await this.retrieve();
         if (query === null) {
-          return null;
+          return nullRetriever;
         }
-        const doc = query.unique();
+        const doc = await query.unique();
         if (doc === null) {
           throw new Error("Query returned no documents");
         }
-        return doc;
+        return loadedRetriever(doc);
       }
     );
   }
@@ -435,31 +435,14 @@ export class PromiseTableImpl<
   }
 
   get(...args: any[]) {
-    return new PromiseEntOrNullImpl(
-      this.ctx,
-      this.entDefinitions,
-      this.table,
-      args.length === 1
-        ? () => {
-            const id = args[0] as GenericId<Table>;
-            if (this.ctx.db.normalizeId(this.table, id) === null) {
-              return Promise.reject(
-                new Error(`Invalid id \`${id}\` for table "${this.table}"`)
-              );
-            }
-            return this.ctx.db.get(id);
-          }
-        : () => {
-            const [indexName, value] = args;
-            return this.ctx.db
-              .query(this.table)
-              .withIndex(indexName, (q) => q.eq(indexName, value))
-              .unique();
-          }
-    );
+    return this.getImpl(args);
   }
 
   getX(...args: any[]) {
+    return this.getImpl(args, true);
+  }
+
+  getImpl(args: any[], throwIfNull = false) {
     return new PromiseEntWriterImpl(
       this.ctx as any,
       this.entDefinitions as any,
@@ -474,12 +457,14 @@ export class PromiseTableImpl<
               id,
               doc: async () => {
                 const doc = await this.ctx.db.get(id);
-                if (doc === null) {
-                  throw new Error(`Document not found with id \`${id}\``);
+                if (throwIfNull && doc === null) {
+                  throw new Error(
+                    `Document not found with id \`${id}\` in table "${this.table}"`
+                  );
                 }
                 return doc;
               },
-            };
+            } as any; // any because PromiseEntWriterImpl expects non-nullable
           }
         : async () => {
             const [indexName, value] = args;
@@ -487,12 +472,15 @@ export class PromiseTableImpl<
               .query(this.table)
               .withIndex(indexName, (q) => q.eq(indexName, value))
               .unique();
-            if (doc === null) {
+            if (throwIfNull && doc === null) {
               throw new Error(
                 `Table "${this.table}" does not contain document with field "${indexName}" = \`${value}\``
               );
             }
-            return { id: doc._id as any, doc: async () => doc };
+            return {
+              id: doc?._id as GenericId<Table> | null,
+              doc: async () => doc,
+            } as any; // any because PromiseEntWriterImpl expects non-nullable
           }
     );
   }
@@ -619,9 +607,9 @@ class PromiseEntsOrNullImpl<
       async () => {
         const docs = await this.retrieve();
         if (docs === null) {
-          return null;
+          return nullRetriever;
         }
-        return docs[0] ?? null;
+        return loadedRetriever(docs[0] ?? null);
       }
     );
   }
@@ -634,13 +622,13 @@ class PromiseEntsOrNullImpl<
       async () => {
         const docs = await this.retrieve();
         if (docs === null) {
-          return null;
+          return nullRetriever;
         }
         const doc = docs[0] ?? null;
         if (doc === null) {
           throw new Error("Query returned no documents");
         }
-        return doc;
+        return loadedRetriever(doc);
       }
     );
   }
@@ -653,12 +641,12 @@ class PromiseEntsOrNullImpl<
       async () => {
         const docs = await this.retrieve();
         if (docs === null) {
-          return null;
+          return nullRetriever;
         }
         if (docs.length > 1) {
           throw new Error("unique() query returned more than one result");
         }
-        return docs[0] ?? null;
+        return loadedRetriever(docs[0] ?? null);
       }
     );
   }
@@ -671,7 +659,7 @@ class PromiseEntsOrNullImpl<
       async () => {
         const docs = await this.retrieve();
         if (docs === null) {
-          return null;
+          return nullRetriever;
         }
         if (docs.length > 1) {
           throw new Error("unique() query returned more than one result");
@@ -679,7 +667,7 @@ class PromiseEntsOrNullImpl<
         if (docs.length < 1) {
           throw new Error("unique() query returned no documents");
         }
-        return docs[0];
+        return loadedRetriever(docs[0]);
       }
     );
   }
@@ -708,6 +696,60 @@ class PromiseEntsOrNullImpl<
             )
       )
       .then(onfulfilled, onrejected);
+  }
+}
+
+interface PromiseEdgeEntsOrNull<
+  DataModel extends GenericDataModel,
+  EntsDataModel extends GenericEntsDataModel<DataModel>,
+  Table extends TableNamesInDataModel<DataModel>
+> extends PromiseEntsOrNull<DataModel, EntsDataModel, Table> {
+  /**
+   * Returns whether there is an ent with given ID on the other side
+   * the edge. Returns null if chained to a null result.
+   * @param id The ID of the ent on the other end of the edge
+   */
+  has(id: GenericId<Table>): Promise<boolean | null>;
+}
+
+interface PromiseEdgeEnts<
+  DataModel extends GenericDataModel,
+  EntsDataModel extends GenericEntsDataModel<DataModel>,
+  Table extends TableNamesInDataModel<DataModel>
+> extends PromiseEnts<DataModel, EntsDataModel, Table> {
+  /**
+   * Returns whether there is an ent with given ID on the other side
+   * the edge.
+   * @param id The ID of the ent on the other end of the edge
+   */
+  has(id: GenericId<Table>): Promise<boolean>;
+}
+
+class PromiseEdgeOrNullImpl<
+    DataModel extends GenericDataModel,
+    EntsDataModel extends GenericEntsDataModel<DataModel>,
+    Table extends TableNamesInDataModel<DataModel>
+  >
+  extends PromiseEntsOrNullImpl<DataModel, EntsDataModel, Table>
+  implements PromiseEdgeEntsOrNull<DataModel, EntsDataModel, Table>
+{
+  constructor(
+    ctx: GenericQueryCtx<DataModel>,
+    entDefinitions: EntsDataModel,
+    table: Table,
+    private field: string,
+    private retrieveRange: (
+      indexRange: (
+        q: IndexRangeBuilder<DocumentByName<DataModel, Table>, any>
+      ) => any
+    ) => Promise<DocumentByName<DataModel, Table>[] | null>
+  ) {
+    super(ctx, entDefinitions, table, () => retrieveRange((q) => q));
+  }
+
+  async has(id: GenericId<Table>) {
+    const docs = await this.retrieveRange((q) => q.eq(this.field, id as any));
+    return (docs?.length ?? 0) > 0;
   }
 }
 
@@ -776,7 +818,10 @@ export class PromiseEntOrNullImpl<
     protected ctx: GenericQueryCtx<DataModel>,
     protected entDefinitions: EntsDataModel,
     protected table: Table,
-    protected retrieve: () => Promise<DocumentByName<DataModel, Table> | null>
+    protected retrieve: DocRetriever<
+      GenericId<Table> | null,
+      DocumentByName<DataModel, Table> | null
+    >
   ) {
     super(() => {});
   }
@@ -797,6 +842,7 @@ export class PromiseEntOrNullImpl<
       | null
   ): Promise<TResult1 | TResult2> {
     return this.retrieve()
+      .then(({ id, doc }) => (id === null ? null : doc()))
       .then((doc) =>
         doc === null
           ? null
@@ -823,19 +869,20 @@ export class PromiseEntOrNullImpl<
 
     if (edgeDefinition.cardinality === "multiple") {
       if (edgeDefinition.type === "ref") {
-        return new PromiseEntsOrNullImpl(
+        return new PromiseEdgeOrNullImpl(
           this.ctx,
           this.entDefinitions,
           edgeDefinition.to,
-          async () => {
-            const doc = await this.retrieve();
-            if (doc === null) {
+          edgeDefinition.ref,
+          async (indexRange) => {
+            const { id } = await this.retrieve();
+            if (id === null) {
               return null;
             }
             const edgeDocs = await this.ctx.db
               .query(edgeDefinition.table)
               .withIndex(edgeDefinition.field, (q) =>
-                q.eq(edgeDefinition.field, doc._id as any)
+                indexRange(q.eq(edgeDefinition.field, id as any) as any)
               )
               .collect();
             return (
@@ -866,14 +913,14 @@ export class PromiseEntOrNullImpl<
         this.entDefinitions,
         edgeDefinition.to,
         async () => {
-          const doc = await this.retrieve();
-          if (doc === null) {
+          const { id } = await this.retrieve();
+          if (id === null) {
             return null;
           }
           return this.ctx.db
             .query(edgeDefinition.to)
             .withIndex(edgeDefinition.ref, (q) =>
-              q.eq(edgeDefinition.ref, doc._id as any)
+              q.eq(edgeDefinition.ref, id as any)
             );
         }
       ) as any;
@@ -884,43 +931,47 @@ export class PromiseEntOrNullImpl<
       this.entDefinitions,
       edgeDefinition.to,
       async () => {
-        const doc = await this.retrieve();
-        if (doc === null) {
-          return null;
+        const { id, doc: getDoc } = await this.retrieve();
+        if (id === null) {
+          return nullRetriever;
         }
 
         if (edgeDefinition.type === "ref") {
           const otherDoc = await this.ctx.db
             .query(edgeDefinition.to)
             .withIndex(edgeDefinition.ref, (q) =>
-              q.eq(edgeDefinition.ref, doc._id as any)
+              q.eq(edgeDefinition.ref, id as any)
             )
             .unique();
           if (throwIfNull && otherDoc === null) {
             throw new Error(
               `Edge "${
                 edgeDefinition.name
-              }" does not exist for document with ID ${doc._id as string}`
+              }" does not exist for document with ID ${id as string}`
             );
           }
-          return otherDoc;
+          return loadedRetriever(otherDoc);
         }
-
-        const otherDoc = await this.ctx.db.get(
-          doc[edgeDefinition.field] as any
-        );
-        if (otherDoc === null) {
-          throw new Error(
-            `Dangling reference "${
-              doc[edgeDefinition.field] as string
-            }" found in document with ID "${
-              doc._id as string
-            }", expected to find a document with the first ID in table ${
-              edgeDefinition.to
-            }.`
-          );
-        }
-        return otherDoc;
+        const doc = (await getDoc())!;
+        const otherId = doc[edgeDefinition.field] as any;
+        return {
+          id: otherId,
+          doc: async () => {
+            const otherDoc = await this.ctx.db.get(otherId);
+            if (otherDoc === null) {
+              throw new Error(
+                `Dangling reference "${
+                  doc[edgeDefinition.field] as string
+                }" found in document with ID "${
+                  doc._id as string
+                }", expected to find a document with the first ID in table ${
+                  edgeDefinition.to
+                }.`
+              );
+            }
+            return otherDoc;
+          },
+        };
       }
     ) as any;
   }
@@ -1085,7 +1136,7 @@ export type PromiseEdge<
   Edge extends keyof EntsDataModel[Table]["edges"]
 > = EntsDataModel[Table]["edges"][Edge]["cardinality"] extends "multiple"
   ? EntsDataModel[Table]["edges"][Edge]["type"] extends "ref"
-    ? PromiseEnts<
+    ? PromiseEdgeEnts<
         DataModel,
         EntsDataModel,
         EntsDataModel[Table]["edges"][Edge]["to"]
@@ -1114,7 +1165,7 @@ export type PromiseEdgeOrThrow<
   Edge extends keyof EntsDataModel[Table]["edges"]
 > = EntsDataModel[Table]["edges"][Edge]["cardinality"] extends "multiple"
   ? EntsDataModel[Table]["edges"][Edge]["type"] extends "ref"
-    ? PromiseEnts<
+    ? PromiseEdgeEnts<
         DataModel,
         EntsDataModel,
         EntsDataModel[Table]["edges"][Edge]["to"]
@@ -1143,7 +1194,7 @@ type PromiseEdgeOrNull<
   Edge extends keyof EntsDataModel[Table]["edges"]
 > = EntsDataModel[Table]["edges"][Edge]["cardinality"] extends "multiple"
   ? EntsDataModel[Table]["edges"][Edge]["type"] extends "ref"
-    ? PromiseEntsOrNull<
+    ? PromiseEdgeEntsOrNull<
         DataModel,
         EntsDataModel,
         EntsDataModel[Table]["edges"][Edge]["to"]
@@ -1158,3 +1209,33 @@ type PromiseEdgeOrNull<
       EntsDataModel,
       EntsDataModel[Table]["edges"][Edge]["to"]
     >;
+
+export type DocRetriever<ID, Doc> = () => Promise<{
+  id: ID;
+  doc: () => Promise<Doc>;
+}>;
+
+const nullRetriever = {
+  id: null,
+  doc: async () => null,
+};
+
+function idRetriever<
+  DataModel extends GenericDataModel,
+  Table extends TableNamesInDataModel<DataModel>
+>(ctx: GenericQueryCtx<DataModel>, id: GenericId<Table>) {
+  return {
+    id,
+    doc: async () => ctx.db.get(id),
+  };
+}
+
+function loadedRetriever<
+  DataModel extends GenericDataModel,
+  Table extends TableNamesInDataModel<DataModel>
+>(doc: DocumentByName<DataModel, Table> | null) {
+  return {
+    id: (doc?._id ?? null) as GenericId<Table> | null,
+    doc: async () => doc,
+  };
+}

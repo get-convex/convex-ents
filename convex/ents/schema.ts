@@ -579,7 +579,7 @@ class EntDefinitionImpl {
       type: null, // gets filled in by defineEntSchema
     };
     if (typeof options?.inverse === "string") {
-      this.edgeConfigs[name] = {
+      this.edgeConfigs[options?.inverse] = {
         name: options?.inverse,
         to: options?.to ?? name,
         cardinality: "multiple",

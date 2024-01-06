@@ -1,7 +1,6 @@
 import {
   DocumentByName,
   GenericDataModel,
-  GenericDatabaseWriter,
   GenericDocument,
   GenericMutationCtx,
   TableNamesInDataModel,
@@ -10,6 +9,7 @@ import {
 } from "convex/server";
 import { GenericId } from "convex/values";
 import {
+  DocRetriever,
   EntByName,
   PromiseEdge,
   PromiseEdgeOrThrow,
@@ -101,10 +101,10 @@ export class PromiseTableWriterImpl<
       this.ctx,
       this.entDefinitions,
       this.table,
-      async (db) => {
+      async () => {
         await this.base.checkUniqueness(value);
         const fields = this.base.fieldsOnly(value as any);
-        const docId = await db.insert(this.table, fields as any);
+        const docId = await this.ctx.db.insert(this.table, fields as any);
         const edges: EdgeChanges = {};
         Object.keys(value).forEach((key) => {
           const edgeDefinition: EdgeConfig = (
@@ -227,15 +227,12 @@ export class PromiseEntWriterImpl<
     protected ctx: GenericMutationCtx<DataModel>,
     protected entDefinitions: EntsDataModel,
     protected table: Table,
-    protected retrieveId: () => Promise<{
-      id: GenericId<Table>;
-      doc: () => Promise<DocumentByName<DataModel, Table>>;
-    }>
+    protected retrieve: DocRetriever<
+      GenericId<Table>,
+      DocumentByName<DataModel, Table>
+    >
   ) {
-    super(ctx, entDefinitions, table, async () => {
-      const { doc } = await this.retrieveId();
-      return doc();
-    });
+    super(ctx, entDefinitions, table, retrieve);
     this.base = new WriterImplBase(ctx, entDefinitions, table);
   }
 
@@ -253,7 +250,7 @@ export class PromiseEntWriterImpl<
       this.entDefinitions,
       this.table,
       async () => {
-        const { id } = await this.retrieveId();
+        const { id } = await this.retrieve();
         await this.base.checkUniqueness(value, id);
         const fields = this.base.fieldsOnly(value);
         await this.ctx.db.patch(id, fields);
@@ -310,7 +307,7 @@ export class PromiseEntWriterImpl<
       this.entDefinitions,
       this.table,
       async () => {
-        const { id: docId } = await this.retrieveId();
+        const { id: docId } = await this.retrieve();
         await this.base.checkUniqueness(value, docId);
         const fields = this.base.fieldsOnly(value as any);
         await this.ctx.db.replace(docId, fields as any);
@@ -402,7 +399,7 @@ export class PromiseEntWriterImpl<
   }
 
   async delete() {
-    const { id } = await this.retrieveId();
+    const { id } = await this.retrieve();
     let memoized: GenericDocument | undefined = undefined;
     const oldDoc = async () => {
       if (memoized !== undefined) {
@@ -575,9 +572,7 @@ class PromiseEntIdImpl<
     private ctx: GenericMutationCtx<DataModel>,
     private entDefinitions: EntsDataModel,
     private table: Table,
-    private retrieve: (
-      db: GenericDatabaseWriter<DataModel>
-    ) => Promise<GenericId<Table>>
+    private retrieve: () => Promise<GenericId<Table>>
   ) {
     super(() => {});
   }
@@ -588,8 +583,8 @@ class PromiseEntIdImpl<
       this.entDefinitions,
       this.table,
       async () => {
-        const id = await this.retrieve(this.ctx.db);
-        return this.ctx.db.get(id);
+        const id = await this.retrieve();
+        return { id, doc: async () => this.ctx.db.get(id) };
       }
     ) as any;
   }
@@ -604,7 +599,7 @@ class PromiseEntIdImpl<
       | undefined
       | null
   ): Promise<TResult1 | TResult2> {
-    return this.retrieve(this.ctx.db).then(onfulfilled, onrejected);
+    return this.retrieve().then(onfulfilled, onrejected);
   }
 }
 

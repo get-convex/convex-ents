@@ -6,6 +6,16 @@ export const test = query({
 
   handler: async (ctx) => {
     {
+      // Do 2 ents have a many:many edge between them?
+      const tag = await ctx.table("tags").firstX();
+      const hasTag = await ctx
+        .table("messages")
+        .first()
+        .edge("tags")
+        .has(tag._id);
+      assertEqual(hasTag, true);
+    }
+    {
       // Default fields
       const firstPost = await ctx.table("posts").firstX();
       assertEqual(firstPost.numLikes, 0);
