@@ -1,3 +1,29 @@
 import { Callout } from "nextra/components";
 
-# TBD
+# Writing Ents to the Database
+
+Just like for [reading](/read) ents from the database, for writing Convex Ents
+provide a `ctx.table` method which replaces the built-in `ctx.db` object in
+[Convex mutations](https://docs.convex.dev/functions/mutation-functions).
+
+## Security
+
+The same [added level of security](/read#security) applies to the writing ents
+as it does to reading them.
+
+## Inserting a new ent
+
+You can insert new ents in the database with the `insert` method chained to the
+result of calling `ctx.table`:
+
+```ts
+const taskId = await ctx.table("tasks").insert({ text: "Win at life" });
+```
+
+## Inserting many new ents
+
+```ts
+const taskIds = await ctx
+  .table("tasks")
+  .insertMany({ text: "Buy socks" }, { text: "Buy socks" });
+```

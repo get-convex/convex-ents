@@ -1,7 +1,8 @@
 # Reading Ents from the Database
 
 Convex Ents provide a `ctx.table` method which replaces the built-in `ctx.db`
-object. The result of calling the method is a custom object which acts as a lazy
+object in Convex [queries](https://docs.convex.dev/functions/query-functions).
+The result of calling the method is a custom object which acts as a lazy
 `Promise`. If you `await` it, you will get a list of results. But you can
 instead call another method on it which will return a different lazy `Promise`,
 and so on. This enables a powerful and efficient fluent API.
