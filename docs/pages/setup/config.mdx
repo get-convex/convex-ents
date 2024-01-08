@@ -1,1 +1,267 @@
-# TBD
+# Configuring Functions
+
+Convex Ents are designed to integrate into your Convex backend by replacing the
+built-in `ctx.db` API. This is easy to do by setting your own custom versions of
+the `query` and `mutation` constructor functions, using the `convex-helpers`
+package.
+
+You can read a detailed post about customizing function constructors
+[on Stack](https://stack.convex.dev/custom-functions).
+
+## Recommended setup: Replace function constructors and hide `db`
+
+We recommend having a dedicated file to configuring your custom function
+constructors. Add a `functions.ts` file with the following contents:
+
+```ts filename="convex/functions.ts"
+import {
+  customCtx,
+  customMutation,
+  customQuery,
+} from "convex-helpers/server/customFunctions";
+import {
+  query as baseQuery,
+  mutation as baseMutation,
+  internalQuery as baseInternalQuery,
+  internalMutation as baseInternalMutation,
+} from "./_generated/server";
+import { entsReaderFactory, entsWriterFactory } from "./ents/functions";
+import { entDefinitions } from "./schema";
+
+export const query = customQuery(
+  baseQuery,
+  customCtx(async (ctx) => {
+    return {
+      table: entsReaderFactory(ctx, entDefinitions),
+      db: undefined,
+    };
+  })
+);
+
+export const internalQuery = customQuery(
+  baseInternalQuery,
+  customCtx(async (ctx) => {
+    return {
+      table: entsReaderFactory(ctx, entDefinitions),
+      db: undefined,
+    };
+  })
+);
+
+export const mutation = customMutation(
+  baseMutation,
+  customCtx(async (ctx) => {
+    return {
+      table: entsWriterFactory(ctx, entDefinitions),
+      db: undefined,
+    };
+  })
+);
+
+export const internalMutation = customMutation(
+  baseInternalMutation,
+  customCtx(async (ctx) => {
+    return {
+      table: entsWriterFactory(ctx, entDefinitions),
+      db: undefined,
+    };
+  })
+);
+```
+
+With this code you can now import `query`, `internalQuery`, `mutation` and
+`internalMutation` from `./functions` in the `convex` folder, instead of
+importing from `"./_generated/server"`.
+
+Using the same names as the generated function constructors highlights that only
+the custom constructors should be used throughout your project. We recommend
+this approach because:
+
+1. The `table` API comes with an [additional level of security](/read#security)
+2. The `table` API preserves invariants, such as:
+   - fields having unique values
+   - 1:1 edges being unique on each end of the edge
+   - deleting ents deletes corresponding edges
+
+## Incremental adoption: naming function constructors
+
+If you already have code using the built-in `ctx.db` API, and you want to use
+the ents API only in a subset of your project, you can give the custom function
+constructors different names:
+
+```ts filename="convex/functions.ts"
+import {
+  customCtx,
+  customMutation,
+  customQuery,
+} from "convex-helpers/server/customFunctions";
+import {
+  query,
+  mutation,
+  internalQuery,
+  internalMutation,
+} from "./_generated/server";
+import { entsReaderFactory, entsWriterFactory } from "./ents/functions";
+import { entDefinitions } from "./schema";
+
+export const entQuery = customQuery(
+  baseQuery,
+  customCtx(async (ctx) => {
+    return {
+      table: entsReaderFactory(ctx, entDefinitions),
+      db: undefined,
+    };
+  })
+);
+
+export const entInternalQuery = customQuery(
+  baseInternalQuery,
+  customCtx(async (ctx) => {
+    return {
+      table: entsReaderFactory(ctx, entDefinitions),
+      db: undefined,
+    };
+  })
+);
+
+export const entMutation = customMutation(
+  baseMutation,
+  customCtx(async (ctx) => {
+    return {
+      table: entsWriterFactory(ctx, entDefinitions),
+      db: undefined,
+    };
+  })
+);
+
+export const entInternalMutation = customMutation(
+  baseInternalMutation,
+  customCtx(async (ctx) => {
+    return {
+      table: entsWriterFactory(ctx, entDefinitions),
+      db: undefined,
+    };
+  })
+);
+```
+
+With this code you can now import `entQuery`, `entInternalQuery`, `entMutation`
+and `entInternalMutation` from `./functions` in the `convex` folder.
+
+To make sure the invariants Convex Ents maintain are not violated, we recommend
+accessing a given Convex table in only one variant of your functions (either
+with the built-in `ctx.db` or with Ents-specific `ctx.table`).
+
+## Exposing built-in `db`
+
+The `ctx.table` API can do everything the built-in `ctx.db` API can do with one
+expection: It has to know which table you want to read or write into. So for
+example the following function is not implementable with `ctx.table`:
+
+```ts filename="convex/myFunctions.ts"
+import { internalMutation } from "./_generated/server";
+
+export const deleteAnyDocument = internalMutation({
+  args: { id: v.string() },
+  handler: async (ctx, args) => {
+    await ctx.db.delete(args.id as any);
+  },
+});
+```
+
+The closest you can get to this functionality with `ctx.table` is the following:
+
+```ts filename="convex/myFunctions.ts"
+import { internalMutation } from "./functions";
+
+export const deleteAnyDocument = internalMutation({
+  args: { table: v.string(), id: v.string() },
+  handler: async (ctx, args) => {
+    await ctx
+      .table(args.table)
+      .getX(args.id as any)
+      .delete();
+  },
+});
+```
+
+If you still want to be able to access the built-in `ctx.db` in your functions,
+you can expose it on the customized `ctx`, perhaps with a descriptive name:
+
+```ts filename="convex/functions.ts"
+import {
+  customCtx,
+  customMutation,
+  customQuery,
+} from "convex-helpers/server/customFunctions";
+import {
+  query as baseQuery,
+  mutation as baseMutation,
+  internalQuery as baseInternalQuery,
+  internalMutation as baseInternalMutation,
+} from "./_generated/server";
+import { entsReaderFactory, entsWriterFactory } from "./ents/functions";
+import { entDefinitions } from "./schema";
+
+export const query = customQuery(
+  baseQuery,
+  customCtx(async (ctx) => {
+    return {
+      table: entsReaderFactory(ctx, entDefinitions),
+      db: undefined,
+      unsafeDB_DO_NOT_USE_OR_YOULL_BE_FIRED: db,
+    };
+  })
+);
+
+export const internalQuery = customQuery(
+  baseInternalQuery,
+  customCtx(async (ctx) => {
+    return {
+      table: entsReaderFactory(ctx, entDefinitions),
+      db: undefined,
+      unsafeDB_DO_NOT_USE_OR_YOULL_BE_FIRED: db,
+    };
+  })
+);
+
+export const mutation = customMutation(
+  baseMutation,
+  customCtx(async (ctx) => {
+    return {
+      table: entsWriterFactory(ctx, entDefinitions),
+      db: undefined,
+      unsafeDB_DO_NOT_USE_OR_YOULL_BE_FIRED: db,
+    };
+  })
+);
+
+export const internalMutation = customMutation(
+  baseInternalMutation,
+  customCtx(async (ctx) => {
+    return {
+      table: entsWriterFactory(ctx, entDefinitions),
+      db: undefined,
+      unsafeDB_DO_NOT_USE_OR_YOULL_BE_FIRED: db,
+    };
+  })
+);
+```
+
+You can now access the built-in API like this:
+
+```ts filename="convex/myFunctions.ts"
+import { internalMutation } from "./functions";
+
+export const deleteAnyDocument = internalMutation({
+  args: { id: v.string() },
+  handler: async (ctx, args) => {
+    // This is a detailed explanation of why we're using
+    // the built-in database API even though we are
+    // aware it could break invariants of our ents,
+    // lead to outages for our users, and ultimately
+    // the demise of our enterprise:
+    await ctx.unsafeDB_DO_NOT_USE_OR_YOULL_BE_FIRED.delete(args.id as any);
+  },
+});
+```
