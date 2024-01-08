@@ -41,6 +41,26 @@ test("has method", async (ctx) => {
   expect(hasTag).toEqual(true);
 });
 
+test("getMany", async (ctx) => {
+  const users = await ctx.table("users");
+  const specificUsers = await ctx
+    .table("users")
+    .getMany([users[0]._id, users[1]._id]);
+  expect(specificUsers).toHaveLength(2);
+  assertEqual(specificUsers[0]?.name, users[0].name);
+  assertEqual(specificUsers[1]?.name, users[1].name);
+});
+
+test("getManyX", async (ctx) => {
+  const users = await ctx.table("users");
+  const specificUsers = await ctx
+    .table("users")
+    .getManyX([users[0]._id, users[1]._id]);
+  expect(specificUsers).toHaveLength(2);
+  assertEqual(specificUsers[0]?.name, users[0].name);
+  assertEqual(specificUsers[1]?.name, users[1].name);
+});
+
 test("default fields", async (ctx) => {
   const firstPost = await ctx.table("posts").firstX();
   assertEqual(firstPost.numLikes, 0);
@@ -72,7 +92,7 @@ test("type of ent", async (ctx) => {
   const someFlag = false;
   const [firstUser, secondUser] = await ctx.table("users").take(2);
   const user = someFlag ? firstUser : secondUser;
-  const usersFirstFollower = await user.edge("followers").first();
+  const usersFirstFollower = (await user.edge("followers"))[0];
   assertEqual(usersFirstFollower, firstUser);
 });
 
@@ -148,11 +168,9 @@ test("symmetric many:many edge", async (ctx) => {
 });
 
 test("many to many edge first", async (ctx) => {
-  const firstsFirstFollowee = await ctx
-    .table("users")
-    .firstX()
-    .edge("followees")
-    .firstX();
+  const firstsFirstFollowee = (
+    await ctx.table("users").firstX().edge("followees")
+  )[0]!;
   assertEqual(firstsFirstFollowee.name, "Musk");
 });
 

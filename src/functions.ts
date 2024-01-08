@@ -104,6 +104,34 @@ interface PromiseTableBase<
   ): PromiseEntOrNull<DataModel, EntsDataModel, Table>;
   get(id: GenericId<Table>): PromiseEntOrNull<DataModel, EntsDataModel, Table>;
 
+  getMany<
+    Indexes extends DataModel[Table]["indexes"],
+    Index extends keyof Indexes
+  >(
+    indexName: Index,
+    values: FieldTypeFromFieldPath<
+      DocumentByName<DataModel, Table>,
+      Indexes[Index][0]
+    >[]
+  ): PromiseEntsOrNulls<DataModel, EntsDataModel, Table>;
+  getMany(
+    ids: GenericId<Table>[]
+  ): PromiseEntsOrNulls<DataModel, EntsDataModel, Table>;
+
+  getManyX<
+    Indexes extends DataModel[Table]["indexes"],
+    Index extends keyof Indexes
+  >(
+    indexName: Index,
+    values: FieldTypeFromFieldPath<
+      DocumentByName<DataModel, Table>,
+      Indexes[Index][0]
+    >[]
+  ): PromiseEnts<DataModel, EntsDataModel, Table>;
+  getManyX(
+    ids: GenericId<Table>[]
+  ): PromiseEnts<DataModel, EntsDataModel, Table>;
+
   /**
    * Returns the string ID format for the ID in a given table, or null if the ID
    * is from a different table or is not a valid ID.
@@ -443,6 +471,14 @@ export class PromiseTableImpl<
     return this.getImpl(args, true);
   }
 
+  getMany(...args: any[]) {
+    return this.getManyImpl(args);
+  }
+
+  getManyX(...args: any[]) {
+    return this.getManyImpl(args, true);
+  }
+
   getImpl(args: any[], throwIfNull = false) {
     return new PromiseEntWriterImpl(
       this.ctx as any,
@@ -482,6 +518,53 @@ export class PromiseTableImpl<
               id: doc?._id as GenericId<Table> | null,
               doc: async () => doc,
             } as any; // any because PromiseEntWriterImpl expects non-nullable
+          }
+    );
+  }
+
+  getManyImpl(args: any[], throwIfNull = false) {
+    return new PromiseEntsOrNullImpl(
+      this.ctx as any,
+      this.entDefinitions as any,
+      this.table,
+      args.length === 1
+        ? async () => {
+            const ids = args[0] as GenericId<Table>[];
+            ids.forEach((id) => {
+              if (this.ctx.db.normalizeId(this.table, id) === null) {
+                throw new Error(
+                  `Invalid id \`${id}\` for table "${this.table}"`
+                );
+              }
+            });
+            return await Promise.all(
+              ids.map(async (id) => {
+                const doc = await this.ctx.db.get(id);
+                if (doc === null) {
+                  throw new Error(
+                    `Document not found with id \`${id}\` in table "${this.table}"`
+                  );
+                }
+                return doc;
+              })
+            );
+          }
+        : async () => {
+            const [indexName, values] = args;
+            return (await Promise.all(
+              (values as any[]).map(async (value) => {
+                const doc = await this.ctx.db
+                  .query(this.table)
+                  .withIndex(indexName, (q) => q.eq(indexName, value))
+                  .unique();
+                if (throwIfNull && doc === null) {
+                  throw new Error(
+                    `Table "${this.table}" does not contain document with field "${indexName}" = \`${value}\``
+                  );
+                }
+                return doc;
+              })
+            )) as any;
           }
     );
   }
@@ -552,13 +635,15 @@ interface PromiseEntsOrNull<
   EntsDataModel extends GenericEntsDataModel<DataModel>,
   Table extends TableNamesInDataModel<DataModel>
 > extends Promise<EntByName<DataModel, EntsDataModel, Table>[] | null> {
-  // This just returns the first retrieved document, it does not optimize
-  // the previous steps in the query.
-  first(): PromiseEntOrNull<DataModel, EntsDataModel, Table>;
-
-  // This just returns the unique retrieved document, it does not optimize
-  // the previous steps in the query. Otherwise it behaves like db.query().unique().
-  unique(): PromiseEntOrNull<DataModel, EntsDataModel, Table>;
+  // TODO: At this point there is nothing query specific here, and we can either:
+  //   1. Return a generic lazy promise of the list.
+  //   2. Not give any methods, because they might lead devs down the wrong path.
+  // // This just returns the first retrieved document, it does not optimize
+  // // the previous steps in the query.
+  // first(): PromiseEntOrNull<DataModel, EntsDataModel, Table>;
+  // // This just returns the unique retrieved document, it does not optimize
+  // // the previous steps in the query. Otherwise it behaves like db.query().unique().
+  // unique(): PromiseEntOrNull<DataModel, EntsDataModel, Table>;
 }
 
 // This lazy promise materializes objects, so chaining to this type of
@@ -570,22 +655,22 @@ interface PromiseEnts<
   EntsDataModel extends GenericEntsDataModel<DataModel>,
   Table extends TableNamesInDataModel<DataModel>
 > extends Promise<EntByName<DataModel, EntsDataModel, Table>[]> {
-  // This just returns the first retrieved document, it does not optimize
-  // the previous steps in the query.
-  first(): PromiseEntOrNull<DataModel, EntsDataModel, Table>;
-
-  // This just returns the first retrieved document, or throws if there
-  // are no documents. It does not optimize the previous steps in the query.
-  firstX(): PromiseEnt<DataModel, EntsDataModel, Table>;
-
-  // This just returns the unique retrieved document, it does not optimize
-  // the previous steps in the query. Otherwise it behaves like db.query().unique().
-  unique(): PromiseEntOrNull<DataModel, EntsDataModel, Table>;
-
-  // This just returns the unique retrieved document, or thorws if there
-  // are no documents. It does not optimize the previous steps in the query.
-  // Otherwise it behaves like db.query().unique().
-  uniqueX(): PromiseEnt<DataModel, EntsDataModel, Table>;
+  // TODO: At this point there is nothing query specific here, and we can either:
+  //   1. Return a generic lazy promise of the list.
+  //   2. Not give any methods, because they might lead devs down the wrong path.
+  // // This just returns the first retrieved document, it does not optimize
+  // // the previous steps in the query.
+  // first(): PromiseEntOrNull<DataModel, EntsDataModel, Table>;
+  // // This just returns the first retrieved document, or throws if there
+  // // are no documents. It does not optimize the previous steps in the query.
+  // firstX(): PromiseEnt<DataModel, EntsDataModel, Table>;
+  // // This just returns the unique retrieved document, it does not optimize
+  // // the previous steps in the query. Otherwise it behaves like db.query().unique().
+  // unique(): PromiseEntOrNull<DataModel, EntsDataModel, Table>;
+  // // This just returns the unique retrieved document, or throws if there
+  // // are no documents. It does not optimize the previous steps in the query.
+  // // Otherwise it behaves like db.query().unique().
+  // uniqueX(): PromiseEnt<DataModel, EntsDataModel, Table>;
 }
 
 class PromiseEntsOrNullImpl<
@@ -701,6 +786,16 @@ class PromiseEntsOrNullImpl<
       .then(onfulfilled, onrejected);
   }
 }
+
+// This lazy promise materializes objects, so chaining to this type of
+// lazy promise performs one operation for each
+// retrieved document in JavaScript, basically as if using
+// `Promise.all()`.
+interface PromiseEntsOrNulls<
+  DataModel extends GenericDataModel,
+  EntsDataModel extends GenericEntsDataModel<DataModel>,
+  Table extends TableNamesInDataModel<DataModel>
+> extends Promise<(EntByName<DataModel, EntsDataModel, Table> | null)[]> {}
 
 interface PromiseEdgeEntsOrNull<
   DataModel extends GenericDataModel,
@@ -1252,7 +1347,7 @@ interface PromiseEntsWriter<
   // are no documents. It does not optimize the previous steps in the query.
   firstX(): PromiseEntWriter<DataModel, EntsDataModel, Table>;
 
-  // This just returns the unique retrieved document, or thorws if there
+  // This just returns the unique retrieved document, or throws if there
   // are no documents. It does not optimize the previous steps in the query.
   // Otherwise it behaves like db.query().unique().
   uniqueX(): PromiseEntWriter<DataModel, EntsDataModel, Table>;
