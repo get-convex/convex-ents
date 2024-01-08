@@ -1,3 +1,5 @@
+import { Snippets } from "../components/Snippets";
+
 # Reading Ents from the Database
 
 Convex Ents provide a `ctx.table` method which replaces the built-in `ctx.db`
@@ -23,17 +25,20 @@ data from an arbitrary table, you must the
 
 ## Reading a single ent by ID
 
+<Snippets>
+
 ```ts
 const task = await ctx.table("tasks").get(taskId);
 ```
-
-This is equivalent to the built-in:
 
 ```ts
 const task = await ctx.db.get(taskId);
 ```
 
-with the addition of checking that `taskId` belongs to `"tasks"`.
+</Snippets>
+
+This is equivalent to the built-in version with the addition of checking that
+`taskId` belongs to `"tasks"`.
 
 ## Reading a single ent by indexed field
 
