@@ -1206,19 +1206,26 @@ type EntsWriterFactory<
   ): PromiseTableWriter<DataModel, EntsDataModel, Table>;
 };
 
+declare class EntInstance<
+  DataModel extends GenericDataModel,
+  EntsDataModel extends GenericEntsDataModel<DataModel>,
+  Table extends TableNamesInDataModel<DataModel>
+> {
+  edge<Edge extends keyof EntsDataModel[Table]["edges"]>(
+    edge: Edge
+  ): PromiseEdge<DataModel, EntsDataModel, Table, Edge>;
+  edgeX<Edge extends keyof EntsDataModel[Table]["edges"]>(
+    edge: Edge
+  ): PromiseEdgeOrThrow<DataModel, EntsDataModel, Table, Edge>;
+}
+
 export type EntByName<
   DataModel extends GenericDataModel,
   EntsDataModel extends GenericEntsDataModel<DataModel>,
   Table extends TableNamesInDataModel<DataModel>
 > = Expand<
-  DocumentByName<DataModel, Table> & {
-    edge<Edge extends keyof EntsDataModel[Table]["edges"]>(
-      edge: Edge
-    ): PromiseEdge<DataModel, EntsDataModel, Table, Edge>;
-    edgeX<Edge extends keyof EntsDataModel[Table]["edges"]>(
-      edge: Edge
-    ): PromiseEdgeOrThrow<DataModel, EntsDataModel, Table, Edge>;
-  }
+  DocumentByName<DataModel, Table> &
+    EntInstance<DataModel, EntsDataModel, Table>
 >;
 
 export type PromiseEdge<
@@ -1817,56 +1824,61 @@ class PromiseEntWriterImpl<
   }
 }
 
+declare class EntWriterInstance<
+  DataModel extends GenericDataModel,
+  EntsDataModel extends GenericEntsDataModel<DataModel>,
+  Table extends TableNamesInDataModel<DataModel>
+> extends EntInstance<DataModel, EntsDataModel, Table> {
+  /**
+   * Patch this existing document, shallow merging it with the given partial
+   * document.
+   *
+   * New fields are added. Existing fields are overwritten. Fields set to
+   * `undefined` are removed.
+   *
+   * @param value - The partial {@link GenericDocument} to merge into this document. If this new value
+   * specifies system fields like `_id`, they must match the document's existing field values.
+   */
+  patch(
+    value: Partial<
+      WithEdgePatches<
+        DataModel,
+        DocumentByName<DataModel, Table>,
+        EntsDataModel[Table]["edges"]
+      >
+    >
+  ): PromiseEntId<DataModel, EntsDataModel, Table>;
+
+  /**
+   * Replace the value of this existing document, overwriting its old value.
+   *
+   * @param value - The new {@link GenericDocument} for the document. This value can omit the system fields,
+   * and the database will preserve them in.
+   */
+  replace(
+    value: WithOptionalSystemFields<
+      WithEdges<
+        DataModel,
+        DocumentByName<DataModel, Table>,
+        EntsDataModel[Table]["edges"]
+      >
+    >
+  ): PromiseEntId<DataModel, EntsDataModel, Table>;
+
+  /**
+   * Delete this existing document.
+   *
+   * @param id - The {@link GenericId} of the document to remove.
+   */
+  delete(): Promise<GenericId<Table>>;
+}
+
 type EntWriterByName<
   DataModel extends GenericDataModel,
   EntsDataModel extends GenericEntsDataModel<DataModel>,
   Table extends TableNamesInDataModel<DataModel>
-> = Expand<
-  EntByName<DataModel, EntsDataModel, Table> & {
-    /**
-     * Patch this existing document, shallow merging it with the given partial
-     * document.
-     *
-     * New fields are added. Existing fields are overwritten. Fields set to
-     * `undefined` are removed.
-     *
-     * @param value - The partial {@link GenericDocument} to merge into this document. If this new value
-     * specifies system fields like `_id`, they must match the document's existing field values.
-     */
-    patch(
-      value: Partial<
-        WithEdgePatches<
-          DataModel,
-          DocumentByName<DataModel, Table>,
-          EntsDataModel[Table]["edges"]
-        >
-      >
-    ): PromiseEntId<DataModel, EntsDataModel, Table>;
-
-    /**
-     * Replace the value of this existing document, overwriting its old value.
-     *
-     * @param value - The new {@link GenericDocument} for the document. This value can omit the system fields,
-     * and the database will preserve them in.
-     */
-    replace(
-      value: WithOptionalSystemFields<
-        WithEdges<
-          DataModel,
-          DocumentByName<DataModel, Table>,
-          EntsDataModel[Table]["edges"]
-        >
-      >
-    ): PromiseEntId<DataModel, EntsDataModel, Table>;
-
-    /**
-     * Delete this existing document.
-     *
-     * @param id - The {@link GenericId} of the document to remove.
-     */
-    delete(): Promise<GenericId<Table>>;
-  }
->;
+> = DocumentByName<DataModel, Table> &
+  EntWriterInstance<DataModel, EntsDataModel, Table>;
 
 interface PromiseEntId<
   DataModel extends GenericDataModel,

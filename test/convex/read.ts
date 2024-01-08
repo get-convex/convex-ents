@@ -140,6 +140,15 @@ test("map with nested map", async (ctx) => {
   ]);
 });
 
+test("spread should remove methods", async (ctx) => {
+  const firstUser = await ctx.table("users").firstX();
+  const user = { ...firstUser };
+  async () => {
+    // @ts-expect-error edge should not be available on the spreaded object
+    await user.edge("profile");
+  };
+});
+
 test("edge", async (ctx) => {
   const firstProfile = await ctx.table("profiles").firstX();
   const user = await firstProfile.edge("user");
