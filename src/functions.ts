@@ -74,22 +74,6 @@ interface PromiseOrderedQueryOrNull<
   first(): PromiseEntOrNull<DataModel, EntsDataModel, Table>;
 
   unique(): PromiseEntOrNull<DataModel, EntsDataModel, Table>;
-
-  then<
-    TResult1 = EntByName<DataModel, EntsDataModel, Table>[] | null,
-    TResult2 = never
-  >(
-    onfulfilled?:
-      | ((
-          value: EntByName<DataModel, EntsDataModel, Table>[] | null
-        ) => TResult1 | PromiseLike<TResult1>)
-      | undefined
-      | null,
-    onrejected?:
-      | ((reason: any) => TResult2 | PromiseLike<TResult2>)
-      | undefined
-      | null
-  ): Promise<TResult1 | TResult2>;
 }
 
 interface PromiseQueryOrNull<
@@ -198,22 +182,6 @@ interface PromiseOrderedQuery<
   unique(): PromiseEntOrNull<DataModel, EntsDataModel, Table>;
 
   uniqueX(): PromiseEnt<DataModel, EntsDataModel, Table>;
-
-  then<
-    TResult1 = EntByName<DataModel, EntsDataModel, Table>[],
-    TResult2 = never
-  >(
-    onfulfilled?:
-      | ((
-          value: EntByName<DataModel, EntsDataModel, Table>[]
-        ) => TResult1 | PromiseLike<TResult1>)
-      | undefined
-      | null,
-    onrejected?:
-      | ((reason: any) => TResult2 | PromiseLike<TResult2>)
-      | undefined
-      | null
-  ): Promise<TResult1 | TResult2>;
 }
 
 interface PromiseQuery<
@@ -762,22 +730,6 @@ export interface PromiseEntOrNull<
   EntsDataModel extends GenericEntsDataModel<DataModel>,
   Table extends TableNamesInDataModel<DataModel>
 > extends Promise<EntByName<DataModel, EntsDataModel, Table> | null> {
-  then<
-    TResult1 = EntByName<DataModel, EntsDataModel, Table> | null,
-    TResult2 = never
-  >(
-    onfulfilled?:
-      | ((
-          value: EntByName<DataModel, EntsDataModel, Table> | null
-        ) => TResult1 | PromiseLike<TResult1>)
-      | undefined
-      | null,
-    onrejected?:
-      | ((reason: any) => TResult2 | PromiseLike<TResult2>)
-      | undefined
-      | null
-  ): Promise<TResult1 | TResult2>;
-
   edge<Edge extends keyof EntsDataModel[Table]["edges"]>(
     edge: Edge
   ): PromiseEdgeOrNull<DataModel, EntsDataModel, Table, Edge>;
@@ -788,19 +740,6 @@ export interface PromiseEnt<
   EntsDataModel extends GenericEntsDataModel<DataModel>,
   Table extends TableNamesInDataModel<DataModel>
 > extends Promise<EntByName<DataModel, EntsDataModel, Table>> {
-  then<TResult1 = EntByName<DataModel, EntsDataModel, Table>, TResult2 = never>(
-    onfulfilled?:
-      | ((
-          value: EntByName<DataModel, EntsDataModel, Table>
-        ) => TResult1 | PromiseLike<TResult1>)
-      | undefined
-      | null,
-    onrejected?:
-      | ((reason: any) => TResult2 | PromiseLike<TResult2>)
-      | undefined
-      | null
-  ): Promise<TResult1 | TResult2>;
-
   edge<Edge extends keyof EntsDataModel[Table]["edges"]>(
     edge: Edge
   ): PromiseEdge<DataModel, EntsDataModel, Table, Edge>;
@@ -1374,22 +1313,6 @@ export interface PromiseEntWriter<
   EntsDataModel extends GenericEntsDataModel<DataModel>,
   Table extends TableNamesInDataModel<DataModel>
 > extends Promise<EntWriterByName<DataModel, EntsDataModel, Table>> {
-  then<
-    TResult1 = EntWriterByName<DataModel, EntsDataModel, Table>,
-    TResult2 = never
-  >(
-    onfulfilled?:
-      | ((
-          value: EntWriterByName<DataModel, EntsDataModel, Table>
-        ) => TResult1 | PromiseLike<TResult1>)
-      | undefined
-      | null,
-    onrejected?:
-      | ((reason: any) => TResult2 | PromiseLike<TResult2>)
-      | undefined
-      | null
-  ): Promise<TResult1 | TResult2>;
-
   edge<Edge extends keyof EntsDataModel[Table]["edges"]>(
     edge: Edge
   ): PromiseEdge<DataModel, EntsDataModel, Table, Edge>;
@@ -1744,17 +1667,6 @@ interface PromiseEntId<
   Table extends TableNamesInDataModel<DataModel>
 > extends Promise<GenericId<Table>> {
   get(): PromiseEntWriter<DataModel, EntsDataModel, Table>;
-
-  then<TResult1 = GenericId<Table>, TResult2 = never>(
-    onfulfilled?:
-      | ((value: GenericId<Table>) => TResult1 | PromiseLike<TResult1>)
-      | undefined
-      | null,
-    onrejected?:
-      | ((reason: any) => TResult2 | PromiseLike<TResult2>)
-      | undefined
-      | null
-  ): Promise<TResult1 | TResult2>;
 }
 
 class PromiseEntIdImpl<
