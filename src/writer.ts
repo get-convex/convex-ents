@@ -112,7 +112,20 @@ export class WriterImplBase<
             }
             if (removeEdges.length > 0) {
               await Promise.all(
-                removeEdges.map((id) => this.ctx.db.delete(id))
+                removeEdges.map(async (id) => {
+                  try {
+                    await this.ctx.db.delete(id);
+                  } catch (e) {
+                    // TODO:
+                    // For now we're gonna ignore errors here,
+                    // because we assume that the only error
+                    // is "document not found", which
+                    // can be caused by concurrent deletions.
+                    // In the future we could track which
+                    // edges are being deleted by this mutation,
+                    // and skip the call to delete altogether
+                  }
+                })
               );
             }
 

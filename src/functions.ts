@@ -89,11 +89,11 @@ interface PromiseQueryOrNull<
   ): PromiseOrderedQueryOrNull<DataModel, EntsDataModel, Table>;
 }
 
-export interface PromiseTable<
+interface PromiseTableBase<
   DataModel extends GenericDataModel,
   EntsDataModel extends GenericEntsDataModel<DataModel>,
   Table extends TableNamesInDataModel<DataModel>
-> extends PromiseQuery<DataModel, EntsDataModel, Table> {
+> {
   get<Indexes extends DataModel[Table]["indexes"], Index extends keyof Indexes>(
     indexName: Index,
     // TODO: Figure out how to make this variadic
@@ -104,6 +104,27 @@ export interface PromiseTable<
   ): PromiseEntOrNull<DataModel, EntsDataModel, Table>;
   get(id: GenericId<Table>): PromiseEntOrNull<DataModel, EntsDataModel, Table>;
 
+  /**
+   * Returns the string ID format for the ID in a given table, or null if the ID
+   * is from a different table or is not a valid ID.
+   *
+   * This does not guarantee that the ID exists (i.e. `table("foo").get(id)` may return `null`).
+   *
+   * @param tableName - The name of the table.
+   * @param id - The ID string.
+   */
+  normalizeId(id: string): GenericId<Table> | null;
+}
+
+interface PromiseTable<
+  DataModel extends GenericDataModel,
+  EntsDataModel extends GenericEntsDataModel<DataModel>,
+  Table extends TableNamesInDataModel<DataModel>
+> extends PromiseQuery<DataModel, EntsDataModel, Table>,
+    PromiseTableBase<DataModel, EntsDataModel, Table> {
+  /**
+   * Fetch a document from the DB using given index, throw if it doesn't exist.
+   */
   getX<
     Indexes extends DataModel[Table]["indexes"],
     Index extends keyof Indexes
@@ -115,6 +136,9 @@ export interface PromiseTable<
       Indexes[Index][0]
     >
   ): PromiseEnt<DataModel, EntsDataModel, Table>;
+  /**
+   * Fetch a document from the DB for a given ID, throw if it doesn't exist.
+   */
   getX(id: GenericId<Table>): PromiseEnt<DataModel, EntsDataModel, Table>;
 
   /**
@@ -145,21 +169,35 @@ export interface PromiseTable<
       >
     ) => SearchFilter
   ): PromiseOrderedQuery<DataModel, EntsDataModel, Table>;
-
-  normalizeId(id: string): GenericId<Table> | null;
 }
 
-interface PromiseOrderedQuery<
+interface PromiseOrderedQueryBase<
   DataModel extends GenericDataModel,
   EntsDataModel extends GenericEntsDataModel<DataModel>,
   Table extends TableNamesInDataModel<DataModel>
-> extends Promise<EntByName<DataModel, EntsDataModel, Table>[]> {
+> {
   filter(
     predicate: (
       q: FilterBuilder<NamedTableInfo<DataModel, Table>>
     ) => ExpressionOrValue<boolean>
   ): this;
 
+  // TODO: entWrapper for pagination
+  paginate(
+    paginationOpts: PaginationOptions
+  ): Promise<PaginationResult<DocumentByName<DataModel, Table>>>;
+
+  first(): PromiseEntOrNull<DataModel, EntsDataModel, Table>;
+
+  unique(): PromiseEntOrNull<DataModel, EntsDataModel, Table>;
+}
+
+interface PromiseOrderedQuery<
+  DataModel extends GenericDataModel,
+  EntsDataModel extends GenericEntsDataModel<DataModel>,
+  Table extends TableNamesInDataModel<DataModel>
+> extends Promise<EntByName<DataModel, EntsDataModel, Table>[]>,
+    PromiseOrderedQueryBase<DataModel, EntsDataModel, Table> {
   map<TOutput>(
     callbackFn: (
       value: EntByName<DataModel, EntsDataModel, Table>,
@@ -168,18 +206,9 @@ interface PromiseOrderedQuery<
     ) => Promise<TOutput> | TOutput
   ): Promise<TOutput[]>;
 
-  // TODO: entWrapper for pagination
-  paginate(
-    paginationOpts: PaginationOptions
-  ): Promise<PaginationResult<DocumentByName<DataModel, Table>>>;
-
   take(n: number): PromiseEnts<DataModel, EntsDataModel, Table>;
 
-  first(): PromiseEntOrNull<DataModel, EntsDataModel, Table>;
-
   firstX(): PromiseEnt<DataModel, EntsDataModel, Table>;
-
-  unique(): PromiseEntOrNull<DataModel, EntsDataModel, Table>;
 
   uniqueX(): PromiseEnt<DataModel, EntsDataModel, Table>;
 }
@@ -515,7 +544,8 @@ export class PromiseTableImpl<
   }
 }
 
-// This query materializes objects, so chaining to this type of query performs one operation for each
+// This lazy promise materializes objects, so chaining to this type of
+// lazy promise performs one operation for each
 // retrieved document in JavaScript, basically as if using `Promise.all()`.
 interface PromiseEntsOrNull<
   DataModel extends GenericDataModel,
@@ -531,7 +561,8 @@ interface PromiseEntsOrNull<
   unique(): PromiseEntOrNull<DataModel, EntsDataModel, Table>;
 }
 
-// This query materializes objects, so chaining to this type of query performs one operation for each
+// This lazy promise materializes objects, so chaining to this type of
+// lazy promise performs one operation for each
 // retrieved document in JavaScript, basically as if using
 // `Promise.all()`.
 interface PromiseEnts<
@@ -1176,11 +1207,63 @@ type PromiseEdgeOrNull<
       EntsDataModel[Table]["edges"][Edge]["to"]
     >;
 
+interface PromiseOrderedQueryWriter<
+  DataModel extends GenericDataModel,
+  EntsDataModel extends GenericEntsDataModel<DataModel>,
+  Table extends TableNamesInDataModel<DataModel>
+> extends Promise<EntWriterByName<DataModel, EntsDataModel, Table>[]>,
+    PromiseOrderedQueryBase<DataModel, EntsDataModel, Table> {
+  map<TOutput>(
+    callbackFn: (
+      value: EntWriterByName<DataModel, EntsDataModel, Table>,
+      index: number,
+      array: EntWriterByName<DataModel, EntsDataModel, Table>[]
+    ) => Promise<TOutput> | TOutput
+  ): Promise<TOutput[]>;
+
+  take(n: number): PromiseEntsWriter<DataModel, EntsDataModel, Table>;
+
+  firstX(): PromiseEntWriter<DataModel, EntsDataModel, Table>;
+
+  uniqueX(): PromiseEntWriter<DataModel, EntsDataModel, Table>;
+}
+
+interface PromiseQueryWriter<
+  DataModel extends GenericDataModel,
+  EntsDataModel extends GenericEntsDataModel<DataModel>,
+  Table extends TableNamesInDataModel<DataModel>
+> extends PromiseOrderedQueryWriter<DataModel, EntsDataModel, Table> {
+  order(
+    order: "asc" | "desc",
+    indexName?: IndexNames<NamedTableInfo<DataModel, Table>>
+  ): PromiseOrderedQueryWriter<DataModel, EntsDataModel, Table>;
+}
+
+// This lazy promise materializes objects, so chaining to this type of
+// lazy promise performs one operation for each
+// retrieved document in JavaScript, basically as if using
+// `Promise.all()`.
+interface PromiseEntsWriter<
+  DataModel extends GenericDataModel,
+  EntsDataModel extends GenericEntsDataModel<DataModel>,
+  Table extends TableNamesInDataModel<DataModel>
+> extends PromiseEnts<DataModel, EntsDataModel, Table> {
+  // This just returns the first retrieved document, or throws if there
+  // are no documents. It does not optimize the previous steps in the query.
+  firstX(): PromiseEntWriter<DataModel, EntsDataModel, Table>;
+
+  // This just returns the unique retrieved document, or thorws if there
+  // are no documents. It does not optimize the previous steps in the query.
+  // Otherwise it behaves like db.query().unique().
+  uniqueX(): PromiseEntWriter<DataModel, EntsDataModel, Table>;
+}
+
 export interface PromiseTableWriter<
   DataModel extends GenericDataModel,
   EntsDataModel extends GenericEntsDataModel<DataModel>,
   Table extends TableNamesInDataModel<DataModel>
-> extends PromiseTable<DataModel, EntsDataModel, Table> {
+> extends PromiseQueryWriter<DataModel, EntsDataModel, Table>,
+    PromiseTableBase<DataModel, EntsDataModel, Table> {
   /**
    * Fetch a document from the DB using given index, throw if it doesn't exist.
    */
@@ -1199,6 +1282,35 @@ export interface PromiseTableWriter<
    * Fetch a document from the DB for a given ID, throw if it doesn't exist.
    */
   getX(id: GenericId<Table>): PromiseEntWriter<DataModel, EntsDataModel, Table>;
+
+  /**
+   * Query by running a full text search against a search index.
+   *
+   * Search queries must always search for some text within the index's
+   * `searchField`. This query can optionally add equality filters for any
+   * `filterFields` specified in the index.
+   *
+   * Documents will be returned in relevance order based on how well they
+   * match the search text.
+   *
+   * To learn about full text search, see [Indexes](https://docs.convex.dev/text-search).
+   *
+   * @param indexName - The name of the search index to query.
+   * @param searchFilter - A search filter expression constructed with the
+   * supplied {@link SearchFilterBuilder}. This defines the full text search to run
+   * along with equality filtering to run within the search index.
+   * @returns - A query that searches for matching documents, returning them
+   * in relevancy order.
+   */
+  search<IndexName extends SearchIndexNames<NamedTableInfo<DataModel, Table>>>(
+    indexName: IndexName,
+    searchFilter: (
+      q: SearchFilterBuilder<
+        DocumentByName<DataModel, Table>,
+        NamedSearchIndex<NamedTableInfo<DataModel, Table>, IndexName>
+      >
+    ) => SearchFilter
+  ): PromiseOrderedQueryWriter<DataModel, EntsDataModel, Table>;
 
   /**
    * Insert a new document into a table.

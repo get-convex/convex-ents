@@ -197,17 +197,12 @@ export const run = mutation(async (ctx) => {
   }
 });
 
-export const run2 = query({
-  args: {},
-
-  handler: async (ctx) => {
-    // // For single field indexes, we should be able to eq or lt gt directly - but that doesn't
-    // // work as you might have multiple indexes with the same first field - you have to
-    // // choose the index in convex model, but as Ian suggested if you choose a single field index
-    // // you can inline the eq condition, so
-    // await ctx.table("messages").get("author", foo._id); // note not authorId even though that's the underlying index
-  },
-});
+// TODO:
+// // For single field indexes, we should be able to eq or lt gt directly - but that doesn't
+// // work as you might have multiple indexes with the same first field - you have to
+// // choose the index in convex model, but as Ian suggested if you choose a single field index
+// // you can inline the eq condition, so
+// await ctx.table("messages").get("author", foo._id); // note not authorId even though that's the underlying index
 
 export const test2 = mutation(async (ctx) => {
   // Test field uniqueness check
@@ -378,11 +373,7 @@ export const seed = mutation(async (ctx) => {
     "tags",
     "posts",
   ] as const) {
-    // TODO: in the future
-    // await ctx.table(table).map(doc => doc.delete());
-    for (const { _id } of await ctx.table(table)) {
-      await ctx.table(table).getX(_id).delete();
-    }
+    await ctx.table(table).map((doc) => doc.delete());
   }
 
   const user1 = await ctx
