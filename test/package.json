@@ -2,6 +2,9 @@
   "name": "tests",
   "private": true,
   "version": "0.1.0",
+  "scripts": {
+    "test": "npx convex run read:runTests && npx convex run write:runTests"
+  },
   "dependencies": {
     "convex": "^1.5.1"
   }
