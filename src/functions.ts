@@ -1077,9 +1077,19 @@ export function entsWriterFactory<
   ctx: GenericMutationCtx<DataModel>,
   entDefinitions: EntsDataModel
 ): EntsWriterFactory<DataModel, EntsDataModel> {
-  return (table: TableNamesInDataModel<DataModel>) => {
+  return (
+    table: TableNamesInDataModel<DataModel>,
+    indexName?: string,
+    indexRange?: any
+  ) => {
     if (typeof table !== "string") {
       throw new Error(`Expected table name, got \`${table as any}\``);
+    }
+    if (indexName !== undefined) {
+      return new PromiseTableImpl(ctx, entDefinitions, table).withIndex(
+        indexName,
+        indexRange
+      );
     }
     return new PromiseTableWriterImpl(ctx, entDefinitions, table) as any;
   };
@@ -1113,6 +1123,19 @@ type EntsWriterFactory<
   DataModel extends GenericDataModel,
   EntsDataModel extends GenericEntsDataModel<DataModel>
 > = {
+  <
+    Table extends TableNamesInDataModel<DataModel>,
+    IndexName extends IndexNames<NamedTableInfo<DataModel, Table>>
+  >(
+    table: Table,
+    indexName: IndexName,
+    indexRange?: (
+      q: IndexRangeBuilder<
+        DocumentByName<DataModel, Table>,
+        NamedIndex<NamedTableInfo<DataModel, Table>, IndexName>
+      >
+    ) => IndexRange
+  ): PromiseTable<DataModel, EntsDataModel, Table>;
   <Table extends TableNamesInDataModel<DataModel>>(
     table: Table
   ): PromiseTableWriter<DataModel, EntsDataModel, Table>;
@@ -1219,6 +1242,20 @@ export interface PromiseTableWriter<
   EntsDataModel extends GenericEntsDataModel<DataModel>,
   Table extends TableNamesInDataModel<DataModel>
 > extends PromiseTable<DataModel, EntsDataModel, Table> {
+  /**
+   * Fetch a document from the DB using given index, throw if it doesn't exist.
+   */
+  getX<
+    Indexes extends DataModel[Table]["indexes"],
+    Index extends keyof Indexes
+  >(
+    indexName: Index,
+    // TODO: Figure out how to make this variadic
+    value0: FieldTypeFromFieldPath<
+      DocumentByName<DataModel, Table>,
+      Indexes[Index][0]
+    >
+  ): PromiseEnt<DataModel, EntsDataModel, Table>;
   /**
    * Fetch a document from the DB for a given ID, throw if it doesn't exist.
    */
