@@ -69,7 +69,7 @@ interface PromiseOrderedQueryOrNull<
     paginationOpts: PaginationOptions
   ): Promise<PaginationResult<DocumentByName<DataModel, Table>> | null>;
 
-  take(n: number): PromiseEntsOrNullImpl<DataModel, EntsDataModel, Table>;
+  take(n: number): PromiseEntsOrNull<DataModel, EntsDataModel, Table>;
 
   first(): PromiseEntOrNull<DataModel, EntsDataModel, Table>;
 
