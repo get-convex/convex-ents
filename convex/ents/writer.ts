@@ -190,7 +190,7 @@ export interface PromiseEntWriter<
         EntsDataModel[Table]["edges"]
       >
     >
-  ): Promise<void>;
+  ): Promise<PromiseEntId<DataModel, EntsDataModel, Table>>;
 
   /**
    * Replace the value of an existing document, overwriting its old value.
@@ -206,7 +206,7 @@ export interface PromiseEntWriter<
         EntsDataModel[Table]["edges"]
       >
     >
-  ): Promise<void>;
+  ): Promise<PromiseEntId<DataModel, EntsDataModel, Table>>;
 
   /**
    * Delete this existing document.
@@ -521,7 +521,7 @@ type EntWriterByName<
           EntsDataModel[Table]["edges"]
         >
       >
-    ): Promise<void>;
+    ): PromiseEntId<DataModel, EntsDataModel, Table>;
 
     /**
      * Replace the value of this existing document, overwriting its old value.
@@ -538,6 +538,13 @@ type EntWriterByName<
         >
       >
     ): PromiseEntId<DataModel, EntsDataModel, Table>;
+
+    /**
+     * Delete this existing document.
+     *
+     * @param id - The {@link GenericId} of the document to remove.
+     */
+    delete(): Promise<GenericId<Table>>;
   }
 >;
 

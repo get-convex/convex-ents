@@ -328,6 +328,9 @@ export const test2 = mutation(async (ctx) => {
     assertEqual(updatedFriends.length, 0);
     const updatedSomeUserFriends = await friend.edge("friends");
     assertEqual(updatedSomeUserFriends.length, 0);
+
+    await friend.delete();
+    await newUser.delete();
   }
 
   // Patch 1:1 from ref side is not possible, because the required side of
@@ -341,6 +344,19 @@ export const test2 = mutation(async (ctx) => {
         profile: someProfile._id,
       });
     };
+  }
+  // Simple patch
+  {
+    const newUser = await ctx
+      .table("users")
+      .insert({
+        name: "Gates",
+        email: "bill@gates.com",
+      })
+      .get();
+    const updatedUser = await newUser.patch({ name: "Bill" }).get();
+    assertEqual(updatedUser.name, "Bill");
+    assertEqual(updatedUser.email, "bill@gates.com");
   }
 });
 
