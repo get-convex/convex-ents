@@ -4,22 +4,10 @@ import {
   GenericDocument,
   GenericMutationCtx,
   TableNamesInDataModel,
-  WithOptionalSystemFields,
-  WithoutSystemFields,
 } from "convex/server";
 import { GenericId } from "convex/values";
 import {
-  DocRetriever,
-  EntByName,
-  PromiseEdge,
-  PromiseEdgeOrThrow,
-  PromiseEntOrNullImpl,
-  PromiseTable,
-  PromiseTableImpl,
-} from "./functions";
-import {
   EdgeConfig,
-  Expand,
   FieldConfig,
   GenericEdgeConfig,
   GenericEntsDataModel,
