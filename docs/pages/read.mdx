@@ -63,6 +63,18 @@ const task = await ctx.table("tasks").getX(taskId);
 const task = await ctx.table("users").getX("email", "steve@apple.com");
 ```
 
+## Reading multiple ents by IDs
+
+```ts
+const tasks = await ctx.table("tasks").getMany([taskId1, taskId2]);
+```
+
+This is equivalent to the built-in:
+
+```ts
+const task = await ctx.db.get(taskId);
+```
+
 ## Listing all ents
 
 To list all ents backed by a single table, simply `await` the `ctx.table` call:
