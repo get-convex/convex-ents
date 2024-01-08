@@ -1,0 +1,8 @@
+{
+  "name": "tests",
+  "private": true,
+  "version": "0.1.0",
+  "dependencies": {
+    "convex": "^1.5.1"
+  }
+}
