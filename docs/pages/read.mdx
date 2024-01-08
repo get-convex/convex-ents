@@ -1,3 +1,5 @@
+import { Aside } from "../components/Aside.tsx";
+
 # Reading Ents from the Database
 
 Convex Ents provide a `ctx.table` method which replaces the built-in `ctx.db`
@@ -27,7 +29,7 @@ data from an arbitrary table, you must the
 const task = await ctx.table("tasks").get(taskId);
 ```
 
-This is equivalent to the built-in:
+<Aside title="This is equivalent to the built-in:">
 
 ```ts
 const task = await ctx.db.get(taskId);
@@ -35,13 +37,15 @@ const task = await ctx.db.get(taskId);
 
 with the addition of checking that `taskId` belongs to `"tasks"`.
 
+</Aside>
+
 ## Reading a single ent by indexed field
 
 ```ts
 const task = await ctx.table("users").get("email", "steve@apple.com");
 ```
 
-This is equivalent to the built-in:
+<Aside title="This is equivalent to the built-in:">
 
 ```ts
 const task = await ctx.db
@@ -49,6 +53,8 @@ const task = await ctx.db
   .withIndex("email", (q) => q.eq("email", "steve@apple.com"))
   .unique();
 ```
+
+</Aside>
 
 ## Reading a single ent or throwing
 
@@ -65,14 +71,26 @@ const task = await ctx.table("users").getX("email", "steve@apple.com");
 
 ## Reading multiple ents by IDs
 
+Retrieve a list of ents or nulls:
+
 ```ts
 const tasks = await ctx.table("tasks").getMany([taskId1, taskId2]);
 ```
 
-This is equivalent to the built-in:
+<Aside title="This is equivalent to the built-in:">
 
 ```ts
-const task = await ctx.db.get(taskId);
+const task = await Promise.all([taskId1, taskId2].map(ctx.db.get));
+```
+
+</Aside>
+## Reading multiple ents by IDs or throwing
+
+Retrieve a list of ents or throw an `Error` if any of the IDs didn't map to an
+existing ent:
+
+```ts
+const tasks = await ctx.table("tasks").getManyX([taskId1, taskId2]);
 ```
 
 ## Listing all ents
@@ -83,11 +101,13 @@ To list all ents backed by a single table, simply `await` the `ctx.table` call:
 const tasks = await ctx.table("users");
 ```
 
-This is equivalent to the built-in:
+<Aside title="This is equivalent to the built-in:">
 
 ```ts
 const tasks = await ctx.db.query("users").collect();
 ```
+
+</Aside>
 
 ## Listing ents filtered by index
 
@@ -100,7 +120,7 @@ const posts = await ctx.table("posts", "numLikes", (q) =>
 );
 ```
 
-This is equivalent to the built-in:
+<Aside title="This is equivalent to the built-in:">
 
 ```ts
 const posts = await ctx.db
@@ -108,6 +128,8 @@ const posts = await ctx.db
   .withIndex("numLikes", (q) => q.gt("numLikes", 100))
   .collect();
 ```
+
+</Aside>
 
 ## Filtering
 
@@ -120,7 +142,7 @@ const posts = await ctx
   .filter((q) => q.gt(q.field("numLikes"), 100));
 ```
 
-This is equivalent to the built-in:
+<Aside title="This is equivalent to the built-in:">
 
 ```ts
 const posts = await ctx.db
@@ -128,6 +150,8 @@ const posts = await ctx.db
   .filter((q) => q.gt(q.field("numLikes"), 100))
   .collect();
 ```
+
+</Aside>
 
 ## Ordering
 
@@ -138,11 +162,13 @@ order (from oldest created to newest created):
 const posts = await ctx.table("posts").order("desc");
 ```
 
-This is equivalent to the built-in:
+<Aside title="This is equivalent to the built-in:">
 
 ```ts
 const posts = await ctx.db.query("posts").order("desc").collect();
 ```
+
+</Aside>
 
 ## Ordering by index
 
@@ -153,7 +179,7 @@ index:
 const posts = await ctx.table("posts").order("desc", "numLikes");
 ```
 
-This is equivalent to the built-in:
+<Aside title="This is equivalent to the built-in:">
 
 ```ts
 const posts = await ctx
@@ -162,6 +188,8 @@ const posts = await ctx
   .order("desc")
   .collect();
 ```
+
+</Aside>
 
 ## Limiting results
 
@@ -263,7 +291,7 @@ using the `has` method:
 const hasTag = ctx.table("messages").getX(messageId).edge("tags").has(tagId);
 ```
 
-This is equivalent to the built-in:
+<Aside title="This is equivalent to the built-in:">
 
 ```ts
 const hasTag =
@@ -274,6 +302,8 @@ const hasTag =
     )
     .first()) !== null;
 ```
+
+</Aside>
 
 ### Traversing edges on retrieved ents
 
@@ -303,8 +333,8 @@ const usersWithMessagesAndProfile = await ctx
   }));
 ```
 
-This code is equivalent to this code using only built-in Convex and JavaScript
-functionality:
+<Aside title="This code is equivalent to this code using only built-in Convex and JavaScript
+functionality:">
 
 ```ts
 const usersWithMessagesAndProfile = await Promise.all(
@@ -331,3 +361,5 @@ const usersWithMessagesAndProfile = await Promise.all(
   }))
 );
 ```
+
+</Aside>

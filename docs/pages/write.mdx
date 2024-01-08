@@ -1,3 +1,5 @@
+import { Aside } from "../components/Aside.tsx";
+
 # Writing Ents to the Database
 
 Just like for [reading](/read) ents from the database, for writing Convex Ents
@@ -24,12 +26,14 @@ You can retrieve the just created ent with the `get` method:
 const task = await ctx.table("tasks").insert({ text: "Win at life" }).get();
 ```
 
-This is equivalent to the built-in:
+<Aside title="This is equivalent to the built-in:">
 
 ```ts
 const taskId = await ctx.db.insert("tasks", { text: "Win at life" });
 const task = (await ctx.db.get(taskId))!;
 ```
+
+</Aside>
 
 ## Inserting many new ents
 
@@ -100,13 +104,15 @@ or when updating:
 const profileId = await ctx.table("profiles").getX(profileId).patch({ userId });
 ```
 
-This is equivalent to the built-in:
+<Aside title="This is equivalent to the built-in:">
 
 ```ts
 const posts = await ctx.db.patch(profileId, { userId });
 ```
 
 with the addition of checking that `profileId` belongs to `"profiles"`.
+
+</Aside>
 
 ### Creating many:many edges
 
