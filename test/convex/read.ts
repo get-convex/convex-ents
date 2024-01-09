@@ -3,6 +3,7 @@ import { testSuite } from "./testSuite";
 import { action } from "./_generated/server";
 import { api } from "./_generated/api";
 import { mutation, query } from "./functions";
+import { Ent, EntWriter } from "./types";
 
 function assertEqual(actual: any, expected: any) {
   expect(actual).toEqual(expected);
@@ -140,13 +141,35 @@ test("map with nested map", async (ctx) => {
   ]);
 });
 
-test("spread should remove methods", async (ctx) => {
+test("types: spread should remove methods", async (ctx) => {
   const firstUser = await ctx.table("users").firstX();
   const user = { ...firstUser };
   async () => {
     // @ts-expect-error edge should not be available on the spreaded object
     await user.edge("profile");
   };
+});
+
+test("types: Ent", async (ctx) => {
+  const firstMessage: Ent<"messages"> = await ctx.table("messages").firstX();
+  const message = { ...firstMessage };
+  async () => {
+    // @ts-expect-error edge should not be available on the spreaded object
+    await message.edge("user");
+  };
+  assertEqual(message.text, "Hello world");
+});
+
+test("types: EntWriter", async (ctx) => {
+  const firstMessage: EntWriter<"messages"> = await ctx
+    .table("messages")
+    .firstX();
+  const message = { ...firstMessage };
+  async () => {
+    // @ts-expect-error edge should not be available on the spreaded object
+    await message.edge("user");
+  };
+  assertEqual(message.text, "Hello world");
 });
 
 test("edge", async (ctx) => {

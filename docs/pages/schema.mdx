@@ -11,9 +11,9 @@ in the Convex database.
 Unlike bare documents, Ents require a schema. Here's a minimal example of the
 `convex/schema.ts` file using Ents:
 
-```ts
+```ts filename="convex/schema.ts"
 import { v } from "convex/values";
-import { defineEnt, defineEntSchema, getEntDefinitions } from "convex-ent";
+import { defineEnt, defineEntSchema, getEntDefinitions } from "convex-ents";
 
 const schema = defineEntSchema({
   messages: defineEnt({

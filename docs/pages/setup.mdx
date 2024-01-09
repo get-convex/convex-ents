@@ -17,7 +17,7 @@ Create or update your schema file, for example:
 
 ```ts filename="convex/schema.ts"
 import { v } from "convex/values";
-import { defineEnt, defineEntSchema, getEntDefinitions } from "convex-ent";
+import { defineEnt, defineEntSchema, getEntDefinitions } from "convex-ents";
 
 const schema = defineEntSchema({
   messages: defineEnt({
@@ -108,6 +108,32 @@ export const internalMutation = customMutation(
 </details>
 
 For more details see [Configuring Functions](/setup/config).
+
+### Add helper types
+
+Add a `types.ts` file with the following contents:
+
+<details>
+<summary>Click to show</summary>
+
+```ts filename="convex/types.ts"
+import { GenericEnt, GenericEntWriter } from "convex-ents";
+import { DataModel, TableNames } from "./_generated/dataModel";
+import { entDefinitions } from "./schema";
+
+export type Ent<TableName extends TableNames> = GenericEnt<
+  DataModel,
+  typeof entDefinitions,
+  TableName
+>;
+export type EntWriter<TableName extends TableNames> = GenericEntWriter<
+  DataModel,
+  typeof entDefinitions,
+  TableName
+>;
+```
+
+</details>
 
 ### Use custom functions to read and write ents
 
