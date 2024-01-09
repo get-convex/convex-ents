@@ -4,10 +4,10 @@
   "schema": "Ent Schema",
   "read": "Reading Ents",
   "write": "Writing Ents",
-  "contact": {
-    "title": "Community ↗",
+  "docs": {
+    "title": "Convex Docs",
     "type": "page",
-    "href": "https://www.convex.dev/community",
+    "href": "https://docs.convex.dev",
     "newWindow": true
   }
 }

@@ -38,6 +38,16 @@ const schema = defineEntSchema(
         searchField: "text",
         filterFields: ["type"],
       }),
+
+    admins: defineEnt({
+      name: v.string(),
+    })
+      .field("tokenIdenitifier", v.string(), { unique: true })
+      .edge("secret", { optional: true }),
+
+    secrets: defineEnt({
+      value: v.string(),
+    }).edge("admin"),
   },
   { schemaValidation: false }
 );
