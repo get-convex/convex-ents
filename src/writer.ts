@@ -14,12 +14,11 @@ import {
 } from "./schema";
 
 export class WriterImplBase<
-  DataModel extends GenericDataModel,
-  EntsDataModel extends GenericEntsDataModel<DataModel>,
-  Table extends TableNamesInDataModel<DataModel>
+  EntsDataModel extends GenericEntsDataModel,
+  Table extends TableNamesInDataModel<EntsDataModel>
 > {
   constructor(
-    protected ctx: GenericMutationCtx<DataModel>,
+    protected ctx: GenericMutationCtx<EntsDataModel>,
     protected entDefinitions: EntsDataModel,
     protected table: Table
   ) {}
@@ -215,8 +214,7 @@ export class WriterImplBase<
   fieldsOnly(
     value: Partial<
       WithEdgePatches<
-        DataModel,
-        DocumentByName<DataModel, Table>,
+        DocumentByName<EntsDataModel, Table>,
         EntsDataModel[Table]["edges"]
       >
     >
@@ -241,9 +239,8 @@ export class WriterImplBase<
 }
 
 export type WithEdges<
-  DataModel extends GenericDataModel,
   Document extends GenericDocument,
-  Edges extends Record<string, GenericEdgeConfig<DataModel>>
+  Edges extends Record<string, GenericEdgeConfig>
 > = Document & {
   [key in keyof Edges]?: Edges[key]["cardinality"] extends "single"
     ? Edges[key]["type"] extends "ref"
@@ -253,9 +250,8 @@ export type WithEdges<
 };
 
 export type WithEdgePatches<
-  DataModel extends GenericDataModel,
   Document extends GenericDocument,
-  Edges extends Record<string, GenericEdgeConfig<DataModel>>
+  Edges extends Record<string, GenericEdgeConfig>
 > = Document & {
   [key in keyof Edges]?: Edges[key]["cardinality"] extends "single"
     ? Edges[key]["type"] extends "ref"

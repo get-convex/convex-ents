@@ -1,4 +1,4 @@
-import { mutation } from "./functions";
+import { mutation, query } from "./functions";
 
 export function testSuite() {
   let SETUP: Parameters<typeof mutation>[0] = async () => {};
@@ -39,6 +39,8 @@ export function testSuite() {
     setup: (...fn: Parameters<typeof mutation>) => {
       SETUP = fn[0];
     },
+    // Change this from `typeof mutation` to `typeof query`
+    // to test the read-only types.
     test: (name: string, ...fn: Parameters<typeof mutation>) => {
       TESTS.push({ name, fn: fn[0] as any });
     },

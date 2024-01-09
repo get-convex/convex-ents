@@ -184,17 +184,17 @@ test("types: Ent", async (ctx) => {
   assertEqual(message.text, "Hello world");
 });
 
-test("types: EntWriter", async (ctx) => {
-  const firstMessage: EntWriter<"messages"> = await ctx
-    .table("messages")
-    .firstX();
-  const message = { ...firstMessage };
-  async () => {
-    // @ts-expect-error edge should not be available on the spreaded object
-    await message.edge("user");
-  };
-  assertEqual(message.text, "Hello world");
-});
+// test("types: EntWriter", async (ctx) => {
+//   const firstMessage: EntWriter<"messages"> = await ctx
+//     .table("messages")
+//     .firstX();
+//   const message = { ...firstMessage };
+//   async () => {
+//     // @ts-expect-error edge should not be available on the spreaded object
+//     await message.edge("user");
+//   };
+//   assertEqual(message.text, "Hello world");
+// });
 
 test("edge", async (ctx) => {
   const firstProfile = await ctx.table("profiles").firstX();

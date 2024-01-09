@@ -35,117 +35,102 @@ import {
 
 // TODO: Figure out how to make get() variadic
 // type FieldTypes<
-//   DataModel extends GenericDataModel,
-//   Table extends TableNamesInDataModel<DataModel>,
+//
+//   Table extends TableNamesInDataModel<EntsDataModel>,
 //   T extends string[]
 // > = {
 //   [K in keyof T]: FieldTypeFromFieldPath<
-//     DocumentByName<DataModel, Table>,
+//     DocumentByName<EntsDataModel, Table>,
 //     T[K]
 //   >;
 // };
 
 interface PromiseOrderedQueryOrNull<
-  DataModel extends GenericDataModel,
-  EntsDataModel extends GenericEntsDataModel<DataModel>,
-  Table extends TableNamesInDataModel<DataModel>
+  EntsDataModel extends GenericEntsDataModel,
+  Table extends TableNamesInDataModel<EntsDataModel>
 > extends Promise<
-    | Ent<Table, DocumentByName<DataModel, Table>, DataModel, EntsDataModel>[]
-    | null
+    Ent<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel>[] | null
   > {
   filter(
     predicate: (
-      q: FilterBuilder<NamedTableInfo<DataModel, Table>>
+      q: FilterBuilder<NamedTableInfo<EntsDataModel, Table>>
     ) => ExpressionOrValue<boolean>
   ): this;
 
   map<TOutput>(
     callbackFn: (
-      value: Ent<
-        Table,
-        DocumentByName<DataModel, Table>,
-        DataModel,
-        EntsDataModel
-      >,
+      value: Ent<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel>,
       index: number,
-      array: Ent<
-        Table,
-        DocumentByName<DataModel, Table>,
-        DataModel,
-        EntsDataModel
-      >[]
+      array: Ent<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel>[]
     ) => Promise<TOutput> | TOutput
   ): Promise<TOutput[] | null>;
 
   // TODO: entWrapper for pagination
   paginate(
     paginationOpts: PaginationOptions
-  ): Promise<PaginationResult<DocumentByName<DataModel, Table>> | null>;
+  ): Promise<PaginationResult<DocumentByName<EntsDataModel, Table>> | null>;
 
-  take(n: number): PromiseEntsOrNull<DataModel, EntsDataModel, Table>;
+  take(n: number): PromiseEntsOrNull<EntsDataModel, Table>;
 
-  first(): PromiseEntOrNull<DataModel, EntsDataModel, Table>;
+  first(): PromiseEntOrNull<EntsDataModel, Table>;
 
-  unique(): PromiseEntOrNull<DataModel, EntsDataModel, Table>;
+  unique(): PromiseEntOrNull<EntsDataModel, Table>;
 
-  docs(): Promise<DocumentByName<DataModel, Table>[] | null>;
+  docs(): Promise<DocumentByName<EntsDataModel, Table>[] | null>;
 }
 
 interface PromiseQueryOrNull<
-  DataModel extends GenericDataModel,
-  EntsDataModel extends GenericEntsDataModel<DataModel>,
-  Table extends TableNamesInDataModel<DataModel>
-> extends PromiseOrderedQueryOrNull<DataModel, EntsDataModel, Table> {
+  EntsDataModel extends GenericEntsDataModel,
+  Table extends TableNamesInDataModel<EntsDataModel>
+> extends PromiseOrderedQueryOrNull<EntsDataModel, Table> {
   // TODO: The index variant should not be allowed if
   // this query already used an index
   order(
     order: "asc" | "desc",
-    indexName?: IndexNames<NamedTableInfo<DataModel, Table>>
-  ): PromiseOrderedQueryOrNull<DataModel, EntsDataModel, Table>;
+    indexName?: IndexNames<NamedTableInfo<EntsDataModel, Table>>
+  ): PromiseOrderedQueryOrNull<EntsDataModel, Table>;
 }
 
 interface PromiseTableBase<
-  DataModel extends GenericDataModel,
-  EntsDataModel extends GenericEntsDataModel<DataModel>,
-  Table extends TableNamesInDataModel<DataModel>
+  EntsDataModel extends GenericEntsDataModel,
+  Table extends TableNamesInDataModel<EntsDataModel>
 > {
-  get<Indexes extends DataModel[Table]["indexes"], Index extends keyof Indexes>(
+  get<
+    Indexes extends EntsDataModel[Table]["indexes"],
+    Index extends keyof Indexes
+  >(
     indexName: Index,
     // TODO: Figure out how to make this variadic
     value0: FieldTypeFromFieldPath<
-      DocumentByName<DataModel, Table>,
+      DocumentByName<EntsDataModel, Table>,
       Indexes[Index][0]
     >
-  ): PromiseEntOrNull<DataModel, EntsDataModel, Table>;
-  get(id: GenericId<Table>): PromiseEntOrNull<DataModel, EntsDataModel, Table>;
+  ): PromiseEntOrNull<EntsDataModel, Table>;
+  get(id: GenericId<Table>): PromiseEntOrNull<EntsDataModel, Table>;
 
   getMany<
-    Indexes extends DataModel[Table]["indexes"],
+    Indexes extends EntsDataModel[Table]["indexes"],
     Index extends keyof Indexes
   >(
     indexName: Index,
     values: FieldTypeFromFieldPath<
-      DocumentByName<DataModel, Table>,
+      DocumentByName<EntsDataModel, Table>,
       Indexes[Index][0]
     >[]
-  ): PromiseEntsOrNulls<DataModel, EntsDataModel, Table>;
-  getMany(
-    ids: GenericId<Table>[]
-  ): PromiseEntsOrNulls<DataModel, EntsDataModel, Table>;
+  ): PromiseEntsOrNulls<EntsDataModel, Table>;
+  getMany(ids: GenericId<Table>[]): PromiseEntsOrNulls<EntsDataModel, Table>;
 
   getManyX<
-    Indexes extends DataModel[Table]["indexes"],
+    Indexes extends EntsDataModel[Table]["indexes"],
     Index extends keyof Indexes
   >(
     indexName: Index,
     values: FieldTypeFromFieldPath<
-      DocumentByName<DataModel, Table>,
+      DocumentByName<EntsDataModel, Table>,
       Indexes[Index][0]
     >[]
-  ): PromiseEnts<DataModel, EntsDataModel, Table>;
-  getManyX(
-    ids: GenericId<Table>[]
-  ): PromiseEnts<DataModel, EntsDataModel, Table>;
+  ): PromiseEnts<EntsDataModel, Table>;
+  getManyX(ids: GenericId<Table>[]): PromiseEnts<EntsDataModel, Table>;
 
   /**
    * Returns the string ID format for the ID in a given table, or null if the ID
@@ -160,29 +145,28 @@ interface PromiseTableBase<
 }
 
 interface PromiseTable<
-  DataModel extends GenericDataModel,
-  EntsDataModel extends GenericEntsDataModel<DataModel>,
-  Table extends TableNamesInDataModel<DataModel>
-> extends PromiseQuery<DataModel, EntsDataModel, Table>,
-    PromiseTableBase<DataModel, EntsDataModel, Table> {
+  EntsDataModel extends GenericEntsDataModel,
+  Table extends TableNamesInDataModel<EntsDataModel>
+> extends PromiseQuery<EntsDataModel, Table>,
+    PromiseTableBase<EntsDataModel, Table> {
   /**
    * Fetch a document from the DB using given index, throw if it doesn't exist.
    */
   getX<
-    Indexes extends DataModel[Table]["indexes"],
+    Indexes extends EntsDataModel[Table]["indexes"],
     Index extends keyof Indexes
   >(
     indexName: Index,
     // TODO: Figure out how to make this variadic
     value0: FieldTypeFromFieldPath<
-      DocumentByName<DataModel, Table>,
+      DocumentByName<EntsDataModel, Table>,
       Indexes[Index][0]
     >
-  ): PromiseEnt<DataModel, EntsDataModel, Table>;
+  ): PromiseEnt<EntsDataModel, Table>;
   /**
    * Fetch a document from the DB for a given ID, throw if it doesn't exist.
    */
-  getX(id: GenericId<Table>): PromiseEnt<DataModel, EntsDataModel, Table>;
+  getX(id: GenericId<Table>): PromiseEnt<EntsDataModel, Table>;
 
   /**
    * Query by running a full text search against a search index.
@@ -203,101 +187,88 @@ interface PromiseTable<
    * @returns - A query that searches for matching documents, returning them
    * in relevancy order.
    */
-  search<IndexName extends SearchIndexNames<NamedTableInfo<DataModel, Table>>>(
+  search<
+    IndexName extends SearchIndexNames<NamedTableInfo<EntsDataModel, Table>>
+  >(
     indexName: IndexName,
     searchFilter: (
       q: SearchFilterBuilder<
-        DocumentByName<DataModel, Table>,
-        NamedSearchIndex<NamedTableInfo<DataModel, Table>, IndexName>
+        DocumentByName<EntsDataModel, Table>,
+        NamedSearchIndex<NamedTableInfo<EntsDataModel, Table>, IndexName>
       >
     ) => SearchFilter
-  ): PromiseOrderedQuery<DataModel, EntsDataModel, Table>;
+  ): PromiseOrderedQuery<EntsDataModel, Table>;
 }
 
 interface PromiseOrderedQueryBase<
-  DataModel extends GenericDataModel,
-  EntsDataModel extends GenericEntsDataModel<DataModel>,
-  Table extends TableNamesInDataModel<DataModel>
+  EntsDataModel extends GenericEntsDataModel,
+  Table extends TableNamesInDataModel<EntsDataModel>
 > {
   filter(
     predicate: (
-      q: FilterBuilder<NamedTableInfo<DataModel, Table>>
+      q: FilterBuilder<NamedTableInfo<EntsDataModel, Table>>
     ) => ExpressionOrValue<boolean>
   ): this;
 
   // TODO: entWrapper for pagination
   paginate(
     paginationOpts: PaginationOptions
-  ): Promise<PaginationResult<DocumentByName<DataModel, Table>>>;
+  ): Promise<PaginationResult<DocumentByName<EntsDataModel, Table>>>;
 
-  first(): PromiseEntOrNull<DataModel, EntsDataModel, Table>;
+  first(): PromiseEntOrNull<EntsDataModel, Table>;
 
-  unique(): PromiseEntOrNull<DataModel, EntsDataModel, Table>;
+  unique(): PromiseEntOrNull<EntsDataModel, Table>;
 }
 
 interface PromiseOrderedQuery<
-  DataModel extends GenericDataModel,
-  EntsDataModel extends GenericEntsDataModel<DataModel>,
-  Table extends TableNamesInDataModel<DataModel>
+  EntsDataModel extends GenericEntsDataModel,
+  Table extends TableNamesInDataModel<EntsDataModel>
 > extends Promise<
-      Ent<Table, DocumentByName<DataModel, Table>, DataModel, EntsDataModel>[]
+      Ent<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel>[]
     >,
-    PromiseOrderedQueryBase<DataModel, EntsDataModel, Table> {
+    PromiseOrderedQueryBase<EntsDataModel, Table> {
   map<TOutput>(
     callbackFn: (
-      value: Ent<
-        Table,
-        DocumentByName<DataModel, Table>,
-        DataModel,
-        EntsDataModel
-      >,
+      value: Ent<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel>,
       index: number,
-      array: Ent<
-        Table,
-        DocumentByName<DataModel, Table>,
-        DataModel,
-        EntsDataModel
-      >[]
+      array: Ent<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel>[]
     ) => Promise<TOutput> | TOutput
   ): Promise<TOutput[]>;
 
-  take(n: number): PromiseEnts<DataModel, EntsDataModel, Table>;
+  take(n: number): PromiseEnts<EntsDataModel, Table>;
 
-  firstX(): PromiseEnt<DataModel, EntsDataModel, Table>;
+  firstX(): PromiseEnt<EntsDataModel, Table>;
 
-  uniqueX(): PromiseEnt<DataModel, EntsDataModel, Table>;
+  uniqueX(): PromiseEnt<EntsDataModel, Table>;
 
-  docs(): Promise<DocumentByName<DataModel, Table>[]>;
+  docs(): Promise<DocumentByName<EntsDataModel, Table>[]>;
 }
 
 interface PromiseQuery<
-  DataModel extends GenericDataModel,
-  EntsDataModel extends GenericEntsDataModel<DataModel>,
-  Table extends TableNamesInDataModel<DataModel>
-> extends PromiseOrderedQuery<DataModel, EntsDataModel, Table> {
+  EntsDataModel extends GenericEntsDataModel,
+  Table extends TableNamesInDataModel<EntsDataModel>
+> extends PromiseOrderedQuery<EntsDataModel, Table> {
   order(
     order: "asc" | "desc",
-    indexName?: IndexNames<NamedTableInfo<DataModel, Table>>
-  ): PromiseOrderedQuery<DataModel, EntsDataModel, Table>;
+    indexName?: IndexNames<NamedTableInfo<EntsDataModel, Table>>
+  ): PromiseOrderedQuery<EntsDataModel, Table>;
 }
 
 class PromiseQueryOrNullImpl<
-    DataModel extends GenericDataModel,
-    EntsDataModel extends GenericEntsDataModel<DataModel>,
-    Table extends TableNamesInDataModel<DataModel>
+    EntsDataModel extends GenericEntsDataModel,
+    Table extends TableNamesInDataModel<EntsDataModel>
   >
   extends Promise<
-    | Ent<Table, DocumentByName<DataModel, Table>, DataModel, EntsDataModel>[]
-    | null
+    Ent<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel>[] | null
   >
-  implements PromiseQueryOrNull<DataModel, EntsDataModel, Table>
+  implements PromiseQueryOrNull<EntsDataModel, Table>
 {
   constructor(
-    protected ctx: GenericQueryCtx<DataModel>,
+    protected ctx: GenericQueryCtx<EntsDataModel>,
     protected entDefinitions: EntsDataModel,
     protected table: Table,
     protected retrieve: () => Promise<Query<
-      NamedTableInfo<DataModel, Table>
+      NamedTableInfo<EntsDataModel, Table>
     > | null>
   ) {
     super(() => {});
@@ -305,7 +276,7 @@ class PromiseQueryOrNullImpl<
 
   filter(
     predicate: (
-      q: FilterBuilder<NamedTableInfo<DataModel, Table>>
+      q: FilterBuilder<NamedTableInfo<EntsDataModel, Table>>
     ) => ExpressionOrValue<boolean>
   ): any {
     return new PromiseQueryOrNullImpl(
@@ -324,19 +295,9 @@ class PromiseQueryOrNullImpl<
 
   async map<TOutput>(
     callbackFn: (
-      value: Ent<
-        Table,
-        DocumentByName<DataModel, Table>,
-        DataModel,
-        EntsDataModel
-      >,
+      value: Ent<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel>,
       index: number,
-      array: Ent<
-        Table,
-        DocumentByName<DataModel, Table>,
-        DataModel,
-        EntsDataModel
-      >[]
+      array: Ent<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel>[]
     ) => Promise<TOutput> | TOutput
   ) {
     const array = await this;
@@ -348,7 +309,7 @@ class PromiseQueryOrNullImpl<
 
   order(
     order: "asc" | "desc",
-    indexName?: IndexNames<NamedTableInfo<DataModel, Table>>
+    indexName?: IndexNames<NamedTableInfo<EntsDataModel, Table>>
   ): any {
     return new PromiseQueryOrNullImpl(
       this.ctx,
@@ -361,7 +322,9 @@ class PromiseQueryOrNullImpl<
         }
         if (indexName !== undefined) {
           // TODO: We need more granular types for the QueryPromises
-          return (query as QueryInitializer<NamedTableInfo<DataModel, Table>>)
+          return (
+            query as QueryInitializer<NamedTableInfo<EntsDataModel, Table>>
+          )
             .withIndex(indexName)
             .order(order);
         }
@@ -373,7 +336,7 @@ class PromiseQueryOrNullImpl<
 
   async paginate(
     paginationOpts: PaginationOptions
-  ): Promise<PaginationResult<DocumentByName<DataModel, Table>> | null> {
+  ): Promise<PaginationResult<DocumentByName<EntsDataModel, Table>> | null> {
     const query = await this.retrieve();
     if (query === null) {
       return null;
@@ -474,19 +437,14 @@ class PromiseQueryOrNullImpl<
 
   then<
     TResult1 =
-      | Ent<Table, DocumentByName<DataModel, Table>, DataModel, EntsDataModel>[]
+      | Ent<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel>[]
       | null,
     TResult2 = never
   >(
     onfulfilled?:
       | ((
           value:
-            | Ent<
-                Table,
-                DocumentByName<DataModel, Table>,
-                DataModel,
-                EntsDataModel
-              >[]
+            | Ent<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel>[]
             | null
         ) => TResult1 | PromiseLike<TResult1>)
       | undefined
@@ -510,12 +468,11 @@ class PromiseQueryOrNullImpl<
 }
 
 export class PromiseTableImpl<
-  DataModel extends GenericDataModel,
-  EntsDataModel extends GenericEntsDataModel<DataModel>,
-  Table extends TableNamesInDataModel<DataModel>
-> extends PromiseQueryOrNullImpl<DataModel, EntsDataModel, Table> {
+  EntsDataModel extends GenericEntsDataModel,
+  Table extends TableNamesInDataModel<EntsDataModel>
+> extends PromiseQueryOrNullImpl<EntsDataModel, Table> {
   constructor(
-    ctx: GenericQueryCtx<DataModel>,
+    ctx: GenericQueryCtx<EntsDataModel>,
     entDefinitions: EntsDataModel,
     table: Table
   ) {
@@ -642,11 +599,11 @@ export class PromiseTableImpl<
   }
 
   withIndex(
-    indexName: IndexNames<NamedTableInfo<DataModel, Table>>,
+    indexName: IndexNames<NamedTableInfo<EntsDataModel, Table>>,
     indexRange?: (
       q: IndexRangeBuilder<
-        DocumentByName<DataModel, Table>,
-        NamedIndex<NamedTableInfo<DataModel, Table>, typeof indexName>
+        DocumentByName<EntsDataModel, Table>,
+        NamedIndex<NamedTableInfo<EntsDataModel, Table>, typeof indexName>
       >
     ) => IndexRange
   ) {
@@ -657,18 +614,20 @@ export class PromiseTableImpl<
       async () => {
         const query = await this.retrieve();
         return (
-          query as QueryInitializer<NamedTableInfo<DataModel, Table>>
+          query as QueryInitializer<NamedTableInfo<EntsDataModel, Table>>
         ).withIndex(indexName, indexRange);
       }
     );
   }
 
-  search<IndexName extends SearchIndexNames<NamedTableInfo<DataModel, Table>>>(
+  search<
+    IndexName extends SearchIndexNames<NamedTableInfo<EntsDataModel, Table>>
+  >(
     indexName: IndexName,
     searchFilter: (
       q: SearchFilterBuilder<
-        DocumentByName<DataModel, Table>,
-        NamedSearchIndex<NamedTableInfo<DataModel, Table>, IndexName>
+        DocumentByName<EntsDataModel, Table>,
+        NamedSearchIndex<NamedTableInfo<EntsDataModel, Table>, IndexName>
       >
     ) => SearchFilter
   ) {
@@ -679,7 +638,7 @@ export class PromiseTableImpl<
       async () => {
         const query = await this.retrieve();
         return (
-          query as QueryInitializer<NamedTableInfo<DataModel, Table>>
+          query as QueryInitializer<NamedTableInfo<EntsDataModel, Table>>
         ).withSearchIndex(indexName, searchFilter) as any;
       }
     );
@@ -690,24 +649,22 @@ export class PromiseTableImpl<
 // lazy promise performs one operation for each
 // retrieved document in JavaScript, basically as if using `Promise.all()`.
 interface PromiseEntsOrNull<
-  DataModel extends GenericDataModel,
-  EntsDataModel extends GenericEntsDataModel<DataModel>,
-  Table extends TableNamesInDataModel<DataModel>
+  EntsDataModel extends GenericEntsDataModel,
+  Table extends TableNamesInDataModel<EntsDataModel>
 > extends Promise<
-    | Ent<Table, DocumentByName<DataModel, Table>, DataModel, EntsDataModel>[]
-    | null
+    Ent<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel>[] | null
   > {
   // TODO: At this point there is nothing query specific here, and we can either:
   //   1. Return a generic lazy promise of the list.
   //   2. Not give any methods, because they might lead devs down the wrong path.
   // // This just returns the first retrieved document, it does not optimize
   // // the previous steps in the query.
-  // first(): PromiseEntOrNull<DataModel, EntsDataModel, Table>;
+  // first(): PromiseEntOrNull<EntsDataModel, Table>;
   // // This just returns the unique retrieved document, it does not optimize
   // // the previous steps in the query. Otherwise it behaves like db.query().unique().
-  // unique(): PromiseEntOrNull<DataModel, EntsDataModel, Table>;
+  // unique(): PromiseEntOrNull<EntsDataModel, Table>;
 
-  docs(): Promise<DocumentByName<DataModel, Table>[] | null>;
+  docs(): Promise<DocumentByName<EntsDataModel, Table>[] | null>;
 }
 
 // This lazy promise materializes objects, so chaining to this type of
@@ -715,45 +672,44 @@ interface PromiseEntsOrNull<
 // retrieved document in JavaScript, basically as if using
 // `Promise.all()`.
 interface PromiseEnts<
-  DataModel extends GenericDataModel,
-  EntsDataModel extends GenericEntsDataModel<DataModel>,
-  Table extends TableNamesInDataModel<DataModel>
+  EntsDataModel extends GenericEntsDataModel,
+  Table extends TableNamesInDataModel<EntsDataModel>
 > extends Promise<
-    Ent<Table, DocumentByName<DataModel, Table>, DataModel, EntsDataModel>[]
+    Ent<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel>[]
   > {
   // TODO: At this point there is nothing query specific here, and we can either:
   //   1. Return a generic lazy promise of the list.
   //   2. Not give any methods, because they might lead devs down the wrong path.
   // // This just returns the first retrieved document, it does not optimize
   // // the previous steps in the query.
-  // first(): PromiseEntOrNull<DataModel, EntsDataModel, Table>;
+  // first(): PromiseEntOrNull<EntsDataModel, Table>;
   // // This just returns the first retrieved document, or throws if there
   // // are no documents. It does not optimize the previous steps in the query.
-  // firstX(): PromiseEnt<DataModel, EntsDataModel, Table>;
+  // firstX(): PromiseEnt<EntsDataModel, Table>;
   // // This just returns the unique retrieved document, it does not optimize
   // // the previous steps in the query. Otherwise it behaves like db.query().unique().
-  // unique(): PromiseEntOrNull<DataModel, EntsDataModel, Table>;
+  // unique(): PromiseEntOrNull<EntsDataModel, Table>;
   // // This just returns the unique retrieved document, or throws if there
   // // are no documents. It does not optimize the previous steps in the query.
   // // Otherwise it behaves like db.query().unique().
-  // uniqueX(): PromiseEnt<DataModel, EntsDataModel, Table>;
+  // uniqueX(): PromiseEnt<EntsDataModel, Table>;
 
-  docs(): Promise<DocumentByName<DataModel, Table>[]>;
+  docs(): Promise<DocumentByName<EntsDataModel, Table>[]>;
 }
 
 class PromiseEntsOrNullImpl<
-  DataModel extends GenericDataModel,
-  EntsDataModel extends GenericEntsDataModel<DataModel>,
-  Table extends TableNamesInDataModel<DataModel>
+  EntsDataModel extends GenericEntsDataModel,
+  Table extends TableNamesInDataModel<EntsDataModel>
 > extends Promise<
-  | Ent<Table, DocumentByName<DataModel, Table>, DataModel, EntsDataModel>[]
-  | null
+  Ent<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel>[] | null
 > {
   constructor(
-    private ctx: GenericQueryCtx<DataModel>,
+    private ctx: GenericQueryCtx<EntsDataModel>,
     private entDefinitions: EntsDataModel,
     private table: Table,
-    private retrieve: () => Promise<DocumentByName<DataModel, Table>[] | null>
+    private retrieve: () => Promise<
+      DocumentByName<EntsDataModel, Table>[] | null
+    >
   ) {
     super(() => {});
   }
@@ -837,19 +793,14 @@ class PromiseEntsOrNullImpl<
 
   then<
     TResult1 =
-      | Ent<Table, DocumentByName<DataModel, Table>, DataModel, EntsDataModel>[]
+      | Ent<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel>[]
       | null,
     TResult2 = never
   >(
     onfulfilled?:
       | ((
           value:
-            | Ent<
-                Table,
-                DocumentByName<DataModel, Table>,
-                DataModel,
-                EntsDataModel
-              >[]
+            | Ent<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel>[]
             | null
         ) => TResult1 | PromiseLike<TResult1>)
       | undefined
@@ -876,23 +827,16 @@ class PromiseEntsOrNullImpl<
 // retrieved document in JavaScript, basically as if using
 // `Promise.all()`.
 interface PromiseEntsOrNulls<
-  DataModel extends GenericDataModel,
-  EntsDataModel extends GenericEntsDataModel<DataModel>,
-  Table extends TableNamesInDataModel<DataModel>
+  EntsDataModel extends GenericEntsDataModel,
+  Table extends TableNamesInDataModel<EntsDataModel>
 > extends Promise<
-    (Ent<
-      Table,
-      DocumentByName<DataModel, Table>,
-      DataModel,
-      EntsDataModel
-    > | null)[]
+    (Ent<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel> | null)[]
   > {}
 
 interface PromiseEdgeEntsOrNull<
-  DataModel extends GenericDataModel,
-  EntsDataModel extends GenericEntsDataModel<DataModel>,
-  Table extends TableNamesInDataModel<DataModel>
-> extends PromiseEntsOrNull<DataModel, EntsDataModel, Table> {
+  EntsDataModel extends GenericEntsDataModel,
+  Table extends TableNamesInDataModel<EntsDataModel>
+> extends PromiseEntsOrNull<EntsDataModel, Table> {
   /**
    * Returns whether there is an ent with given ID on the other side
    * the edge. Returns null if chained to a null result.
@@ -902,10 +846,9 @@ interface PromiseEdgeEntsOrNull<
 }
 
 interface PromiseEdgeEnts<
-  DataModel extends GenericDataModel,
-  EntsDataModel extends GenericEntsDataModel<DataModel>,
-  Table extends TableNamesInDataModel<DataModel>
-> extends PromiseEnts<DataModel, EntsDataModel, Table> {
+  EntsDataModel extends GenericEntsDataModel,
+  Table extends TableNamesInDataModel<EntsDataModel>
+> extends PromiseEnts<EntsDataModel, Table> {
   /**
    * Returns whether there is an ent with given ID on the other side
    * the edge.
@@ -915,23 +858,22 @@ interface PromiseEdgeEnts<
 }
 
 class PromiseEdgeOrNullImpl<
-    DataModel extends GenericDataModel,
-    EntsDataModel extends GenericEntsDataModel<DataModel>,
-    Table extends TableNamesInDataModel<DataModel>
+    EntsDataModel extends GenericEntsDataModel,
+    Table extends TableNamesInDataModel<EntsDataModel>
   >
-  extends PromiseEntsOrNullImpl<DataModel, EntsDataModel, Table>
-  implements PromiseEdgeEntsOrNull<DataModel, EntsDataModel, Table>
+  extends PromiseEntsOrNullImpl<EntsDataModel, Table>
+  implements PromiseEdgeEntsOrNull<EntsDataModel, Table>
 {
   constructor(
-    ctx: GenericQueryCtx<DataModel>,
+    ctx: GenericQueryCtx<EntsDataModel>,
     entDefinitions: EntsDataModel,
     table: Table,
     private field: string,
     private retrieveRange: (
       indexRange: (
-        q: IndexRangeBuilder<DocumentByName<DataModel, Table>, any>
+        q: IndexRangeBuilder<DocumentByName<EntsDataModel, Table>, any>
       ) => any
-    ) => Promise<DocumentByName<DataModel, Table>[] | null>
+    ) => Promise<DocumentByName<EntsDataModel, Table>[] | null>
   ) {
     super(ctx, entDefinitions, table, () => retrieveRange((q) => q));
   }
@@ -943,60 +885,55 @@ class PromiseEdgeOrNullImpl<
 }
 
 export interface PromiseEntOrNull<
-  DataModel extends GenericDataModel,
-  EntsDataModel extends GenericEntsDataModel<DataModel>,
-  Table extends TableNamesInDataModel<DataModel>
+  EntsDataModel extends GenericEntsDataModel,
+  Table extends TableNamesInDataModel<EntsDataModel>
 > extends Promise<Ent<
     Table,
-    DocumentByName<DataModel, Table>,
-    DataModel,
+    DocumentByName<EntsDataModel, Table>,
     EntsDataModel
   > | null> {
   edge<Edge extends keyof EntsDataModel[Table]["edges"]>(
     edge: Edge
-  ): PromiseEdgeOrNull<DataModel, EntsDataModel, Table, Edge>;
+  ): PromiseEdgeOrNull<EntsDataModel, Table, Edge>;
 
-  doc(): Promise<DocumentByName<DataModel, Table> | null>;
+  doc(): Promise<DocumentByName<EntsDataModel, Table> | null>;
 }
 
 export interface PromiseEnt<
-  DataModel extends GenericDataModel,
-  EntsDataModel extends GenericEntsDataModel<DataModel>,
-  Table extends TableNamesInDataModel<DataModel>
+  EntsDataModel extends GenericEntsDataModel,
+  Table extends TableNamesInDataModel<EntsDataModel>
 > extends Promise<
-    Ent<Table, DocumentByName<DataModel, Table>, DataModel, EntsDataModel>
+    Ent<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel>
   > {
   edge<Edge extends keyof EntsDataModel[Table]["edges"]>(
     edge: Edge
-  ): PromiseEdge<DataModel, EntsDataModel, Table, Edge>;
+  ): PromiseEdge<EntsDataModel, Table, Edge>;
 
   edgeX<Edge extends keyof EntsDataModel[Table]["edges"]>(
     edge: Edge
-  ): PromiseEdgeOrThrow<DataModel, EntsDataModel, Table, Edge>;
+  ): PromiseEdgeOrThrow<EntsDataModel, Table, Edge>;
 
-  doc(): Promise<DocumentByName<DataModel, Table>>;
+  doc(): Promise<DocumentByName<EntsDataModel, Table>>;
 }
 
 export class PromiseEntOrNullImpl<
-    DataModel extends GenericDataModel,
-    EntsDataModel extends GenericEntsDataModel<DataModel>,
-    Table extends TableNamesInDataModel<DataModel>
+    EntsDataModel extends GenericEntsDataModel,
+    Table extends TableNamesInDataModel<EntsDataModel>
   >
   extends Promise<Ent<
     Table,
-    DocumentByName<DataModel, Table>,
-    DataModel,
+    DocumentByName<EntsDataModel, Table>,
     EntsDataModel
   > | null>
-  implements PromiseEntOrNull<DataModel, EntsDataModel, Table>
+  implements PromiseEntOrNull<EntsDataModel, Table>
 {
   constructor(
-    protected ctx: GenericQueryCtx<DataModel>,
+    protected ctx: GenericQueryCtx<EntsDataModel>,
     protected entDefinitions: EntsDataModel,
     protected table: Table,
     protected retrieve: DocRetriever<
       GenericId<Table> | null,
-      DocumentByName<DataModel, Table> | null
+      DocumentByName<EntsDataModel, Table> | null
     >
   ) {
     super(() => {});
@@ -1013,8 +950,7 @@ export class PromiseEntOrNullImpl<
   then<
     TResult1 = Ent<
       Table,
-      DocumentByName<DataModel, Table>,
-      DataModel,
+      DocumentByName<EntsDataModel, Table>,
       EntsDataModel
     > | null,
     TResult2 = never
@@ -1023,8 +959,7 @@ export class PromiseEntOrNullImpl<
       | ((
           value: Ent<
             Table,
-            DocumentByName<DataModel, Table>,
-            DataModel,
+            DocumentByName<EntsDataModel, Table>,
             EntsDataModel
           > | null
         ) => TResult1 | PromiseLike<TResult1>)
@@ -1172,15 +1107,14 @@ export class PromiseEntOrNullImpl<
 }
 
 function entWrapper<
-  DataModel extends GenericDataModel,
-  EntsDataModel extends GenericEntsDataModel<DataModel>,
-  Table extends TableNamesInDataModel<DataModel>
+  EntsDataModel extends GenericEntsDataModel,
+  Table extends TableNamesInDataModel<EntsDataModel>
 >(
-  doc: DocumentByName<DataModel, Table>,
-  ctx: GenericQueryCtx<DataModel>,
+  doc: DocumentByName<EntsDataModel, Table>,
+  ctx: GenericQueryCtx<EntsDataModel>,
   entDefinitions: EntsDataModel,
   table: Table
-): Ent<Table, DocumentByName<DataModel, Table>, DataModel, EntsDataModel> {
+): Ent<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel> {
   const queryInterface = new PromiseEntWriterImpl(
     ctx as any,
     entDefinitions as any,
@@ -1237,15 +1171,12 @@ function entWrapper<
   return doc as any;
 }
 
-export function entsReaderFactory<
-  DataModel extends GenericDataModel,
-  EntsDataModel extends GenericEntsDataModel<DataModel>
->(
-  ctx: GenericQueryCtx<DataModel>,
+export function entsTableFactory<EntsDataModel extends GenericEntsDataModel>(
+  ctx: GenericQueryCtx<any>,
   entDefinitions: EntsDataModel
-): EntsReaderFactory<DataModel, EntsDataModel> {
+): EntsTable<EntsDataModel> {
   return (
-    table: TableNamesInDataModel<DataModel>,
+    table: TableNamesInDataModel<EntsDataModel>,
     indexName?: string,
     indexRange?: any
   ) => {
@@ -1260,15 +1191,14 @@ export function entsReaderFactory<
   };
 }
 
-export function entsWriterFactory<
-  DataModel extends GenericDataModel,
-  EntsDataModel extends GenericEntsDataModel<DataModel>
+export function entsTableWriterFactory<
+  EntsDataModel extends GenericEntsDataModel
 >(
-  ctx: GenericMutationCtx<DataModel>,
+  ctx: GenericMutationCtx<any>,
   entDefinitions: EntsDataModel
-): EntsWriterFactory<DataModel, EntsDataModel> {
+): EntsTableWriter<EntsDataModel> {
   return (
-    table: TableNamesInDataModel<DataModel>,
+    table: TableNamesInDataModel<EntsDataModel>,
     indexName?: string,
     indexRange?: any
   ) => {
@@ -1285,206 +1215,145 @@ export function entsWriterFactory<
   };
 }
 
-type EntsReaderFactory<
-  DataModel extends GenericDataModel,
-  EntsDataModel extends GenericEntsDataModel<DataModel>
-> = {
+type EntsTable<EntsDataModel extends GenericEntsDataModel> = {
   <
-    Table extends TableNamesInDataModel<DataModel>,
-    IndexName extends IndexNames<NamedTableInfo<DataModel, Table>>
+    Table extends TableNamesInDataModel<EntsDataModel>,
+    IndexName extends IndexNames<NamedTableInfo<EntsDataModel, Table>>
   >(
     table: Table,
     indexName: IndexName,
     indexRange?: (
       q: IndexRangeBuilder<
-        DocumentByName<DataModel, Table>,
-        NamedIndex<NamedTableInfo<DataModel, Table>, IndexName>
+        DocumentByName<EntsDataModel, Table>,
+        NamedIndex<NamedTableInfo<EntsDataModel, Table>, IndexName>
       >
     ) => IndexRange
-  ): PromiseQuery<DataModel, EntsDataModel, Table>;
-  <Table extends TableNamesInDataModel<DataModel>>(table: Table): PromiseTable<
-    DataModel,
-    EntsDataModel,
-    Table
-  >;
+  ): PromiseQuery<EntsDataModel, Table>;
+  <Table extends TableNamesInDataModel<EntsDataModel>>(
+    table: Table
+  ): PromiseTable<EntsDataModel, Table>;
 };
 
-type EntsWriterFactory<
-  DataModel extends GenericDataModel,
-  EntsDataModel extends GenericEntsDataModel<DataModel>
-> = {
+type EntsTableWriter<EntsDataModel extends GenericEntsDataModel> = {
   <
-    Table extends TableNamesInDataModel<DataModel>,
-    IndexName extends IndexNames<NamedTableInfo<DataModel, Table>>
+    Table extends TableNamesInDataModel<EntsDataModel>,
+    IndexName extends IndexNames<NamedTableInfo<EntsDataModel, Table>>
   >(
     table: Table,
     indexName: IndexName,
     indexRange?: (
       q: IndexRangeBuilder<
-        DocumentByName<DataModel, Table>,
-        NamedIndex<NamedTableInfo<DataModel, Table>, IndexName>
+        DocumentByName<EntsDataModel, Table>,
+        NamedIndex<NamedTableInfo<EntsDataModel, Table>, IndexName>
       >
     ) => IndexRange
-  ): PromiseTable<DataModel, EntsDataModel, Table>;
-  <Table extends TableNamesInDataModel<DataModel>>(
+  ): PromiseTable<EntsDataModel, Table>;
+  <Table extends TableNamesInDataModel<EntsDataModel>>(
     table: Table
-  ): PromiseTableWriter<Table, DataModel, EntsDataModel>;
+  ): PromiseTableWriter<Table, EntsDataModel>;
 };
 
 declare class EntInstance<
-  DataModel extends GenericDataModel,
-  EntsDataModel extends GenericEntsDataModel<DataModel>,
-  Table extends TableNamesInDataModel<DataModel>
+  EntsDataModel extends GenericEntsDataModel,
+  Table extends TableNamesInDataModel<EntsDataModel>
 > {
   edge<Edge extends keyof EntsDataModel[Table]["edges"]>(
     edge: Edge
-  ): PromiseEdge<DataModel, EntsDataModel, Table, Edge>;
+  ): PromiseEdge<EntsDataModel, Table, Edge>;
   edgeX<Edge extends keyof EntsDataModel[Table]["edges"]>(
     edge: Edge
-  ): PromiseEdgeOrThrow<DataModel, EntsDataModel, Table, Edge>;
+  ): PromiseEdgeOrThrow<EntsDataModel, Table, Edge>;
 }
 
 export type Ent<
-  Table extends TableNamesInDataModel<DataModel>,
-  Doc extends DocumentByName<DataModel, Table>,
-  DataModel extends GenericDataModel,
-  EntsDataModel extends GenericEntsDataModel<DataModel>
-> = Doc & EntInstance<DataModel, EntsDataModel, Table>;
+  Table extends TableNamesInDataModel<EntsDataModel>,
+  Doc extends DocumentByName<EntsDataModel, Table>,
+  EntsDataModel extends GenericEntsDataModel
+> = Doc & EntInstance<EntsDataModel, Table>;
 
 export type GenericEnt<
-  DataModel extends GenericDataModel,
-  EntsDataModel extends GenericEntsDataModel<DataModel>,
-  Table extends TableNamesInDataModel<DataModel>
-> = Ent<Table, DocumentByName<DataModel, Table>, DataModel, EntsDataModel>;
+  EntsDataModel extends GenericEntsDataModel,
+  Table extends TableNamesInDataModel<EntsDataModel>
+> = Ent<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel>;
 
 export type PromiseEdge<
-  DataModel extends GenericDataModel,
-  EntsDataModel extends GenericEntsDataModel<DataModel>,
-  Table extends TableNamesInDataModel<DataModel>,
+  EntsDataModel extends GenericEntsDataModel,
+  Table extends TableNamesInDataModel<EntsDataModel>,
   Edge extends keyof EntsDataModel[Table]["edges"]
 > = EntsDataModel[Table]["edges"][Edge]["cardinality"] extends "multiple"
   ? EntsDataModel[Table]["edges"][Edge]["type"] extends "ref"
-    ? PromiseEdgeEnts<
-        DataModel,
-        EntsDataModel,
-        EntsDataModel[Table]["edges"][Edge]["to"]
-      >
-    : PromiseQuery<
-        DataModel,
-        EntsDataModel,
-        EntsDataModel[Table]["edges"][Edge]["to"]
-      >
+    ? PromiseEdgeEnts<EntsDataModel, EntsDataModel[Table]["edges"][Edge]["to"]>
+    : PromiseQuery<EntsDataModel, EntsDataModel[Table]["edges"][Edge]["to"]>
   : EntsDataModel[Table]["edges"][Edge]["type"] extends "ref"
-  ? PromiseEntOrNull<
-      DataModel,
-      EntsDataModel,
-      EntsDataModel[Table]["edges"][Edge]["to"]
-    >
-  : PromiseEnt<
-      DataModel,
-      EntsDataModel,
-      EntsDataModel[Table]["edges"][Edge]["to"]
-    >;
+  ? PromiseEntOrNull<EntsDataModel, EntsDataModel[Table]["edges"][Edge]["to"]>
+  : PromiseEnt<EntsDataModel, EntsDataModel[Table]["edges"][Edge]["to"]>;
 
 export type PromiseEdgeOrThrow<
-  DataModel extends GenericDataModel,
-  EntsDataModel extends GenericEntsDataModel<DataModel>,
-  Table extends TableNamesInDataModel<DataModel>,
+  EntsDataModel extends GenericEntsDataModel,
+  Table extends TableNamesInDataModel<EntsDataModel>,
   Edge extends keyof EntsDataModel[Table]["edges"]
 > = EntsDataModel[Table]["edges"][Edge]["cardinality"] extends "multiple"
   ? EntsDataModel[Table]["edges"][Edge]["type"] extends "ref"
-    ? PromiseEdgeEnts<
-        DataModel,
-        EntsDataModel,
-        EntsDataModel[Table]["edges"][Edge]["to"]
-      >
-    : PromiseQuery<
-        DataModel,
-        EntsDataModel,
-        EntsDataModel[Table]["edges"][Edge]["to"]
-      >
+    ? PromiseEdgeEnts<EntsDataModel, EntsDataModel[Table]["edges"][Edge]["to"]>
+    : PromiseQuery<EntsDataModel, EntsDataModel[Table]["edges"][Edge]["to"]>
   : EntsDataModel[Table]["edges"][Edge]["type"] extends "ref"
-  ? PromiseEnt<
-      DataModel,
-      EntsDataModel,
-      EntsDataModel[Table]["edges"][Edge]["to"]
-    >
-  : PromiseEnt<
-      DataModel,
-      EntsDataModel,
-      EntsDataModel[Table]["edges"][Edge]["to"]
-    >;
+  ? PromiseEnt<EntsDataModel, EntsDataModel[Table]["edges"][Edge]["to"]>
+  : PromiseEnt<EntsDataModel, EntsDataModel[Table]["edges"][Edge]["to"]>;
 
 type PromiseEdgeOrNull<
-  DataModel extends GenericDataModel,
-  EntsDataModel extends GenericEntsDataModel<DataModel>,
-  Table extends TableNamesInDataModel<DataModel>,
+  EntsDataModel extends GenericEntsDataModel,
+  Table extends TableNamesInDataModel<EntsDataModel>,
   Edge extends keyof EntsDataModel[Table]["edges"]
 > = EntsDataModel[Table]["edges"][Edge]["cardinality"] extends "multiple"
   ? EntsDataModel[Table]["edges"][Edge]["type"] extends "ref"
     ? PromiseEdgeEntsOrNull<
-        DataModel,
         EntsDataModel,
         EntsDataModel[Table]["edges"][Edge]["to"]
       >
     : PromiseQueryOrNull<
-        DataModel,
         EntsDataModel,
         EntsDataModel[Table]["edges"][Edge]["to"]
       >
-  : PromiseEntOrNull<
-      DataModel,
-      EntsDataModel,
-      EntsDataModel[Table]["edges"][Edge]["to"]
-    >;
+  : PromiseEntOrNull<EntsDataModel, EntsDataModel[Table]["edges"][Edge]["to"]>;
 
 interface PromiseOrderedQueryWriter<
-  DataModel extends GenericDataModel,
-  EntsDataModel extends GenericEntsDataModel<DataModel>,
-  Table extends TableNamesInDataModel<DataModel>
+  EntsDataModel extends GenericEntsDataModel,
+  Table extends TableNamesInDataModel<EntsDataModel>
 > extends Promise<
-      EntWriter<
-        Table,
-        DocumentByName<DataModel, Table>,
-        DataModel,
-        EntsDataModel
-      >[]
+      EntWriter<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel>[]
     >,
-    PromiseOrderedQueryBase<DataModel, EntsDataModel, Table> {
+    PromiseOrderedQueryBase<EntsDataModel, Table> {
   map<TOutput>(
     callbackFn: (
       value: EntWriter<
         Table,
-        DocumentByName<DataModel, Table>,
-        DataModel,
+        DocumentByName<EntsDataModel, Table>,
         EntsDataModel
       >,
       index: number,
       array: EntWriter<
         Table,
-        DocumentByName<DataModel, Table>,
-        DataModel,
+        DocumentByName<EntsDataModel, Table>,
         EntsDataModel
       >[]
     ) => Promise<TOutput> | TOutput
   ): Promise<TOutput[]>;
 
-  take(n: number): PromiseEntsWriter<DataModel, EntsDataModel, Table>;
+  take(n: number): PromiseEntsWriter<EntsDataModel, Table>;
 
-  firstX(): PromiseEntWriter<DataModel, EntsDataModel, Table>;
+  firstX(): PromiseEntWriter<EntsDataModel, Table>;
 
-  uniqueX(): PromiseEntWriter<DataModel, EntsDataModel, Table>;
+  uniqueX(): PromiseEntWriter<EntsDataModel, Table>;
 }
 
 interface PromiseQueryWriter<
-  DataModel extends GenericDataModel,
-  EntsDataModel extends GenericEntsDataModel<DataModel>,
-  Table extends TableNamesInDataModel<DataModel>
-> extends PromiseOrderedQueryWriter<DataModel, EntsDataModel, Table> {
+  EntsDataModel extends GenericEntsDataModel,
+  Table extends TableNamesInDataModel<EntsDataModel>
+> extends PromiseOrderedQueryWriter<EntsDataModel, Table> {
   order(
     order: "asc" | "desc",
-    indexName?: IndexNames<NamedTableInfo<DataModel, Table>>
-  ): PromiseOrderedQueryWriter<DataModel, EntsDataModel, Table>;
+    indexName?: IndexNames<NamedTableInfo<EntsDataModel, Table>>
+  ): PromiseOrderedQueryWriter<EntsDataModel, Table>;
 }
 
 // This lazy promise materializes objects, so chaining to this type of
@@ -1492,44 +1361,42 @@ interface PromiseQueryWriter<
 // retrieved document in JavaScript, basically as if using
 // `Promise.all()`.
 interface PromiseEntsWriter<
-  DataModel extends GenericDataModel,
-  EntsDataModel extends GenericEntsDataModel<DataModel>,
-  Table extends TableNamesInDataModel<DataModel>
-> extends PromiseEnts<DataModel, EntsDataModel, Table> {
+  EntsDataModel extends GenericEntsDataModel,
+  Table extends TableNamesInDataModel<EntsDataModel>
+> extends PromiseEnts<EntsDataModel, Table> {
   // This just returns the first retrieved document, or throws if there
   // are no documents. It does not optimize the previous steps in the query.
-  firstX(): PromiseEntWriter<DataModel, EntsDataModel, Table>;
+  firstX(): PromiseEntWriter<EntsDataModel, Table>;
 
   // This just returns the unique retrieved document, or throws if there
   // are no documents. It does not optimize the previous steps in the query.
   // Otherwise it behaves like db.query().unique().
-  uniqueX(): PromiseEntWriter<DataModel, EntsDataModel, Table>;
+  uniqueX(): PromiseEntWriter<EntsDataModel, Table>;
 }
 
 export interface PromiseTableWriter<
-  Table extends TableNamesInDataModel<DataModel>,
-  DataModel extends GenericDataModel,
-  EntsDataModel extends GenericEntsDataModel<DataModel>
-> extends PromiseQueryWriter<DataModel, EntsDataModel, Table>,
-    PromiseTableBase<DataModel, EntsDataModel, Table> {
+  Table extends TableNamesInDataModel<EntsDataModel>,
+  EntsDataModel extends GenericEntsDataModel
+> extends PromiseQueryWriter<EntsDataModel, Table>,
+    PromiseTableBase<EntsDataModel, Table> {
   /**
    * Fetch a document from the DB using given index, throw if it doesn't exist.
    */
   getX<
-    Indexes extends DataModel[Table]["indexes"],
+    Indexes extends EntsDataModel[Table]["indexes"],
     Index extends keyof Indexes
   >(
     indexName: Index,
     // TODO: Figure out how to make this variadic
     value0: FieldTypeFromFieldPath<
-      DocumentByName<DataModel, Table>,
+      DocumentByName<EntsDataModel, Table>,
       Indexes[Index][0]
     >
-  ): PromiseEnt<DataModel, EntsDataModel, Table>;
+  ): PromiseEnt<EntsDataModel, Table>;
   /**
    * Fetch a document from the DB for a given ID, throw if it doesn't exist.
    */
-  getX(id: GenericId<Table>): PromiseEntWriter<DataModel, EntsDataModel, Table>;
+  getX(id: GenericId<Table>): PromiseEntWriter<EntsDataModel, Table>;
 
   /**
    * Query by running a full text search against a search index.
@@ -1550,15 +1417,17 @@ export interface PromiseTableWriter<
    * @returns - A query that searches for matching documents, returning them
    * in relevancy order.
    */
-  search<IndexName extends SearchIndexNames<NamedTableInfo<DataModel, Table>>>(
+  search<
+    IndexName extends SearchIndexNames<NamedTableInfo<EntsDataModel, Table>>
+  >(
     indexName: IndexName,
     searchFilter: (
       q: SearchFilterBuilder<
-        DocumentByName<DataModel, Table>,
-        NamedSearchIndex<NamedTableInfo<DataModel, Table>, IndexName>
+        DocumentByName<EntsDataModel, Table>,
+        NamedSearchIndex<NamedTableInfo<EntsDataModel, Table>, IndexName>
       >
     ) => SearchFilter
-  ): PromiseOrderedQueryWriter<DataModel, EntsDataModel, Table>;
+  ): PromiseOrderedQueryWriter<EntsDataModel, Table>;
 
   /**
    * Insert a new document into a table.
@@ -1571,12 +1440,11 @@ export interface PromiseTableWriter<
   insert(
     value: WithoutSystemFields<
       WithEdges<
-        DataModel,
-        DocumentByName<DataModel, Table>,
+        DocumentByName<EntsDataModel, Table>,
         EntsDataModel[Table]["edges"]
       >
     >
-  ): PromiseEntId<DataModel, EntsDataModel, Table>;
+  ): PromiseEntId<EntsDataModel, Table>;
 
   /**
    * Insert new documents into a table.
@@ -1589,8 +1457,7 @@ export interface PromiseTableWriter<
   insertMany(
     values: WithoutSystemFields<
       WithEdges<
-        DataModel,
-        DocumentByName<DataModel, Table>,
+        DocumentByName<EntsDataModel, Table>,
         EntsDataModel[Table]["edges"]
       >
     >[]
@@ -1598,14 +1465,13 @@ export interface PromiseTableWriter<
 }
 
 class PromiseTableWriterImpl<
-  DataModel extends GenericDataModel,
-  EntsDataModel extends GenericEntsDataModel<DataModel>,
-  Table extends TableNamesInDataModel<DataModel>
-> extends PromiseTableImpl<DataModel, EntsDataModel, Table> {
-  private base: WriterImplBase<DataModel, EntsDataModel, Table>;
+  EntsDataModel extends GenericEntsDataModel,
+  Table extends TableNamesInDataModel<EntsDataModel>
+> extends PromiseTableImpl<EntsDataModel, Table> {
+  private base: WriterImplBase<EntsDataModel, Table>;
 
   constructor(
-    protected ctx: GenericMutationCtx<DataModel>,
+    protected ctx: GenericMutationCtx<EntsDataModel>,
     entDefinitions: EntsDataModel,
     table: Table
   ) {
@@ -1616,8 +1482,7 @@ class PromiseTableWriterImpl<
   insert(
     value: WithoutSystemFields<
       WithEdges<
-        DataModel,
-        DocumentByName<DataModel, Table>,
+        DocumentByName<EntsDataModel, Table>,
         EntsDataModel[Table]["edges"]
       >
     >
@@ -1658,8 +1523,7 @@ class PromiseTableWriterImpl<
   async insertMany(
     values: WithoutSystemFields<
       WithEdges<
-        DataModel,
-        DocumentByName<DataModel, Table>,
+        DocumentByName<EntsDataModel, Table>,
         EntsDataModel[Table]["edges"]
       >
     >[]
@@ -1669,19 +1533,18 @@ class PromiseTableWriterImpl<
 }
 
 export interface PromiseEntWriter<
-  DataModel extends GenericDataModel,
-  EntsDataModel extends GenericEntsDataModel<DataModel>,
-  Table extends TableNamesInDataModel<DataModel>
+  EntsDataModel extends GenericEntsDataModel,
+  Table extends TableNamesInDataModel<EntsDataModel>
 > extends Promise<
-    EntWriter<Table, DocumentByName<DataModel, Table>, DataModel, EntsDataModel>
+    EntWriter<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel>
   > {
   edge<Edge extends keyof EntsDataModel[Table]["edges"]>(
     edge: Edge
-  ): PromiseEdge<DataModel, EntsDataModel, Table, Edge>;
+  ): PromiseEdge<EntsDataModel, Table, Edge>;
 
   edgeX<Edge extends keyof EntsDataModel[Table]["edges"]>(
     edge: Edge
-  ): PromiseEdgeOrThrow<DataModel, EntsDataModel, Table, Edge>;
+  ): PromiseEdgeOrThrow<EntsDataModel, Table, Edge>;
 
   /**
    * Patch this existing document, shallow merging it with the given partial
@@ -1696,12 +1559,11 @@ export interface PromiseEntWriter<
   patch(
     value: Partial<
       WithEdgePatches<
-        DataModel,
-        DocumentByName<DataModel, Table>,
+        DocumentByName<EntsDataModel, Table>,
         EntsDataModel[Table]["edges"]
       >
     >
-  ): Promise<PromiseEntId<DataModel, EntsDataModel, Table>>;
+  ): Promise<PromiseEntId<EntsDataModel, Table>>;
 
   /**
    * Replace the value of an existing document, overwriting its old value.
@@ -1712,12 +1574,11 @@ export interface PromiseEntWriter<
   replace(
     value: WithOptionalSystemFields<
       WithEdges<
-        DataModel,
-        DocumentByName<DataModel, Table>,
+        DocumentByName<EntsDataModel, Table>,
         EntsDataModel[Table]["edges"]
       >
     >
-  ): Promise<PromiseEntId<DataModel, EntsDataModel, Table>>;
+  ): Promise<PromiseEntId<EntsDataModel, Table>>;
 
   /**
    * Delete this existing document.
@@ -1728,19 +1589,18 @@ export interface PromiseEntWriter<
 }
 
 class PromiseEntWriterImpl<
-  DataModel extends GenericDataModel,
-  EntsDataModel extends GenericEntsDataModel<DataModel>,
-  Table extends TableNamesInDataModel<DataModel>
-> extends PromiseEntOrNullImpl<DataModel, EntsDataModel, Table> {
-  private base: WriterImplBase<DataModel, EntsDataModel, Table>;
+  EntsDataModel extends GenericEntsDataModel,
+  Table extends TableNamesInDataModel<EntsDataModel>
+> extends PromiseEntOrNullImpl<EntsDataModel, Table> {
+  private base: WriterImplBase<EntsDataModel, Table>;
 
   constructor(
-    protected ctx: GenericMutationCtx<DataModel>,
+    protected ctx: GenericMutationCtx<EntsDataModel>,
     protected entDefinitions: EntsDataModel,
     protected table: Table,
     protected retrieve: DocRetriever<
       GenericId<Table>,
-      DocumentByName<DataModel, Table>
+      DocumentByName<EntsDataModel, Table>
     >
   ) {
     super(ctx, entDefinitions, table, retrieve);
@@ -1750,8 +1610,7 @@ class PromiseEntWriterImpl<
   patch(
     value: Partial<
       WithEdgePatches<
-        DataModel,
-        DocumentByName<DataModel, Table>,
+        DocumentByName<EntsDataModel, Table>,
         EntsDataModel[Table]["edges"]
       >
     >
@@ -1807,8 +1666,7 @@ class PromiseEntWriterImpl<
   replace(
     value: WithOptionalSystemFields<
       WithEdges<
-        DataModel,
-        DocumentByName<DataModel, Table>,
+        DocumentByName<EntsDataModel, Table>,
         EntsDataModel[Table]["edges"]
       >
     >
@@ -1973,10 +1831,9 @@ class PromiseEntWriterImpl<
 }
 
 declare class EntWriterInstance<
-  DataModel extends GenericDataModel,
-  EntsDataModel extends GenericEntsDataModel<DataModel>,
-  Table extends TableNamesInDataModel<DataModel>
-> extends EntInstance<DataModel, EntsDataModel, Table> {
+  EntsDataModel extends GenericEntsDataModel,
+  Table extends TableNamesInDataModel<EntsDataModel>
+> extends EntInstance<EntsDataModel, Table> {
   /**
    * Patch this existing document, shallow merging it with the given partial
    * document.
@@ -1990,12 +1847,11 @@ declare class EntWriterInstance<
   patch(
     value: Partial<
       WithEdgePatches<
-        DataModel,
-        DocumentByName<DataModel, Table>,
+        DocumentByName<EntsDataModel, Table>,
         EntsDataModel[Table]["edges"]
       >
     >
-  ): PromiseEntId<DataModel, EntsDataModel, Table>;
+  ): PromiseEntId<EntsDataModel, Table>;
 
   /**
    * Replace the value of this existing document, overwriting its old value.
@@ -2006,12 +1862,11 @@ declare class EntWriterInstance<
   replace(
     value: WithOptionalSystemFields<
       WithEdges<
-        DataModel,
-        DocumentByName<DataModel, Table>,
+        DocumentByName<EntsDataModel, Table>,
         EntsDataModel[Table]["edges"]
       >
     >
-  ): PromiseEntId<DataModel, EntsDataModel, Table>;
+  ): PromiseEntId<EntsDataModel, Table>;
 
   /**
    * Delete this existing document.
@@ -2026,41 +1881,32 @@ declare class EntWriterInstance<
 // This is all just so that the type shows useful
 // informatin when hovering values.
 type EntWriter<
-  Table extends TableNamesInDataModel<DataModel>,
-  Doc extends DocumentByName<DataModel, Table>,
-  DataModel extends GenericDataModel,
-  EntsDataModel extends GenericEntsDataModel<DataModel>
-> = Doc & EntWriterInstance<DataModel, EntsDataModel, Table>;
+  Table extends TableNamesInDataModel<EntsDataModel>,
+  Doc extends DocumentByName<EntsDataModel, Table>,
+  EntsDataModel extends GenericEntsDataModel
+> = Doc & EntWriterInstance<EntsDataModel, Table>;
 
 export type GenericEntWriter<
-  DataModel extends GenericDataModel,
-  EntsDataModel extends GenericEntsDataModel<DataModel>,
-  Table extends TableNamesInDataModel<DataModel>
-> = EntWriter<
-  Table,
-  DocumentByName<DataModel, Table>,
-  DataModel,
-  EntsDataModel
->;
+  EntsDataModel extends GenericEntsDataModel,
+  Table extends TableNamesInDataModel<EntsDataModel>
+> = EntWriter<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel>;
 
 interface PromiseEntId<
-  DataModel extends GenericDataModel,
-  EntsDataModel extends GenericEntsDataModel<DataModel>,
-  Table extends TableNamesInDataModel<DataModel>
+  EntsDataModel extends GenericEntsDataModel,
+  Table extends TableNamesInDataModel<EntsDataModel>
 > extends Promise<GenericId<Table>> {
-  get(): PromiseEntWriter<DataModel, EntsDataModel, Table>;
+  get(): PromiseEntWriter<EntsDataModel, Table>;
 }
 
 class PromiseEntIdImpl<
-    DataModel extends GenericDataModel,
-    EntsDataModel extends GenericEntsDataModel<DataModel>,
-    Table extends TableNamesInDataModel<DataModel>
+    EntsDataModel extends GenericEntsDataModel,
+    Table extends TableNamesInDataModel<EntsDataModel>
   >
   extends Promise<GenericId<Table>>
-  implements PromiseEntId<DataModel, EntsDataModel, Table>
+  implements PromiseEntId<EntsDataModel, Table>
 {
   constructor(
-    private ctx: GenericMutationCtx<DataModel>,
+    private ctx: GenericMutationCtx<EntsDataModel>,
     private entDefinitions: EntsDataModel,
     private table: Table,
     private retrieve: () => Promise<GenericId<Table>>
@@ -2123,3 +1969,16 @@ function loadedRetriever<
     doc: async () => doc,
   };
 }
+
+export function addEntRules<EntsDataModel extends GenericEntsDataModel>(
+  tableReader: EntsTable<EntsDataModel>,
+  rules: {
+    [key in keyof EntsDataModel]?: key extends TableNamesInDataModel<EntsDataModel>
+      ? {
+          read?: (
+            x: Ent<key, DocumentByName<EntsDataModel, key>, EntsDataModel>
+          ) => Promise<boolean>;
+        }
+      : never;
+  }
+) {}

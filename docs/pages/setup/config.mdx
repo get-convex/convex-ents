@@ -25,14 +25,14 @@ import {
   internalQuery as baseInternalQuery,
   internalMutation as baseInternalMutation,
 } from "./_generated/server";
-import { entsReaderFactory, entsWriterFactory } from "./ents/functions";
+import { entsTableFactory, entsTableWriterFactory } from "./ents/functions";
 import { entDefinitions } from "./schema";
 
 export const query = customQuery(
   baseQuery,
   customCtx(async (ctx) => {
     return {
-      table: entsReaderFactory(ctx, entDefinitions),
+      table: entsTableFactory(ctx, entDefinitions),
       db: undefined,
     };
   })
@@ -42,7 +42,7 @@ export const internalQuery = customQuery(
   baseInternalQuery,
   customCtx(async (ctx) => {
     return {
-      table: entsReaderFactory(ctx, entDefinitions),
+      table: entsTableFactory(ctx, entDefinitions),
       db: undefined,
     };
   })
@@ -52,7 +52,7 @@ export const mutation = customMutation(
   baseMutation,
   customCtx(async (ctx) => {
     return {
-      table: entsWriterFactory(ctx, entDefinitions),
+      table: entsTableWriterFactory(ctx, entDefinitions),
       db: undefined,
     };
   })
@@ -62,7 +62,7 @@ export const internalMutation = customMutation(
   baseInternalMutation,
   customCtx(async (ctx) => {
     return {
-      table: entsWriterFactory(ctx, entDefinitions),
+      table: entsTableWriterFactory(ctx, entDefinitions),
       db: undefined,
     };
   })
@@ -101,14 +101,14 @@ import {
   internalQuery,
   internalMutation,
 } from "./_generated/server";
-import { entsReaderFactory, entsWriterFactory } from "./ents/functions";
+import { entsTableFactory, entsTableWriterFactory } from "./ents/functions";
 import { entDefinitions } from "./schema";
 
 export const entQuery = customQuery(
   baseQuery,
   customCtx(async (ctx) => {
     return {
-      table: entsReaderFactory(ctx, entDefinitions),
+      table: entsTableFactory(ctx, entDefinitions),
       db: undefined,
     };
   })
@@ -118,7 +118,7 @@ export const entInternalQuery = customQuery(
   baseInternalQuery,
   customCtx(async (ctx) => {
     return {
-      table: entsReaderFactory(ctx, entDefinitions),
+      table: entsTableFactory(ctx, entDefinitions),
       db: undefined,
     };
   })
@@ -128,7 +128,7 @@ export const entMutation = customMutation(
   baseMutation,
   customCtx(async (ctx) => {
     return {
-      table: entsWriterFactory(ctx, entDefinitions),
+      table: entsTableWriterFactory(ctx, entDefinitions),
       db: undefined,
     };
   })
@@ -138,7 +138,7 @@ export const entInternalMutation = customMutation(
   baseInternalMutation,
   customCtx(async (ctx) => {
     return {
-      table: entsWriterFactory(ctx, entDefinitions),
+      table: entsTableWriterFactory(ctx, entDefinitions),
       db: undefined,
     };
   })
@@ -200,14 +200,14 @@ import {
   internalQuery as baseInternalQuery,
   internalMutation as baseInternalMutation,
 } from "./_generated/server";
-import { entsReaderFactory, entsWriterFactory } from "./ents/functions";
+import { entsTableFactory, entsTableWriterFactory } from "./ents/functions";
 import { entDefinitions } from "./schema";
 
 export const query = customQuery(
   baseQuery,
   customCtx(async (ctx) => {
     return {
-      table: entsReaderFactory(ctx, entDefinitions),
+      table: entsTableFactory(ctx, entDefinitions),
       db: undefined,
       unsafeDB_DO_NOT_USE_OR_YOULL_BE_FIRED: db,
     };
@@ -218,7 +218,7 @@ export const internalQuery = customQuery(
   baseInternalQuery,
   customCtx(async (ctx) => {
     return {
-      table: entsReaderFactory(ctx, entDefinitions),
+      table: entsTableFactory(ctx, entDefinitions),
       db: undefined,
       unsafeDB_DO_NOT_USE_OR_YOULL_BE_FIRED: db,
     };
@@ -229,7 +229,7 @@ export const mutation = customMutation(
   baseMutation,
   customCtx(async (ctx) => {
     return {
-      table: entsWriterFactory(ctx, entDefinitions),
+      table: entsTableWriterFactory(ctx, entDefinitions),
       db: undefined,
       unsafeDB_DO_NOT_USE_OR_YOULL_BE_FIRED: db,
     };
@@ -240,7 +240,7 @@ export const internalMutation = customMutation(
   baseInternalMutation,
   customCtx(async (ctx) => {
     return {
-      table: entsWriterFactory(ctx, entDefinitions),
+      table: entsTableWriterFactory(ctx, entDefinitions),
       db: undefined,
       unsafeDB_DO_NOT_USE_OR_YOULL_BE_FIRED: db,
     };

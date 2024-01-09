@@ -16,7 +16,8 @@ const schema = defineEntSchema(
       .edge("profile", { optional: true })
       .edges("messages")
       .edges("followers", { to: "users", inverse: "followees" })
-      .edges("friends", { to: "users" }),
+      .edges("friends", { to: "users" })
+      .edge("secret", { optional: true }),
 
     profiles: defineEnt({
       bio: v.string(),
@@ -39,15 +40,9 @@ const schema = defineEntSchema(
         filterFields: ["type"],
       }),
 
-    admins: defineEnt({
-      name: v.string(),
-    })
-      .field("tokenIdenitifier", v.string(), { unique: true })
-      .edge("secret", { optional: true }),
-
     secrets: defineEnt({
       value: v.string(),
-    }).edge("admin"),
+    }).edge("user"),
   },
   { schemaValidation: false }
 );

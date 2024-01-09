@@ -1,4 +1,5 @@
 import {
+  DataModelFromSchemaDefinition,
   DefineSchemaOptions,
   GenericDataModel,
   GenericDocument,
@@ -171,12 +172,12 @@ export function defineEnt<
 
 type GenericEdges<DataModel extends GenericDataModel> = Record<
   string,
-  GenericEdgeConfig<DataModel>
+  GenericEdgeConfig
 >;
 
-export type GenericEdgeConfig<DataModel extends GenericDataModel> = {
+export type GenericEdgeConfig = {
   name: string;
-  to: TableNamesInDataModel<DataModel>;
+  to: string;
   cardinality: "single" | "multiple";
   type: "field" | "ref";
 };
@@ -693,18 +694,16 @@ type JoinFieldPaths<
   End extends string
 > = `${Start}.${End}`;
 
-export type GenericEntsDataModel<DataModel extends GenericDataModel> = Record<
-  TableNamesInDataModel<DataModel>,
-  GenericEntModel<DataModel>
->;
+export type GenericEntsDataModel = GenericDataModel &
+  Record<string, GenericEntModel>;
 
-export type GenericEntModel<DataModel extends GenericDataModel> = {
-  edges: Record<string, GenericEdgeConfig<DataModel>>;
+export type GenericEntModel = {
+  edges: Record<string, GenericEdgeConfig>;
 };
 
 export type EntDataModelFromSchema<
   SchemaDef extends SchemaDefinition<any, boolean>
-> = {
+> = DataModelFromSchemaDefinition<SchemaDef> & {
   [TableName in keyof SchemaDef["tables"] &
     string]: SchemaDef["tables"][TableName] extends EntDefinition<
     any,
