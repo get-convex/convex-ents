@@ -34,6 +34,10 @@ setup(async (ctx) => {
     { text: "My great video", type: "video", numLikes: 4 },
     { text: "My awesome video", type: "video", numLikes: 0 },
   ]);
+  await ctx.table("secrets").insertMany([
+    { value: "chicka blah", userId: user1._id },
+    { value: "bada boom", userId: user2._id },
+  ]);
 });
 
 test("has method", async (ctx) => {
@@ -292,6 +296,21 @@ test("firstX", async (ctx) => {
   assertEqual(messages.text, "Hello world");
 });
 
+// First created user is set as viewer
+test("rules - query", async (ctx) => {
+  const secrets = await ctx.table("secrets");
+  expect(secrets).toHaveLength(1);
+});
+
+// First created user is set as viewer
+test("rules - edge", async (ctx) => {
+  const [firstUser, secondUser] = await ctx.table("users").take(2);
+  const viewerSecret = await firstUser.edge("secret");
+  expect(viewerSecret?.value).toEqual("chicka blah");
+  const otherSecret = await secondUser.edge("secret");
+  expect(otherSecret).toEqual(null);
+});
+
 // TODO:
 // // For single field indexes, we should be able to eq or lt gt directly - but that doesn't
 // // work as you might have multiple indexes with the same first field - you have to
@@ -312,13 +331,13 @@ export const runTests = action(async (ctx) => {
   try {
     await ctx.runQuery(api.read.runQuery, {});
   } catch (error) {
-    console.error("query");
+    console.error("Ran as: !query!");
     throw error;
   }
   try {
     await ctx.runMutation(api.read.runMutation, {});
   } catch (error) {
-    console.error("mutation");
+    console.error("Ran as !mutation!");
     throw error;
   }
   await ctx.runMutation(api.read.runTeardown, {});

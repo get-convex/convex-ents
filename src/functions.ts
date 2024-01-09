@@ -370,7 +370,8 @@ class PromiseQueryOrNullImpl<
           return nullRetriever;
         }
         return loadedRetriever(await query.first());
-      }
+      },
+      false
     );
   }
 
@@ -389,7 +390,8 @@ class PromiseQueryOrNullImpl<
           throw new Error("Query returned no documents");
         }
         return loadedRetriever(doc);
-      }
+      },
+      true
     );
   }
 
@@ -404,7 +406,8 @@ class PromiseQueryOrNullImpl<
           return nullRetriever;
         }
         return loadedRetriever(await query.unique());
-      }
+      },
+      false
     );
   }
 
@@ -423,7 +426,8 @@ class PromiseQueryOrNullImpl<
           throw new Error("Query returned no documents");
         }
         return loadedRetriever(doc);
-      }
+      },
+      true
     );
   }
 
@@ -432,7 +436,8 @@ class PromiseQueryOrNullImpl<
     if (query === null) {
       return null;
     }
-    return await query.collect();
+    const docs = await query.collect();
+    return filterByReadRule(this.entDefinitions, this.table, docs);
   }
 
   then<
@@ -454,8 +459,7 @@ class PromiseQueryOrNullImpl<
       | undefined
       | null
   ): Promise<TResult1 | TResult2> {
-    return this.retrieve()
-      .then((query) => (query === null ? null : query.collect()))
+    return this.docs()
       .then((documents) =>
         documents === null
           ? null
@@ -530,11 +534,9 @@ export class PromiseTableImpl<
                 `Table "${this.table}" does not contain document with field "${indexName}" = \`${value}\``
               );
             }
-            return {
-              id: doc?._id as GenericId<Table> | null,
-              doc: async () => doc,
-            } as any; // any because PromiseEntWriterImpl expects non-nullable
-          }
+            return loadedRetriever(doc);
+          },
+      throwIfNull
     );
   }
 
@@ -725,7 +727,8 @@ class PromiseEntsOrNullImpl<
           return nullRetriever;
         }
         return loadedRetriever(docs[0] ?? null);
-      }
+      },
+      false
     );
   }
 
@@ -744,7 +747,8 @@ class PromiseEntsOrNullImpl<
           throw new Error("Query returned no documents");
         }
         return loadedRetriever(doc);
-      }
+      },
+      true
     );
   }
 
@@ -762,7 +766,8 @@ class PromiseEntsOrNullImpl<
           throw new Error("unique() query returned more than one result");
         }
         return loadedRetriever(docs[0] ?? null);
-      }
+      },
+      false
     );
   }
 
@@ -783,12 +788,14 @@ class PromiseEntsOrNullImpl<
           throw new Error("unique() query returned no documents");
         }
         return loadedRetriever(docs[0]);
-      }
+      },
+      true
     );
   }
 
   async docs() {
-    return await this.retrieve();
+    const docs = await this.retrieve();
+    return filterByReadRule(this.entDefinitions, this.table, docs);
   }
 
   then<
@@ -810,7 +817,7 @@ class PromiseEntsOrNullImpl<
       | undefined
       | null
   ): Promise<TResult1 | TResult2> {
-    return this.retrieve()
+    return this.docs()
       .then((docs) =>
         docs === null
           ? null
@@ -934,17 +941,32 @@ export class PromiseEntOrNullImpl<
     protected retrieve: DocRetriever<
       GenericId<Table> | null,
       DocumentByName<EntsDataModel, Table> | null
-    >
+    >,
+    protected throwIfNull: boolean
   ) {
     super(() => {});
   }
 
   async doc() {
-    const { id, doc } = await this.retrieve();
+    const { id, doc: getDoc } = await this.retrieve();
     if (id === null) {
       return null;
     }
-    return doc();
+    const doc = await getDoc();
+    if (doc === null) {
+      return null;
+    }
+    const readPolicy = getReadRule(this.entDefinitions, this.table);
+    if (readPolicy !== undefined) {
+      const decision = await readPolicy(doc);
+      if (this.throwIfNull && !decision) {
+        throw new Error(
+          `Document cannot be read with id \`${doc._id}\` in table "${this.table}"`
+        );
+      }
+      return decision ? doc : null;
+    }
+    return doc;
   }
 
   then<
@@ -970,8 +992,7 @@ export class PromiseEntOrNullImpl<
       | undefined
       | null
   ): Promise<TResult1 | TResult2> {
-    return this.retrieve()
-      .then(({ id, doc }) => (id === null ? null : doc()))
+    return this.doc()
       .then((doc) =>
         doc === null
           ? null
@@ -1101,7 +1122,8 @@ export class PromiseEntOrNullImpl<
             return otherDoc;
           },
         };
-      }
+      },
+      throwIfNull
     ) as any;
   }
 }
@@ -1119,7 +1141,9 @@ function entWrapper<
     ctx as any,
     entDefinitions as any,
     table,
-    async () => ({ id: doc._id as any, doc: async () => doc })
+    async () => ({ id: doc._id as any, doc: async () => doc }),
+    // this `true` doesn't matter, the queryInterface cannot be awaited
+    true
   );
   Object.defineProperty(doc, "edge", {
     value: (edge: any) => {
@@ -1601,9 +1625,10 @@ class PromiseEntWriterImpl<
     protected retrieve: DocRetriever<
       GenericId<Table>,
       DocumentByName<EntsDataModel, Table>
-    >
+    >,
+    protected throwIfNull: boolean
   ) {
-    super(ctx, entDefinitions, table, retrieve);
+    super(ctx, entDefinitions, table, retrieve, throwIfNull);
     this.base = new WriterImplBase(ctx, entDefinitions, table);
   }
 
@@ -1922,7 +1947,8 @@ class PromiseEntIdImpl<
       async () => {
         const id = await this.retrieve();
         return { id, doc: async () => this.ctx.db.get(id) };
-      }
+      },
+      true
     ) as any;
   }
 
@@ -1970,8 +1996,14 @@ function loadedRetriever<
   };
 }
 
+type Rules = Record<string, RuleConfig>;
+
+type RuleConfig = {
+  read?: (doc: GenericDocument) => Promise<boolean>;
+};
+
 export function addEntRules<EntsDataModel extends GenericEntsDataModel>(
-  tableReader: EntsTable<EntsDataModel>,
+  entDefinitions: EntsDataModel,
   rules: {
     [key in keyof EntsDataModel]?: key extends TableNamesInDataModel<EntsDataModel>
       ? {
@@ -1981,4 +2013,26 @@ export function addEntRules<EntsDataModel extends GenericEntsDataModel>(
         }
       : never;
   }
-) {}
+): EntsDataModel {
+  return { ...entDefinitions, rules };
+}
+
+async function filterByReadRule(
+  entDefinitions: GenericEntsDataModel,
+  table: string,
+  docs: GenericDocument[] | null
+) {
+  if (docs === null) {
+    return null;
+  }
+  const readPolicy = getReadRule(entDefinitions, table);
+  if (readPolicy !== undefined) {
+    const decisions = await Promise.all(docs.map((doc) => readPolicy(doc)));
+    return docs.filter((_, i) => decisions[i]);
+  }
+  return docs;
+}
+
+function getReadRule(entDefinitions: GenericEntsDataModel, table: string) {
+  return (entDefinitions.rules as Rules)?.[table]?.read;
+}

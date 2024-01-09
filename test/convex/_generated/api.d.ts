@@ -16,7 +16,9 @@ import type {
 } from "convex/server";
 import type * as functions from "../functions.js";
 import type * as read from "../read.js";
+import type * as rules from "../rules.js";
 import type * as testSuite from "../testSuite.js";
+import type * as types from "../types.js";
 import type * as write from "../write.js";
 
 /**
@@ -30,7 +32,9 @@ import type * as write from "../write.js";
 declare const fullApi: ApiFromModules<{
   functions: typeof functions;
   read: typeof read;
+  rules: typeof rules;
   testSuite: typeof testSuite;
+  types: typeof types;
   write: typeof write;
 }>;
 export declare const api: FilterApi<
