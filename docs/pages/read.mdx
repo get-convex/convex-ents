@@ -333,6 +333,9 @@ const usersWithMessagesAndProfile = await ctx
   }));
 ```
 
+Note that `...` spreading `user` will leave only its fields in the resulting
+`Object`s.
+
 <Aside title="This code is equivalent to this code using only built-in Convex and JavaScript
 functionality:">
 
@@ -363,3 +366,75 @@ const usersWithMessagesAndProfile = await Promise.all(
 ```
 
 </Aside>
+
+## Returning documents from functions
+
+Consider the following query:
+
+```ts filename="convex/messages.ts"
+import { query } from "./functions";
+
+export const list = query({
+  args: {},
+  handler: async (ctx) => {
+    return await ctx.table("messages");
+  },
+});
+```
+
+It returns all ents stored in the `messages` table. Ents include methods which
+are not preserved when they are returned to the client. While this works fine at
+runtime, TypeScript will think that the methods are still available even on the
+client.
+
+Note that it is generally not a good idea to return full documents directly to
+clients. If you add a new field to an ent, you might not want that field to be
+sent to clients. For this reason, and for backwards compatibility in general,
+it's a good idea to pick specifically which fields to send:
+
+```ts filename="convex/messages.ts"
+import { query } from "./functions";
+
+export const list = query({
+  args: {},
+  handler: async (ctx) => {
+    return await ctx.table("messages").map((message) => ({
+      _id: message._id,
+      _creationTime: message._creationTime,
+      text: message.text,
+      userId: message.userId,
+    }));
+  },
+});
+```
+
+That said, you can easily retrieve raw documents, instead of ents with methods,
+from the database using the `docs` and `doc` methods:
+
+```ts filename="convex/messages.ts"
+import { query } from "./functions";
+
+export const list = query({
+  args: {},
+  handler: async (ctx) => {
+    return await ctx.table("messages").docs();
+  },
+});
+```
+
+```ts filename="convex/users.ts"
+import { query } from "./functions";
+
+export const list = query({
+  args: {},
+  handler: async (ctx) => {
+    const usersWithMessagesAndProfile = await ctx
+      .table("users")
+      .map(async (user) => ({
+        ...user,
+        messages: await user.edge("messages").docs(),
+        profile: await user.edgeX("profile").doc(),
+      }));
+  },
+});
+```

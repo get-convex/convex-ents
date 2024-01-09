@@ -121,6 +121,30 @@ test("map with edges", async (ctx) => {
   assertEqual(usersWithMessagesAndProfile[0].profile!.bio, "Hello world");
 });
 
+test("map with edges using doc and docs", async (ctx) => {
+  const usersWithMessagesAndProfile = await ctx
+    .table("users")
+    .map(async (user) => ({
+      ...user,
+      messages: await user.edge("messages").docs(),
+      profile: await user.edge("profile").doc(),
+    }));
+  expect(usersWithMessagesAndProfile).toHaveLength(2);
+  assertEqual(usersWithMessagesAndProfile[0].name, "Stark");
+  assertEqual(usersWithMessagesAndProfile[0].messages.length, 1);
+  assertEqual(usersWithMessagesAndProfile[1].name, "Musk");
+  assertEqual(usersWithMessagesAndProfile[1].messages.length, 0);
+  assertEqual(Object.keys(usersWithMessagesAndProfile[0]), [
+    "_creationTime",
+    "_id",
+    "email",
+    "name",
+    "messages",
+    "profile",
+  ]);
+  assertEqual(usersWithMessagesAndProfile[0].profile!.bio, "Hello world");
+});
+
 test("map with nested map", async (ctx) => {
   const usersWithMessageTexts = await ctx.table("users").map(async (user) => ({
     name: user.name,

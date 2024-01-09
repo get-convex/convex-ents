@@ -87,6 +87,8 @@ interface PromiseOrderedQueryOrNull<
   first(): PromiseEntOrNull<DataModel, EntsDataModel, Table>;
 
   unique(): PromiseEntOrNull<DataModel, EntsDataModel, Table>;
+
+  docs(): Promise<DocumentByName<DataModel, Table>[] | null>;
 }
 
 interface PromiseQueryOrNull<
@@ -264,6 +266,8 @@ interface PromiseOrderedQuery<
   firstX(): PromiseEnt<DataModel, EntsDataModel, Table>;
 
   uniqueX(): PromiseEnt<DataModel, EntsDataModel, Table>;
+
+  docs(): Promise<DocumentByName<DataModel, Table>[]>;
 }
 
 interface PromiseQuery<
@@ -458,6 +462,14 @@ class PromiseQueryOrNullImpl<
         return loadedRetriever(doc);
       }
     );
+  }
+
+  async docs() {
+    const query = await this.retrieve();
+    if (query === null) {
+      return null;
+    }
+    return await query.collect();
   }
 
   then<
@@ -694,6 +706,8 @@ interface PromiseEntsOrNull<
   // // This just returns the unique retrieved document, it does not optimize
   // // the previous steps in the query. Otherwise it behaves like db.query().unique().
   // unique(): PromiseEntOrNull<DataModel, EntsDataModel, Table>;
+
+  docs(): Promise<DocumentByName<DataModel, Table>[] | null>;
 }
 
 // This lazy promise materializes objects, so chaining to this type of
@@ -723,6 +737,8 @@ interface PromiseEnts<
   // // are no documents. It does not optimize the previous steps in the query.
   // // Otherwise it behaves like db.query().unique().
   // uniqueX(): PromiseEnt<DataModel, EntsDataModel, Table>;
+
+  docs(): Promise<DocumentByName<DataModel, Table>[]>;
 }
 
 class PromiseEntsOrNullImpl<
@@ -813,6 +829,10 @@ class PromiseEntsOrNullImpl<
         return loadedRetriever(docs[0]);
       }
     );
+  }
+
+  async docs() {
+    return await this.retrieve();
   }
 
   then<
@@ -935,6 +955,8 @@ export interface PromiseEntOrNull<
   edge<Edge extends keyof EntsDataModel[Table]["edges"]>(
     edge: Edge
   ): PromiseEdgeOrNull<DataModel, EntsDataModel, Table, Edge>;
+
+  doc(): Promise<DocumentByName<DataModel, Table> | null>;
 }
 
 export interface PromiseEnt<
@@ -951,6 +973,8 @@ export interface PromiseEnt<
   edgeX<Edge extends keyof EntsDataModel[Table]["edges"]>(
     edge: Edge
   ): PromiseEdgeOrThrow<DataModel, EntsDataModel, Table, Edge>;
+
+  doc(): Promise<DocumentByName<DataModel, Table>>;
 }
 
 export class PromiseEntOrNullImpl<
@@ -976,6 +1000,14 @@ export class PromiseEntOrNullImpl<
     >
   ) {
     super(() => {});
+  }
+
+  async doc() {
+    const { id, doc } = await this.retrieve();
+    if (id === null) {
+      return null;
+    }
+    return doc();
   }
 
   then<
