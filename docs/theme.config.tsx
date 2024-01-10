@@ -5,14 +5,17 @@ import { Details, Summary } from "./components/details";
 const config: DocsThemeConfig = {
   logo: <span style={{ fontWeight: "bold", fontSize: "1.5rem" }}>Ents</span>,
   project: {
-    // TODO:
-    link: "https://github.com/xixixao",
+    link: "https://github.com/xixixao/convex-ents",
   },
   chat: {
     link: "https://www.convex.dev/community",
   },
-  // TODO:
-  docsRepositoryBase: "https://github.com/xixixao",
+  useNextSeoProps() {
+    return {
+      titleTemplate: "%s - Convex Ents",
+    };
+  },
+  docsRepositoryBase: "https://github.com/xixixao/convex-ents/tree/main/docs",
   gitTimestamp() {
     return <></>;
   },
