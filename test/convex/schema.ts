@@ -13,6 +13,7 @@ const schema = defineEntSchema(
       name: v.string(),
     })
       .field("email", v.string(), { unique: true })
+      .field("height", v.optional(v.number()), { index: true })
       .edge("profile", { optional: true })
       .edges("messages")
       .edges("followers", { to: "users", inverse: "followees" })

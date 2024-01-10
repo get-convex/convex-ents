@@ -317,7 +317,10 @@ interface EntDefinition<
     validator: T,
     options: { index: true }
   ): EntDefinition<
-    Document & { [key in FieldName]: T["type"] },
+    Document &
+      (T["isOptional"] extends true
+        ? { [key in FieldName]?: T["type"] }
+        : { [key in FieldName]: T["type"] }),
     FieldPaths | FieldName,
     Indexes & { [key in FieldName]: [FieldName] },
     SearchIndexes,

@@ -13,7 +13,7 @@ const { test, testOnly, setup, runner, query, mutation } = testSuite();
 setup(async (ctx) => {
   const user1 = await ctx
     .table("users")
-    .insert({ name: "Stark", email: "tony@stark.com" })
+    .insert({ name: "Stark", email: "tony@stark.com", height: 3 })
     .get();
   const user2 = await ctx
     .table("users")
@@ -37,6 +37,11 @@ setup(async (ctx) => {
     { value: "chicka blah", userId: user1._id },
     { value: "bada boom", userId: user2._id },
   ]);
+});
+
+test("index field", async (ctx) => {
+  const userByHeight = await ctx.table("users").getX("height", 3);
+  expect(userByHeight.name).toEqual("Stark");
 });
 
 test("has method", async (ctx) => {
@@ -117,6 +122,7 @@ test("map with edges", async (ctx) => {
     "_creationTime",
     "_id",
     "email",
+    "height",
     "name",
     "messages",
     "profile",
@@ -141,6 +147,7 @@ test("map with edges using doc and docs", async (ctx) => {
     "_creationTime",
     "_id",
     "email",
+    "height",
     "name",
     "messages",
     "profile",
