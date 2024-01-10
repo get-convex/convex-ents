@@ -358,7 +358,7 @@ const usersWithMessagesAndProfile = await Promise.all(
         .unique();
       if (profile === null) {
         throw new Error(
-          `Edge "profile" does not exist for document wit ID ${user._id}`
+          `Edge "profile" does not exist for document wit ID "${user._id}"`
         );
       }
       return profile;

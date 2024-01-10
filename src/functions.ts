@@ -1163,7 +1163,7 @@ export class PromiseEntOrNullImpl<
             throw new Error(
               `Edge "${
                 edgeDefinition.name
-              }" does not exist for document with ID ${id as string}`
+              }" does not exist for document with ID "${id as string}"`
             );
           }
           return loadedRetriever(otherDoc);

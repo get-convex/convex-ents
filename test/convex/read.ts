@@ -50,6 +50,41 @@ test("default fields", async (ctx) => {
   assertEqual(firstPost.type, "text");
 });
 
+test("1:1 edge from field side", async (ctx) => {
+  const firstProfileUser = await ctx.table("profiles").firstX().edge("user");
+  expect(firstProfileUser.name).toEqual("Stark");
+});
+
+// No difference in type, since the edge is required
+test("1:1 edgeX from field side", async (ctx) => {
+  const firstProfileUser = await ctx.table("profiles").firstX().edgeX("user");
+  expect(firstProfileUser.name).toEqual("Stark");
+});
+
+test("1:1 edge from ref side, existing", async (ctx) => {
+  const firstUserProfile = await ctx.table("users").firstX().edge("profile");
+  expect(firstUserProfile).not.toBeNull();
+});
+
+test("1:1 edge from ref side, missing", async (ctx) => {
+  const firstUserProfile = await ctx
+    .table("users")
+    .getX("email", "elon@musk.com")
+    .edge("profile");
+  expect(firstUserProfile).toBeNull();
+});
+
+test("1:1 edgeX from ref side, existing", async (ctx) => {
+  const firstUserProfile = await ctx.table("users").firstX().edgeX("profile");
+  assertEqual(firstUserProfile.bio, "Hello world");
+});
+
+test("1:1 edgeX from ref side, missing", async (ctx) => {
+  expect(async () => {
+    await ctx.table("users").getX("email", "elon@musk.com").edgeX("profile");
+  }).rejects.toThrowError('Edge "profile" does not exist for document with ID');
+});
+
 test("has method", async (ctx) => {
   const tag = await ctx.table("tags").firstX();
   const hasTag = await ctx.table("messages").first().edge("tags").has(tag._id);
@@ -244,11 +279,6 @@ test("many to many edge", async (ctx) => {
   const firstMessageTags = await ctx.table("messages").firstX().edge("tags");
   assertEqual(firstMessageTags.length, 1);
   assertEqual(firstMessageTags[0].name, "Orange");
-});
-
-test("1:1 edgeX", async (ctx) => {
-  const firstUserProfile = await ctx.table("users").firstX().edgeX("profile");
-  assertEqual(firstUserProfile.bio, "Hello world");
 });
 
 test("paginate", async (ctx) => {
