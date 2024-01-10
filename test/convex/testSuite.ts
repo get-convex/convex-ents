@@ -1,40 +1,47 @@
+import { FunctionReference } from "convex/server";
+import { ActionCtx, action } from "./_generated/server";
 import { mutation, query } from "./functions";
+import { Id } from "./_generated/dataModel";
+import { QueryCtx } from "./types";
 
 export function testSuite() {
   let SETUP: Parameters<typeof mutation>[0] = async () => {};
-  const TESTS: { name: string; fn: (ctx: any) => any }[] = [];
+  const TESTS: Record<string, (ctx: any) => any> = {};
+  const ONLY_TESTS: Record<string, (ctx: any) => any> = {};
+  function getTests() {
+    return Object.keys(ONLY_TESTS).length > 0 ? ONLY_TESTS : TESTS;
+  }
 
-  const clear = mutation(async (ctx) => {
-    for (const table of [
-      "users",
-      "messages",
-      "profiles",
-      "tags",
-      "posts",
-    ] as const) {
-      await ctx.table(table).map((doc) => doc.delete());
+  const TABLES = [
+    "users",
+    "messages",
+    "profiles",
+    "tags",
+    "posts",
+    "secrets",
+  ] as const;
+
+  const clear = mutation(async (ctx, { except }) => {
+    for (const table of TABLES) {
+      let exceptIdSet = new Set(
+        ((except ?? {}) as Record<string, Id<any>[]>)[table] || []
+      );
+      await ctx.omni(table).map(async (doc) => {
+        if (!exceptIdSet.has(doc._id)) {
+          await doc.delete();
+        }
+      });
     }
   });
 
-  const run = {
-    setup: async (ctx: any) => {
-      await clear(ctx, {});
-      await (SETUP as any)(ctx);
-    },
-    tests: async (ctx: any) => {
-      for (const { name, fn } of TESTS) {
-        try {
-          await fn(ctx);
-        } catch (error) {
-          console.error(name);
-          throw error;
-        }
-      }
-    },
-    teardown: async (ctx: any) => {
-      await clear(ctx, {});
-    },
-  };
+  async function snapshotSetup(ctx: QueryCtx) {
+    const snapshot: Record<string, Id<any>[]> = {};
+    for (const table of TABLES) {
+      snapshot[table] = await ctx.omni(table).map((doc) => doc._id);
+    }
+    return snapshot;
+  }
+
   return {
     setup: (...fn: Parameters<typeof mutation>) => {
       SETUP = fn[0];
@@ -42,21 +49,71 @@ export function testSuite() {
     // Change this from `typeof mutation` to `typeof query`
     // to test the read-only types.
     test: (name: string, ...fn: Parameters<typeof mutation>) => {
-      TESTS.push({ name, fn: fn[0] as any });
+      TESTS[name] = fn[0] as any;
     },
-    run,
-    runTests: mutation(async (ctx: any): Promise<void> => {
-      for (const { name, fn } of TESTS) {
-        await clear(ctx, {});
-        await (SETUP as any)(ctx);
+    testOnly: (name: string, ...fn: Parameters<typeof mutation>) => {
+      ONLY_TESTS[name] = fn[0] as any;
+    },
+    query: query(async (ctx) => {
+      for (const [name, fn] of Object.entries(getTests())) {
         try {
           await fn(ctx);
         } catch (error) {
-          console.error(name);
+          console.error(`Failed test "${name}"`);
           throw error;
         }
-        await clear(ctx, {});
       }
     }),
+    mutation: mutation(async (ctx, { name }) => {
+      if (name === "setup") {
+        await clear(ctx as any, {});
+        await (SETUP as any)(ctx);
+        return;
+      } else if (name === "teardown") {
+        await clear(ctx as any, {});
+        return;
+      }
+      const snapshot = await snapshotSetup(ctx as any);
+      for (const [testName, fn] of Object.entries(getTests())) {
+        try {
+          await fn(ctx);
+          if (name === "clearAfterEach") {
+            await clear(ctx as any, { except: snapshot });
+          }
+        } catch (error) {
+          console.error(`Failed test "${testName}"`);
+          throw error;
+        }
+      }
+    }),
+    runner: async (
+      ctx: ActionCtx,
+      {
+        query,
+        mutation,
+      }: {
+        query?: FunctionReference<"query">;
+        mutation: FunctionReference<"mutation">;
+      }
+    ) => {
+      await ctx.runMutation(mutation, { name: "setup" });
+      if (query !== undefined) {
+        try {
+          await ctx.runQuery(query);
+        } catch (error) {
+          console.error("Ran as !query!");
+          throw error;
+        }
+        try {
+          await ctx.runMutation(mutation);
+        } catch (error) {
+          console.error("Ran as !mutation!");
+          throw error;
+        }
+      } else {
+        await ctx.runMutation(mutation, { name: "clearAfterEach" });
+      }
+      await ctx.runMutation(mutation, { name: "teardown" });
+    },
   };
 }

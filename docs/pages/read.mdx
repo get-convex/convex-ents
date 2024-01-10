@@ -93,6 +93,8 @@ existing ent:
 const tasks = await ctx.table("tasks").getManyX([taskId1, taskId2]);
 ```
 
+Also throws if any of the ents fail a [read rule](/schema/rules).
+
 ## Listing all ents
 
 To list all ents backed by a single table, simply `await` the `ctx.table` call:

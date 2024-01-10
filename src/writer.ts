@@ -4,6 +4,7 @@ import {
   GenericDocument,
   GenericMutationCtx,
   TableNamesInDataModel,
+  WithoutSystemFields,
 } from "convex/server";
 import { GenericId } from "convex/values";
 import {
@@ -12,6 +13,7 @@ import {
   GenericEdgeConfig,
   GenericEntsDataModel,
 } from "./schema";
+import { getReadRule, getWriteRule } from "./functions";
 
 export class WriterImplBase<
   EntsDataModel extends GenericEntsDataModel,
@@ -235,6 +237,54 @@ export class WriterImplBase<
       }
     });
     return fields;
+  }
+
+  async checkReadAndWriteRule(
+    id: GenericId<Table> | undefined,
+    value: Partial<GenericDocument> | undefined
+  ) {
+    if (id !== undefined) {
+      const readPolicy = getReadRule(this.entDefinitions, this.table);
+      if (readPolicy !== undefined) {
+        const doc = await this.ctx.db.get(id);
+        if (doc === null) {
+          throw new Error(
+            `Cannot update document with ID "${id}" in table "${this.table} because it does not exist"`
+          );
+        }
+        const decision = await readPolicy(doc);
+        if (!decision) {
+          throw new Error(
+            `Cannot update document with ID "${id}" from table "${this.table}"`
+          );
+        }
+      }
+    }
+    const writePolicy = getWriteRule(this.entDefinitions, this.table);
+    if (writePolicy === undefined) {
+      return;
+    }
+    const doc = id === undefined ? undefined : (await this.ctx.db.get(id))!;
+    const decision = await writePolicy(doc, value);
+    if (!decision) {
+      if (id === undefined) {
+        throw new Error(
+          `Cannot insert into table "${this.table}": \`${JSON.stringify(
+            value
+          )}\``
+        );
+      } else if (value === undefined) {
+        throw new Error(
+          `Cannot delete from table "${this.table}" with ID "${id}"`
+        );
+      } else {
+        throw new Error(
+          `Cannot update document with ID "${id}" in table "${
+            this.table
+          }" with: \`${JSON.stringify(value)}\``
+        );
+      }
+    }
   }
 }
 

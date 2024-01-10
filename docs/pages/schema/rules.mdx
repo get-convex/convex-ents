@@ -1,0 +1,315 @@
+import { Steps } from "nextra/components";
+
+# Rules
+
+The ents in your database are only accessible via server-side functions, and so
+you can rely on their implementation to enforce authorization rules (also known
+as "row level security").
+
+But you might have multiple functions accessing the same data, and you might be
+using the different methods provided by Convex Ents to access them:
+
+- To read: `get`, `getX`, `edge`, `edgeX`, `unique`, `uniqueX`, `first`,
+  `firstX`, `take`, etc.
+- To write: `insert`, `insertMany`, `patch`, `replace`, `delete`
+
+Enforcing rules about when an ent can be read, created, updated or deleted at
+every callsite can be onerous and error-prone.
+
+For this reason you can optionally define a set of "rules" implementations that
+are automatically enforced by the `ctx.table` API. This is an advanced feature,
+and so it requires a bit more setup.
+
+## Setup
+
+Before setting up rules, make sure you understand how Convex Ents are configured
+via custom functions, see [Configuring Functions](/setup/config).
+
+<Steps>
+
+### Define your rules
+
+Add a `rules.ts` file with the following contents:
+
+```ts filename="convex/rules.ts" {22-30}
+import { addEntRules, entsTableFactory } from "convex-ents";
+import { QueryCtx } from "./_generated/server";
+import { entDefinitions } from "./schema";
+
+export async function ctxProperties<Ctx extends QueryCtx>(ctx: Ctx) {
+  const baseCtx = await ctxWithoutRules(ctx);
+  return {
+    viewer: baseCtx.viewer,
+    entDefinitions: getEntDefinitionsWithRules(baseCtx),
+  };
+}
+
+async function ctxWithoutRules(baseCtx: QueryCtx) {
+  const ctx = ctxForLoadingViewer(baseCtx);
+  const viewer = await getViewer(ctx);
+  return { ...ctx, viewer };
+}
+
+function getEntDefinitionsWithRules(
+  ctx: Awaited<ReturnType<typeof ctxWithoutRules>>
+) {
+  return addEntRules(entDefinitions, {
+    // "secrets" is one of our tables
+    secrets: {
+      read: async (secret) => {
+        // Example: Only the viewer can see their secret
+        return ctx.viewer?._id === secret.userId;
+      },
+    },
+  });
+}
+
+function ctxForLoadingViewer(baseCtx: QueryCtx) {
+  return {
+    ...baseCtx,
+    table: entsTableFactory(baseCtx, entDefinitions),
+    db: undefined,
+  };
+}
+
+async function getViewer(ctx: ReturnType<typeof ctxForLoadingViewer>) {
+  // TODO: Implement me
+  return null;
+}
+```
+
+Here we're creating 3 versions of `ctx`, from the bottom of the file:
+
+1. First version of `ctx` is used to retrieve the viewer. Authorization commonly
+   has a concept of a viewer, although this is totally up to your use case. This
+   version has `ctx.table` available, but it does not enforce any rules we
+   define here. It also doesn't have `ctx.viewer`, since we're just defining it.
+2. Second version of `ctx` is used to implement the rules. It has the same
+   version of `ctx.table` as the first version, but also has `ctx.viewer`
+   available.
+3. Finally we return the `viewer` and `entDefinitions` including our rules from
+   `ctxProperties`.
+
+The important piece is the call to `addEntRules`, which takes `entDefinitions`
+from our schema, and adds any rules you specify, returning augmented
+`entDefinitions`.
+
+### Apply rules
+
+Back in your `functions.ts` file, use the `ctxProperties` function you defined
+in `rules.ts`:
+
+```ts filename="convex/functions.ts" {13,18,30,42,54}
+import {
+  customCtx,
+  customMutation,
+  customQuery,
+} from "convex-helpers/server/customFunctions";
+import {
+  query as baseQuery,
+  mutation as baseMutation,
+  internalQuery as baseInternalQuery,
+  internalMutation as baseInternalMutation,
+} from "./_generated/server";
+import { entsTableFactory, entsTableWriterFactory } from "convex-ents";
+import { ctxProperties } from "./rules";
+
+export const query = customQuery(
+  baseQuery,
+  customCtx(async (ctx) => {
+    const { viewer, entDefinitions } = await ctxProperties(ctx);
+    return {
+      table: entsTableFactory(ctx, entDefinitions),
+      viewer,
+      db: undefined,
+    };
+  })
+);
+
+export const internalQuery = customQuery(
+  baseInternalQuery,
+  customCtx(async (ctx) => {
+    const { viewer, entDefinitions } = await ctxProperties(ctx);
+    return {
+      table: entsTableFactory(ctx, entDefinitions),
+      viewer,
+      db: undefined,
+    };
+  })
+);
+
+export const mutation = customMutation(
+  baseMutation,
+  customCtx(async (ctx) => {
+    const { viewer, entDefinitions } = await ctxProperties(ctx);
+    return {
+      table: entsTableWriterFactory(ctx, entDefinitions),
+      viewer,
+      db: undefined,
+    };
+  })
+);
+
+export const internalMutation = customMutation(
+  baseInternalMutation,
+  customCtx(async (ctx) => {
+    const { viewer, entDefinitions } = await ctxProperties(ctx);
+    return {
+      table: entsTableWriterFactory(ctx, entDefinitions),
+      viewer,
+      db: undefined,
+    };
+  })
+);
+```
+
+</Steps>
+
+## Read rules
+
+For each table storing ents you can define a `read` rule implementation. The
+implementation is given the ent that is being retrieved, and should return a
+`boolean` of whether the ent is readable. This code runs before ents are
+returned by `ctx.table`:
+
+- If the retrieval method can return `null`, and the rule returns `false`, then
+  `null` is returned. Examples: `get`, `first`, `unique` etc.
+- If the retrieval method throws when the ent does not exist, it will also throw
+  when the ent cannot be read. Examples: `getX`, `firstX`, `uniqueX`
+- If the retrieval method returns a list of ents, then any ents that cannot be
+  read will be filtered out.
+  - except for `getManyX`, which will throw an `Error`
+
+### Understanding read rules performance
+
+A read rule is essentially a filter, performed in the Convex runtime running
+your query or mutation. This means that adding a read rule to a table
+fundamentally changes the way methods like `first`, `unique` and `take` are
+implemented. These methods need to paginate through the underlying table (or
+index range), on top of the scanning that is performed by the built-in `db` API.
+You should be mindful of how many ents your read rules might filter out for a
+given query.
+
+## Write rules
+
+Write rules determine whether ents can be created, updated or deleted. They can
+be specified using the `write` key:
+
+```ts
+return addEntRules(entDefinitions, {
+  // "secrets" is one of our tables
+  secrets: {
+    // Note: The read rule is always checked for existing ents
+    // for any updates or deletions
+    read: async (secret) => {
+      return ctx.viewer?._id === secret.userId;
+    },
+    write: async (secret, changes) => {
+      // No changes, so this is a deletion:
+      if (changes === undefined) {
+        // Example: No one is allowed to delete secrets
+        return false;
+      }
+      // No existing ent, so this is a creation:
+      if (secret === undefined) {
+        // Example: Only the viewer can create secrets
+        return ctx.viewer?._id === changes.userId;
+      }
+      // There's an existing ent and changes, this is an update:
+      // Example: secret's user edge is immutable
+      return changes.userId === undefined || changes.userId === secret.userId;
+    },
+  },
+});
+```
+
+The `read` rule is always checked for updates first. The `write` rule is given
+the existing ent, if applicable, and the changes provided to `.replace()` or
+`.patch()`.
+
+The methods `insert`, `insertMany`, `patch`, `replace`, `delete` throw an
+`Error` if the `write` rule returns `false`.
+
+## Ignoring rules
+
+Sometimes you might want to read from or write to the database without abiding
+the rules you defined. Perhaps you are running with `ctx` that isn't
+authenticated, or your code needs to perform some operation on behalf of a user
+who isn't the current viewer. For these purposes you can set up an additional
+API on `ctx`:
+
+```ts filename="convex/functions.ts" {13, 22, 35, 48, 61}
+import {
+  customCtx,
+  customMutation,
+  customQuery,
+} from "convex-helpers/server/customFunctions";
+import {
+  query as baseQuery,
+  mutation as baseMutation,
+  internalQuery as baseInternalQuery,
+  internalMutation as baseInternalMutation,
+} from "./_generated/server";
+import { entsTableFactory, entsTableWriterFactory } from "convex-ents";
+import { entDefinitions as entDefinitionsWithoutRules } from "./schema";
+import { ctxProperties } from "./rules";
+
+export const query = customQuery(
+  baseQuery,
+  customCtx(async (ctx) => {
+    const { viewer, entDefinitions } = await ctxProperties(ctx);
+    return {
+      table: entsTableFactory(ctx, entDefinitions),
+      omni: entsTableFactory(ctx, entDefinitionsWithoutRules),
+      viewer,
+      db: undefined,
+    };
+  })
+);
+
+export const internalQuery = customQuery(
+  baseInternalQuery,
+  customCtx(async (ctx) => {
+    const { viewer, entDefinitions } = await ctxProperties(ctx);
+    return {
+      table: entsTableFactory(ctx, entDefinitions),
+      omni: entsTableFactory(ctx, entDefinitionsWithoutRules),
+      viewer,
+      db: undefined,
+    };
+  })
+);
+
+export const mutation = customMutation(
+  baseMutation,
+  customCtx(async (ctx) => {
+    const { viewer, entDefinitions } = await ctxProperties(ctx);
+    return {
+      table: entsTableWriterFactory(ctx, entDefinitions),
+      omni: entsTableFactory(ctx, entDefinitionsWithoutRules),
+      viewer,
+      db: undefined,
+    };
+  })
+);
+
+export const internalMutation = customMutation(
+  baseInternalMutation,
+  customCtx(async (ctx) => {
+    const { viewer, entDefinitions } = await ctxProperties(ctx);
+    return {
+      table: entsTableWriterFactory(ctx, entDefinitions),
+      omni: entsTableFactory(ctx, entDefinitionsWithoutRules),
+      viewer,
+      db: undefined,
+    };
+  })
+);
+```
+
+In this example we called it `omni`, short for omniscient and omnipotent: a
+version of `ctx.table` that can see everything and can do everything.
+
+It is preferable to still use Convex Ents over using the built-in `ctx.db` API
+to maintain invariants around edges and unique fields, see
+[Exposing built-in `db`](/setup/config#exposing-built-in-db).

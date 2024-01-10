@@ -2,14 +2,13 @@ import expect from "@storybook/expect";
 import { testSuite } from "./testSuite";
 import { action } from "./_generated/server";
 import { api } from "./_generated/api";
-import { mutation, query } from "./functions";
 import { Ent, EntWriter } from "./types";
 
 function assertEqual(actual: any, expected: any) {
   expect(actual).toEqual(expected);
 }
 
-const { test, setup, run } = testSuite();
+const { test, testOnly, setup, runner, query, mutation } = testSuite();
 
 setup(async (ctx) => {
   const user1 = await ctx
@@ -34,7 +33,7 @@ setup(async (ctx) => {
     { text: "My great video", type: "video", numLikes: 4 },
     { text: "My awesome video", type: "video", numLikes: 0 },
   ]);
-  await ctx.table("secrets").insertMany([
+  await ctx.omni("secrets").insertMany([
     { value: "chicka blah", userId: user1._id },
     { value: "bada boom", userId: user2._id },
   ]);
@@ -188,17 +187,17 @@ test("types: Ent", async (ctx) => {
   assertEqual(message.text, "Hello world");
 });
 
-// test("types: EntWriter", async (ctx) => {
-//   const firstMessage: EntWriter<"messages"> = await ctx
-//     .table("messages")
-//     .firstX();
-//   const message = { ...firstMessage };
-//   async () => {
-//     // @ts-expect-error edge should not be available on the spreaded object
-//     await message.edge("user");
-//   };
-//   assertEqual(message.text, "Hello world");
-// });
+test("types: EntWriter", async (ctx) => {
+  const firstMessage: EntWriter<"messages"> = await ctx
+    .table("messages")
+    .firstX();
+  const message = { ...firstMessage };
+  async () => {
+    // @ts-expect-error edge should not be available on the spreaded object
+    await message.edge("user");
+  };
+  assertEqual(message.text, "Hello world");
+});
 
 test("edge", async (ctx) => {
   const firstProfile = await ctx.table("profiles").firstX();
@@ -303,6 +302,12 @@ test("rules - query", async (ctx) => {
 });
 
 // First created user is set as viewer
+test("rules - firstX", async (ctx) => {
+  const secret = await ctx.table("secrets").order("desc").firstX();
+  expect(secret).not.toBeNull();
+});
+
+// First created user is set as viewer
 test("rules - edge", async (ctx) => {
   const [firstUser, secondUser] = await ctx.table("users").take(2);
   const viewerSecret = await firstUser.edge("secret");
@@ -318,27 +323,8 @@ test("rules - edge", async (ctx) => {
 // // you can inline the eq condition, so
 // await ctx.table("messages").get("author", foo._id); // note not authorId even though that's the underlying index
 
-export const runSetup = mutation(run.setup);
-export const runQuery = query(run.tests);
-export const runMutation = mutation(run.tests);
-export const runTeardown = mutation(run.teardown);
+export { query, mutation };
 
-// A bit more complicated because we want to test
-// both the QueryCtx and the MutationCtx
-// runtime.
 export const runTests = action(async (ctx) => {
-  await ctx.runMutation(api.read.runSetup, {});
-  try {
-    await ctx.runQuery(api.read.runQuery, {});
-  } catch (error) {
-    console.error("Ran as: !query!");
-    throw error;
-  }
-  try {
-    await ctx.runMutation(api.read.runMutation, {});
-  } catch (error) {
-    console.error("Ran as !mutation!");
-    throw error;
-  }
-  await ctx.runMutation(api.read.runTeardown, {});
+  await runner(ctx, { query: api.read.query, mutation: api.read.mutation });
 });

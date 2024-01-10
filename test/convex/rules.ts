@@ -1,5 +1,4 @@
-import { entsTableFactory } from "../../src";
-import { addEntRules } from "../../src/functions";
+import { addEntRules, entsTableFactory } from "../../src";
 import { QueryCtx } from "./_generated/server";
 import { entDefinitions } from "./schema";
 
@@ -11,6 +10,12 @@ export async function ctxProperties<Ctx extends QueryCtx>(ctx: Ctx) {
   };
 }
 
+async function ctxWithoutRules(baseCtx: QueryCtx) {
+  const ctx = ctxForLoadingViewer(baseCtx);
+  const viewer = await getViewer(ctx);
+  return { ...ctx, viewer };
+}
+
 function getEntDefinitionsWithRules(
   ctx: Awaited<ReturnType<typeof ctxWithoutRules>>
 ) {
@@ -19,12 +24,28 @@ function getEntDefinitionsWithRules(
       read: async (secret) => {
         return ctx.viewer?._id === secret.userId;
       },
+      write: async (secret, changes) => {
+        if (changes === undefined) {
+          return false;
+        }
+        if (secret === undefined) {
+          return ctx.viewer?._id === changes.userId;
+        }
+        return changes.userId === undefined || changes.userId === secret.userId;
+      },
     },
   });
 }
 
-async function ctxWithoutRules(baseCtx: QueryCtx) {
-  const table = entsTableFactory(baseCtx, entDefinitions);
-  const viewer = await table("users").first();
-  return { ...baseCtx, table, viewer, db: undefined };
+function ctxForLoadingViewer(baseCtx: QueryCtx) {
+  return {
+    ...baseCtx,
+    table: entsTableFactory(baseCtx, entDefinitions),
+    db: undefined,
+  };
+}
+
+async function getViewer(ctx: ReturnType<typeof ctxForLoadingViewer>) {
+  // TODO: Implement me
+  return ctx.table("users").first();
 }

@@ -321,19 +321,18 @@ class PromiseQueryOrNullImpl<
           return null;
         }
         if (indexName !== undefined) {
-          // TODO: We need more granular types for the QueryPromises
           return (
             query as QueryInitializer<NamedTableInfo<EntsDataModel, Table>>
           )
             .withIndex(indexName)
             .order(order);
         }
-        // TODO: We need more granular types for the QueryPromises
         return query.order(order) as any;
       }
     );
   }
 
+  // TODO: RLS for pagination
   async paginate(
     paginationOpts: PaginationOptions
   ): Promise<PaginationResult<DocumentByName<EntsDataModel, Table>> | null> {
@@ -350,12 +349,9 @@ class PromiseQueryOrNullImpl<
       this.entDefinitions,
       this.table,
       async () => {
-        const query = await this.retrieve();
-        if (query === null) {
-          return null;
-        }
-        return query.take(n);
-      }
+        return await this._take(n);
+      },
+      false
     );
   }
 
@@ -365,33 +361,34 @@ class PromiseQueryOrNullImpl<
       this.entDefinitions,
       this.table,
       async () => {
-        const query = await this.retrieve();
-        if (query === null) {
+        const docs = await this._take(1);
+        if (docs === null) {
           return nullRetriever;
         }
-        return loadedRetriever(await query.first());
+        const [doc] = docs;
+        return loadedRetriever(doc);
       },
       false
     );
   }
 
   firstX() {
-    return new PromiseEntOrNullImpl(
-      this.ctx,
+    return new PromiseEntWriterImpl(
+      this.ctx as any,
       this.entDefinitions,
       this.table,
       async () => {
-        const query = await this.retrieve();
-        if (query === null) {
+        const docs = await this._take(1);
+        if (docs === null) {
           return nullRetriever;
         }
-        const doc = await query.first();
-        if (doc === null) {
+        const [doc] = docs;
+        if (doc === undefined) {
           throw new Error("Query returned no documents");
         }
         return loadedRetriever(doc);
       },
-      true
+      false
     );
   }
 
@@ -401,30 +398,40 @@ class PromiseQueryOrNullImpl<
       this.entDefinitions,
       this.table,
       async () => {
-        const query = await this.retrieve();
-        if (query === null) {
+        const docs = await this._take(2);
+        if (docs === null) {
           return nullRetriever;
         }
-        return loadedRetriever(await query.unique());
+        if (docs.length === 0) {
+          return nullRetriever;
+        }
+        if (docs.length === 2) {
+          throw new Error("unique() query returned more than one result");
+        }
+        const [doc] = docs;
+        return loadedRetriever(doc);
       },
       false
     );
   }
 
   uniqueX() {
-    return new PromiseEntOrNullImpl(
-      this.ctx,
+    return new PromiseEntWriterImpl(
+      this.ctx as any,
       this.entDefinitions,
       this.table,
       async () => {
-        const query = await this.retrieve();
-        if (query === null) {
+        const docs = await this._take(2);
+        if (docs === null) {
           return nullRetriever;
         }
-        const doc = await query.unique();
-        if (doc === null) {
+        if (docs.length === 0) {
           throw new Error("Query returned no documents");
         }
+        if (docs.length === 2) {
+          throw new Error("unique() query returned more than one result");
+        }
+        const [doc] = docs;
         return loadedRetriever(doc);
       },
       true
@@ -437,7 +444,13 @@ class PromiseQueryOrNullImpl<
       return null;
     }
     const docs = await query.collect();
-    return filterByReadRule(this.entDefinitions, this.table, docs);
+    return filterByReadRule(
+      this.ctx,
+      this.entDefinitions,
+      this.table,
+      docs,
+      false
+    );
   }
 
   then<
@@ -468,6 +481,49 @@ class PromiseQueryOrNullImpl<
             )
       )
       .then(onfulfilled, onrejected);
+  }
+
+  async _take(n: number) {
+    const query = await this.retrieve();
+    if (query === null) {
+      return null;
+    }
+    const readPolicy = getReadRule(this.entDefinitions, this.table);
+    if (readPolicy === undefined) {
+      return await query.take(n);
+    }
+    // TODO: Use pagination after the db API gets fixed
+    const docs = await query.collect();
+    return await filterByReadRule(
+      this.ctx,
+      this.entDefinitions,
+      this.table,
+      docs,
+      false,
+      n
+    );
+    // TODO: Use pagination after the db API gets fixed
+    // let numItems = n;
+    // let docs = [];
+    // let cursor = null;
+    // while (docs.length < n) {
+    //   const result = await query.paginate({ numItems, cursor });
+    //   docs.push(
+    //     ...(await filterByReadRule(
+    //       this.ctx,
+    //       this.entDefinitions,
+    //       this.table,
+    //       result.page,
+    //       false
+    //     ))!
+    //   );
+    //   if (result.isDone) {
+    //     break;
+    //   }
+    //   numItems = Math.min(64, numItems * 2);
+    //   cursor = result.continueCursor;
+    // }
+    // return docs;
   }
 }
 
@@ -502,7 +558,7 @@ export class PromiseTableImpl<
   getImpl(args: any[], throwIfNull = false) {
     return new PromiseEntWriterImpl(
       this.ctx as any,
-      this.entDefinitions as any,
+      this.entDefinitions,
       this.table,
       args.length === 1
         ? async () => {
@@ -583,7 +639,8 @@ export class PromiseTableImpl<
                 return doc;
               })
             )) as any;
-          }
+          },
+      throwIfNull
     );
   }
 
@@ -711,7 +768,8 @@ class PromiseEntsOrNullImpl<
     private table: Table,
     private retrieve: () => Promise<
       DocumentByName<EntsDataModel, Table>[] | null
-    >
+    >,
+    private throwIfNull: boolean
   ) {
     super(() => {});
   }
@@ -742,8 +800,8 @@ class PromiseEntsOrNullImpl<
         if (docs === null) {
           return nullRetriever;
         }
-        const doc = docs[0] ?? null;
-        if (doc === null) {
+        const doc = docs[0] ?? undefined;
+        if (doc === undefined) {
           throw new Error("Query returned no documents");
         }
         return loadedRetriever(doc);
@@ -795,7 +853,13 @@ class PromiseEntsOrNullImpl<
 
   async docs() {
     const docs = await this.retrieve();
-    return filterByReadRule(this.entDefinitions, this.table, docs);
+    return filterByReadRule(
+      this.ctx,
+      this.entDefinitions,
+      this.table,
+      docs,
+      this.throwIfNull
+    );
   }
 
   then<
@@ -882,7 +946,7 @@ class PromiseEdgeOrNullImpl<
       ) => any
     ) => Promise<DocumentByName<EntsDataModel, Table>[] | null>
   ) {
-    super(ctx, entDefinitions, table, () => retrieveRange((q) => q));
+    super(ctx, entDefinitions, table, () => retrieveRange((q) => q), false);
   }
 
   async has(id: GenericId<Table>) {
@@ -958,7 +1022,9 @@ export class PromiseEntOrNullImpl<
     }
     const readPolicy = getReadRule(this.entDefinitions, this.table);
     if (readPolicy !== undefined) {
-      const decision = await readPolicy(doc);
+      const decision = await readPolicy(
+        entWrapper(doc, this.ctx, this.entDefinitions, this.table)
+      );
       if (this.throwIfNull && !decision) {
         throw new Error(
           `Document cannot be read with id \`${doc._id}\` in table "${this.table}"`
@@ -1132,11 +1198,12 @@ function entWrapper<
   EntsDataModel extends GenericEntsDataModel,
   Table extends TableNamesInDataModel<EntsDataModel>
 >(
-  doc: DocumentByName<EntsDataModel, Table>,
+  fields: DocumentByName<EntsDataModel, Table>,
   ctx: GenericQueryCtx<EntsDataModel>,
   entDefinitions: EntsDataModel,
   table: Table
 ): Ent<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel> {
+  const doc = { ...fields };
   const queryInterface = new PromiseEntWriterImpl(
     ctx as any,
     entDefinitions as any,
@@ -1516,6 +1583,7 @@ class PromiseTableWriterImpl<
       this.entDefinitions,
       this.table,
       async () => {
+        await this.base.checkReadAndWriteRule(undefined, value);
         await this.base.checkUniqueness(value);
         const fields = this.base.fieldsOnly(value as any);
         const docId = await this.ctx.db.insert(this.table, fields as any);
@@ -1623,8 +1691,8 @@ class PromiseEntWriterImpl<
     protected entDefinitions: EntsDataModel,
     protected table: Table,
     protected retrieve: DocRetriever<
-      GenericId<Table>,
-      DocumentByName<EntsDataModel, Table>
+      GenericId<Table> | null,
+      DocumentByName<EntsDataModel, Table> | null
     >,
     protected throwIfNull: boolean
   ) {
@@ -1645,7 +1713,9 @@ class PromiseEntWriterImpl<
       this.entDefinitions,
       this.table,
       async () => {
-        const { id } = await this.retrieve();
+        const { id: docId } = await this.retrieve();
+        const id = docId!;
+        await this.base.checkReadAndWriteRule(id, value);
         await this.base.checkUniqueness(value, id);
         const fields = this.base.fieldsOnly(value);
         await this.ctx.db.patch(id, fields);
@@ -1701,7 +1771,9 @@ class PromiseEntWriterImpl<
       this.entDefinitions,
       this.table,
       async () => {
-        const { id: docId } = await this.retrieve();
+        const { id } = await this.retrieve();
+        const docId = id!;
+        await this.base.checkReadAndWriteRule(docId, value);
         await this.base.checkUniqueness(value, docId);
         const fields = this.base.fieldsOnly(value as any);
         await this.ctx.db.replace(docId, fields as any);
@@ -1793,7 +1865,9 @@ class PromiseEntWriterImpl<
   }
 
   async delete() {
-    const { id } = await this.retrieve();
+    const { id: docId } = await this.retrieve();
+    const id = docId!;
+    await this.base.checkReadAndWriteRule(id, undefined);
     let memoized: GenericDocument | undefined = undefined;
     const oldDoc = async () => {
       if (memoized !== undefined) {
@@ -2000,15 +2074,30 @@ type Rules = Record<string, RuleConfig>;
 
 type RuleConfig = {
   read?: (doc: GenericDocument) => Promise<boolean>;
+  write?: (
+    doc: GenericDocument | undefined,
+    changes: Partial<GenericDocument> | undefined
+  ) => Promise<boolean>;
 };
 
 export function addEntRules<EntsDataModel extends GenericEntsDataModel>(
   entDefinitions: EntsDataModel,
   rules: {
-    [key in keyof EntsDataModel]?: key extends TableNamesInDataModel<EntsDataModel>
+    [Table in keyof EntsDataModel]?: Table extends TableNamesInDataModel<EntsDataModel>
       ? {
           read?: (
-            x: Ent<key, DocumentByName<EntsDataModel, key>, EntsDataModel>
+            ent: Ent<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel>
+          ) => Promise<boolean>;
+          write?: (
+            ent:
+              | Ent<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel>
+              | undefined,
+            changes: Partial<
+              WithEdgePatches<
+                DocumentByName<EntsDataModel, Table>,
+                EntsDataModel[Table]["edges"]
+              >
+            >
           ) => Promise<boolean>;
         }
       : never;
@@ -2018,21 +2107,66 @@ export function addEntRules<EntsDataModel extends GenericEntsDataModel>(
 }
 
 async function filterByReadRule(
+  ctx: GenericQueryCtx<any>,
   entDefinitions: GenericEntsDataModel,
   table: string,
-  docs: GenericDocument[] | null
+  docs: GenericDocument[] | null,
+  throwIfNull: boolean,
+  n: number | null = null
 ) {
   if (docs === null) {
     return null;
   }
   const readPolicy = getReadRule(entDefinitions, table);
   if (readPolicy !== undefined) {
-    const decisions = await Promise.all(docs.map((doc) => readPolicy(doc)));
+    if (n !== null) {
+      const filtered = [];
+      for (const doc of docs) {
+        const decision = await readPolicy(
+          entWrapper(doc, ctx, entDefinitions, table)
+        );
+        if (throwIfNull && !decision) {
+          throw new Error(
+            `Document cannot be read with id \`${doc._id}\` in table "${table}"`
+          );
+        }
+        if (decision) {
+          filtered.push(doc);
+          if (filtered.length >= n) {
+            break;
+          }
+        }
+      }
+      return filtered;
+    }
+    const decisions = await Promise.all(
+      docs.map(async (doc) => {
+        const decision = await readPolicy(
+          entWrapper(doc, ctx, entDefinitions, table)
+        );
+        if (throwIfNull && !decision) {
+          throw new Error(
+            `Document cannot be read with id \`${doc._id}\` in table "${table}"`
+          );
+        }
+        return decision;
+      })
+    );
     return docs.filter((_, i) => decisions[i]);
   }
   return docs;
 }
 
-function getReadRule(entDefinitions: GenericEntsDataModel, table: string) {
+export function getReadRule(
+  entDefinitions: GenericEntsDataModel,
+  table: string
+) {
   return (entDefinitions.rules as Rules)?.[table]?.read;
+}
+
+export function getWriteRule(
+  entDefinitions: GenericEntsDataModel,
+  table: string
+) {
+  return (entDefinitions.rules as Rules)?.[table]?.write;
 }
