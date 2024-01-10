@@ -103,7 +103,7 @@ defineEntSchema({
 });
 ```
 
-declares that "posts" ents have one **optional** field `"contentType"`,
+declares that "posts" ents have one **required** field `"contentType"`,
 containing a string, either `"text"` or `"video"`. When the value is missing
 from the backing document, the default value `"text"` is returned. Without
 specifying the default value, the schema could look like:

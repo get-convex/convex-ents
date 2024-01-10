@@ -44,6 +44,12 @@ test("index field", async (ctx) => {
   expect(userByHeight.name).toEqual("Stark");
 });
 
+test("default fields", async (ctx) => {
+  const firstPost = await ctx.table("posts").firstX();
+  assertEqual(firstPost.numLikes, 0);
+  assertEqual(firstPost.type, "text");
+});
+
 test("has method", async (ctx) => {
   const tag = await ctx.table("tags").firstX();
   const hasTag = await ctx.table("messages").first().edge("tags").has(tag._id);
@@ -68,12 +74,6 @@ test("getManyX", async (ctx) => {
   expect(specificUsers).toHaveLength(2);
   assertEqual(specificUsers[0]?.name, users[0].name);
   assertEqual(specificUsers[1]?.name, users[1].name);
-});
-
-test("default fields", async (ctx) => {
-  const firstPost = await ctx.table("posts").firstX();
-  assertEqual(firstPost.numLikes, 0);
-  assertEqual(firstPost.type, "text");
 });
 
 test("table using index", async (ctx) => {
