@@ -305,7 +305,7 @@ interface EntDefinition<
     field: FieldName,
     validator: T
   ): EntDefinition<
-    Document & { [key in FieldName]: T["type"] },
+    Document & ObjectFieldType<FieldName, T>,
     FieldPaths | FieldName,
     Indexes,
     SearchIndexes,
@@ -317,10 +317,7 @@ interface EntDefinition<
     validator: T,
     options: { index: true }
   ): EntDefinition<
-    Document &
-      (T["isOptional"] extends true
-        ? { [key in FieldName]?: T["type"] }
-        : { [key in FieldName]: T["type"] }),
+    Document & ObjectFieldType<FieldName, T>,
     FieldPaths | FieldName,
     Indexes & { [key in FieldName]: [FieldName] },
     SearchIndexes,
@@ -332,7 +329,7 @@ interface EntDefinition<
     validator: T,
     options: { unique: true }
   ): EntDefinition<
-    Document & { [key in FieldName]: T["type"] },
+    Document & ObjectFieldType<FieldName, T>,
     FieldPaths | FieldName,
     Indexes & { [key in FieldName]: [FieldName] },
     SearchIndexes,
@@ -344,7 +341,7 @@ interface EntDefinition<
     validator: T,
     options: { default: T["type"] }
   ): EntDefinition<
-    Document & { [key in FieldName]: T["type"] },
+    Document & ObjectFieldType<FieldName, T>,
     FieldPaths | FieldName,
     Indexes,
     SearchIndexes,
@@ -594,6 +591,13 @@ class EntDefinitionImpl {
     return this;
   }
 }
+
+type ObjectFieldType<
+  FieldName extends string,
+  T extends Validator<any, any, any>
+> = T["isOptional"] extends true
+  ? { [key in FieldName]?: T["type"] }
+  : { [key in FieldName]: T["type"] };
 
 export type EdgeConfig = {
   name: string;
