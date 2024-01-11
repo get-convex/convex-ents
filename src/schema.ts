@@ -48,12 +48,47 @@ export function defineEntSchema<
           string,
           EdgeConfigFromEntDefinition
         >
-      ).filter(
-        (candidate) =>
-          candidate.to === tableName &&
+      ).filter((candidate) => {
+        if (candidate.to !== tableName) {
+          return false;
+        }
+        // ref is known, only consider edges with matching field
+        if (
+          (edge.cardinality === "single" &&
+            edge.type === "ref" &&
+            edge.ref !== null) ||
+          (edge.cardinality === "multiple" &&
+            edge.type === "field" &&
+            edge.ref !== null)
+        ) {
+          if (
+            candidate.cardinality !== "single" ||
+            candidate.type !== "field"
+          ) {
+            return false;
+          }
+          return edge.ref === candidate.field;
+        }
+        // field is known, only consider edges with matching ref
+        if (
+          edge.cardinality === "single" &&
+          edge.type === "field" &&
+          edge.field !== null
+        ) {
+          if (
+            (candidate.cardinality === "single" && candidate.type !== "ref") ||
+            (candidate.cardinality === "multiple" && candidate.type !== "field")
+          ) {
+            return false;
+          }
+          return edge.field === candidate.ref;
+        }
+
+        return (
           candidate.name !== edge.name &&
           (!isSelfDirected || (candidate.type === null && candidate.inverse))
-      );
+        );
+      });
       if (inverseEdgeCandidates.length > 1) {
         throw new Error(
           'Too many potential inverse edges for "' +
@@ -84,19 +119,19 @@ export function defineEntSchema<
               `as optional, choose one to be required.`
           );
         }
+        if (inverseEdge === undefined) {
+          throw new Error(
+            `Missing inverse edge in table "${otherTableName}" ${
+              edge.ref !== null ? `with field "${edge.ref}" ` : ""
+            }for edge "${edge.name}" in table "${tableName}"`
+          );
+        }
         if (
-          inverseEdge?.cardinality !== "single" ||
-          inverseEdge?.type !== "field"
+          inverseEdge.cardinality !== "single" ||
+          inverseEdge.type !== "field"
         ) {
           throw new Error(
             `Unexpected inverse edge type ${edge.name}, ${inverseEdge?.name}`
-          );
-        }
-        if (edge.ref !== null && edge.ref !== inverseEdge.field) {
-          throw new Error(
-            `The edge "${inverseEdge.name}" in table "${otherTableName}" ` +
-              `must have its \`field\` option set to "${edge.ref}", ` +
-              `to match the inverse edge "${edge.name}" in table "${inverseEdge.to}".`
           );
         }
         if (edge.ref === null) {
@@ -389,6 +424,28 @@ interface EntDefinition<
       };
     }
   >;
+  edge<
+    EdgeName extends string,
+    const FieldName extends string,
+    const ToTable extends string
+  >(
+    edge: EdgeName,
+    options: { field: FieldName; to: ToTable }
+  ): EntDefinition<
+    Document & { [key in FieldName]: GenericId<ToTable> },
+    FieldPaths | FieldName,
+    Indexes & { [key in FieldName]: [FieldName] },
+    SearchIndexes,
+    VectorIndexes,
+    Edges & {
+      [key in EdgeName]: {
+        name: EdgeName;
+        to: ToTable;
+        type: "field";
+        cardinality: "single";
+      };
+    }
+  >;
   edge<EdgeName extends string>(
     edge: EdgeName,
     options: { optional: true; ref?: string }
@@ -402,6 +459,24 @@ interface EntDefinition<
       [key in EdgeName]: {
         name: EdgeName;
         to: `${EdgeName}s`;
+        type: "ref";
+        cardinality: "single";
+      };
+    }
+  >;
+  edge<EdgeName extends string, const ToTable extends string>(
+    edge: EdgeName,
+    options: { optional: true; to: ToTable; ref?: string }
+  ): EntDefinition<
+    Document,
+    FieldPaths,
+    Indexes,
+    SearchIndexes,
+    VectorIndexes,
+    Edges & {
+      [key in EdgeName]: {
+        name: EdgeName;
+        to: ToTable;
         type: "ref";
         cardinality: "single";
       };
@@ -485,6 +560,7 @@ type EdgeOptions = {
   optional?: true;
   field?: string;
   ref?: string;
+  to?: string;
 };
 
 type EdgesOptions = {
@@ -583,8 +659,8 @@ class EntDefinitionImpl {
       // know the source table name.
       throw new Error(`Duplicate edge "${edgeName}"`);
     }
+    const to = options?.to ?? edgeName + "s";
     if (options?.optional !== true) {
-      const to = edgeName + "s";
       const fieldName = options?.field ?? edgeName + "Id";
       this.documentSchema = { ...this.documentSchema, [fieldName]: v.id(to) };
       this.edgeConfigs[edgeName] = {
@@ -603,7 +679,7 @@ class EntDefinitionImpl {
     if (options.optional === true) {
       this.edgeConfigs[edgeName] = {
         name: edgeName,
-        to: edgeName + "s",
+        to,
         cardinality: "single",
         type: "ref",
         ref: options.ref ?? null,

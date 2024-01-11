@@ -29,13 +29,17 @@ setup(async (ctx) => {
   await user1.patch({ followees: { add: [user2._id] } });
   await user2.patch({ friends: { add: [user1._id] } });
   await ctx.table("posts").insert({ text: "My great post" } as any);
-  await ctx.table("posts").insertMany([
+  const [postId1, postId2] = await ctx.table("posts").insertMany([
     { text: "My great video", type: "video", numLikes: 4 },
     { text: "My awesome video", type: "video", numLikes: 0 },
   ]);
   await ctx.omni("secrets").insertMany([
     { value: "chicka blah", ownerId: user1._id },
     { value: "bada boom", ownerId: user2._id },
+  ]);
+  await ctx.table("attachments").insertMany([
+    { originId: postId1, copyId: postId2 },
+    { originId: postId2, copyId: postId1 },
   ]);
 });
 
@@ -88,6 +92,18 @@ test("1:1 edgeX from ref side, missing", async (ctx) => {
 test("1:1 edge from ref side, existing, custom field name", async (ctx) => {
   const firstUserSecret = await ctx.table("users").firstX().edge("secret");
   expect(firstUserSecret).not.toBeNull();
+});
+
+test("1:1 edge from ref side, existing, custom name", async (ctx) => {
+  const [, secondAttachment] = await ctx.table("attachments").take(2);
+  const firstAttachmentsPost = await ctx
+    .table("attachments")
+    .firstX()
+    .edge("origin");
+  const secondaryAttachment = await firstAttachmentsPost.edge(
+    "secondaryAttachment"
+  );
+  expect(secondAttachment._id).toEqual(secondaryAttachment?._id);
 });
 
 test("has method", async (ctx) => {

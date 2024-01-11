@@ -39,7 +39,17 @@ const schema = defineEntSchema(
       .searchIndex("text", {
         searchField: "text",
         filterFields: ["type"],
+      })
+      .edge("attachment", { ref: "originId", optional: true })
+      .edge("secondaryAttachment", {
+        ref: "copyId",
+        to: "attachments",
+        optional: true,
       }),
+
+    attachments: defineEnt({})
+      .edge("origin", { to: "posts", field: "originId" })
+      .edge("copy", { to: "posts", field: "copyId" }),
 
     secrets: defineEnt({
       value: v.string(),
