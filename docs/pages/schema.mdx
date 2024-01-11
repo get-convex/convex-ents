@@ -35,7 +35,7 @@ Compared to a vanilla schema file:
 - `defineEntSchema` replaces `defineSchema` from `convex/server`
 - `defineEnt` replaces `defineTable` from `convex/server`
 - Besides exporting the `schema`, which is used by Convex for schema validation,
-  we also export `entDefinitions`, which include the runtime information needed
+  you also export `entDefinitions`, which include the runtime information needed
   to enable retrieving Ents via edges and other features.
 
 ## Fields
@@ -86,9 +86,9 @@ defineSchema({
 
 When evolving a schema, especially in production, the simplest way to modify the
 shape of documents in the database is to add an optional field. Having an
-optional field means that our code either always has to handle the "missing"
-value case (the value is `undefined`), or we need to perform a careful migration
-to backfill all the documents and set the field value.
+optional field means that your code either always has to handle the "missing"
+value case (the value is `undefined`), or you need to perform a careful
+migration to backfill all the documents and set the field value.
 
 Ents simplify this shape evolution by allowing to specify a default for a field.
 The following schema:
@@ -146,7 +146,7 @@ be 1:many edges, such as user to authored messages, when each message has only a
 single author; and many:many edges, such as messages to tags, where each message
 can have many tags, and each tag can be attached to many messages.
 
-Now that we understand all the properties of edges, here's how we can declare
+Now that you understand all the properties of edges, here's how you can declare
 them: Edges are always declared on the ents that constitute its ends. Let's take
 the example of users authoring messages:
 
@@ -163,8 +163,8 @@ defineEntSchema({
 
 In this example, the edge between "users" and "messages" is 1:many, each user
 can have many associated messages, but each message has only a single associated
-user. We know this because we used the `edge` method on the "messages" ent. To
-declare a many:many edge, we could replace it with the `edges` method.
+user. This is because the `edge` method was used on the "messages" ent. To
+declare a many:many edge, you could replace it with the `edges` method.
 
 ### Understanding how edges are stored
 
@@ -205,9 +205,9 @@ associated user. This is a field edge stored on the "profiles" table as a
 foreign key. The column name is "userId" based on the "users" table name (itself
 inferred from the provided "user" string).
 
-If we wanted to have another field edge from profiles to users, we would have to
-specify the field name. We can choose to specify the field name even if we have
-only one edge:
+If you wanted to have another field edge from profiles to users, you would have
+to specify the field name. You can choose to specify the field name even if you
+have only one edge:
 
 ```ts
 defineEntSchema({
@@ -220,12 +220,12 @@ defineEntSchema({
 });
 ```
 
-We have to provide the field name on both ends of the edge (as `ref` and `field`
-respectively).
+You have to provide the field name on both ends of the edge (as `ref` and
+`field` respectively).
 
 Either way the name of the edge is tied to the tables names: "profile" and
 "user" respectively for each direction of the edge (since this is not a
-symmetrical edge). We can also provide the edge names specifically, from either
+symmetrical edge). You can also provide the edge names specifically, from either
 or both ends:
 
 ```ts
@@ -265,9 +265,9 @@ since each user can have multiple associated messages, the foreign key must be
 stored in the "messages" table. Just like for 1:1 edges, the field name is
 inferred to be "userId" based on the "users" table name.
 
-If we wanted to have another field edge from messages to users, we would have to
-specify the field name. We can choose to specify the field name even if we have
-only one edge:
+If you wanted to have another field edge from messages to users, you would have
+to specify the field name. You can choose to specify the field name even if you
+have only one edge:
 
 ```ts
 defineEntSchema({
@@ -282,8 +282,8 @@ defineEntSchema({
 
 Either way the name of the edge is tied to the tables' names: "messages" and
 "user" respectively for each direction of the edge (since this is not a
-symmetrical edge). We can also provide the edge names explicitly, from either or
-both ends:
+symmetrical edge). You can also provide the edge names explicitly, from either
+or both ends:
 
 ```ts
 defineEntSchema({
@@ -315,9 +315,9 @@ defineEntSchema({
 In this case the table storing the edge is called `messages_to_tags`, based on
 the tables storing each end of the edge.
 
-Similarly to field (1:many) edges, if we want to have multiple edges connecting
-the same pair of tables, we have to provide the name of the table storing the
-edge. We can do this even if we have only one edge:
+Similarly to field (1:many) edges, if you want to have multiple edges connecting
+the same pair of tables, you have to provide the name of the table storing the
+edge. You can do this even if you have only one edge:
 
 ```ts
 defineEntSchema({
@@ -334,7 +334,7 @@ This table will have two ID fields, one for each end of the edge. Their names
 will be inferred from the table names of the connected ents. You can specify
 them explicitly using the `field` option.
 
-As with 1:many edges, we can give the edges names:
+As with 1:many edges, you can give the edges names:
 
 ```ts
 defineEntSchema({
@@ -385,8 +385,8 @@ defineEntSchema({
 });
 ```
 
-By not specifying the `inverse` name, we're declaring the edge as symmetrical.
-We can also specify the `table`, `field` and `inverseField` options to control
+By not specifying the `inverse` name, you're declaring the edge as symmetrical.
+You can also specify the `table`, `field` and `inverseField` options to control
 how the edge is stored and to allow multiple symmetrical self-directed edges.
 
 Other kinds of edges are possible, but less common.
