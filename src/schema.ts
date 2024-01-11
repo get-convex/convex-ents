@@ -79,8 +79,8 @@ export function defineEntSchema<
           //     `providing a \`field\` name.`
           // );
           throw new Error(
-            `Both edge "${edge.name}" on ent "${inverseEdge.to}" and ` +
-              `edge "${inverseEdge.name}" on ent "${edge.to}" are marked ` +
+            `Both edge "${edge.name}" in table "${inverseEdge.to}" and ` +
+              `edge "${inverseEdge.name}" in table "${edge.to}" are marked ` +
               `as optional, choose one to be required.`
           );
         }
@@ -92,8 +92,17 @@ export function defineEntSchema<
             `Unexpected inverse edge type ${edge.name}, ${inverseEdge?.name}`
           );
         }
-        (edge as any).ref = inverseEdge.field;
-        (inverseEdge as any).unique = true;
+        if (edge.ref !== null && edge.ref !== inverseEdge.field) {
+          throw new Error(
+            `The edge "${inverseEdge.name}" in table "${otherTableName}" ` +
+              `must have its \`field\` option set to "${edge.ref}", ` +
+              `to match the inverse edge "${edge.name}" in table "${inverseEdge.to}".`
+          );
+        }
+        if (edge.ref === null) {
+          (edge as any).ref = inverseEdge.field;
+          (inverseEdge as any).unique = true;
+        }
       }
       if (edge.cardinality === "multiple") {
         if (edge.type !== null) {
@@ -103,10 +112,9 @@ export function defineEntSchema<
         if (inverseEdge?.cardinality === "single") {
           if (inverseEdge.type === "ref") {
             throw new Error(
-              "Unexpected optional edge for " +
-                edge.name +
-                " called " +
-                inverseEdge.name
+              `The edge "${inverseEdge.name}" in table "${otherTable}" ` +
+                `cannot be optional, as it must store the 1:many edge as a field. ` +
+                `Check the its inverse edge "${edge.name}" in table "${inverseEdge.to}".`
             );
           }
           (edge as any).type = "field";
@@ -170,10 +178,7 @@ export function defineEnt<
   return new EntDefinitionImpl(documentSchema) as any;
 }
 
-type GenericEdges<DataModel extends GenericDataModel> = Record<
-  string,
-  GenericEdgeConfig
->;
+type GenericEdges = Record<string, GenericEdgeConfig>;
 
 export type GenericEdgeConfig = {
   name: string;
@@ -192,7 +197,7 @@ interface EntDefinition<
   // eslint-disable-next-line @typescript-eslint/ban-types
   VectorIndexes extends GenericTableVectorIndexes = {},
   // eslint-disable-next-line @typescript-eslint/ban-types
-  Edges extends GenericEdges<any> = {}
+  Edges extends GenericEdges = {}
 > extends TableDefinition<
     Document,
     FieldPaths,
@@ -366,9 +371,27 @@ interface EntDefinition<
       };
     }
   >;
+  edge<EdgeName extends string, const FieldName extends string>(
+    edge: EdgeName,
+    options: { field: FieldName }
+  ): EntDefinition<
+    Document & { [key in FieldName]: GenericId<`${EdgeName}s`> },
+    FieldPaths | FieldName,
+    Indexes & { [key in FieldName]: [FieldName] },
+    SearchIndexes,
+    VectorIndexes,
+    Edges & {
+      [key in EdgeName]: {
+        name: EdgeName;
+        to: `${EdgeName}s`;
+        type: "field";
+        cardinality: "single";
+      };
+    }
+  >;
   edge<EdgeName extends string>(
     edge: EdgeName,
-    options: { optional: true }
+    options: { optional: true; ref?: string }
   ): EntDefinition<
     Document,
     FieldPaths,
@@ -460,6 +483,8 @@ type FieldOptions = {
 
 type EdgeOptions = {
   optional?: true;
+  field?: string;
+  ref?: string;
 };
 
 type EdgesOptions = {
@@ -530,6 +555,12 @@ class EntDefinitionImpl {
   }
 
   field(name: string, validator: any, options?: FieldOptions): this {
+    if (this.documentSchema[name] !== undefined) {
+      // TODO: Store the fieldConfigs in an array so that we can
+      // do the uniqueness check in defineEntSchema where we
+      // know the table name.
+      throw new Error(`Duplicate field "${name}"`);
+    }
     const finalValidator =
       options?.default !== undefined ? v.optional(validator) : validator;
     this.documentSchema = { ...this.documentSchema, [name]: finalValidator };
@@ -545,28 +576,37 @@ class EntDefinitionImpl {
     return this;
   }
 
-  edge(table: string, options?: EdgeOptions): this {
-    if (options === undefined) {
-      this.edgeConfigs[table] = {
-        name: table,
-        to: table + "s",
+  edge(edgeName: string, options?: EdgeOptions): this {
+    if (this.edgeConfigs[edgeName] !== undefined) {
+      // TODO: Store the edgeConfigs in an array so that we can
+      // do the uniqueness check in defineEntSchema where we
+      // know the source table name.
+      throw new Error(`Duplicate edge "${edgeName}"`);
+    }
+    if (options?.optional !== true) {
+      const to = edgeName + "s";
+      const fieldName = options?.field ?? edgeName + "Id";
+      this.documentSchema = { ...this.documentSchema, [fieldName]: v.id(to) };
+      this.edgeConfigs[edgeName] = {
+        name: edgeName,
+        to,
         cardinality: "single",
         type: "field",
-        field: table + "Id",
+        field: fieldName,
       };
       this.indexes.push({
-        indexDescriptor: table + "Id",
-        fields: [table + "Id"],
+        indexDescriptor: fieldName,
+        fields: [fieldName],
       });
       return this;
     }
     if (options.optional === true) {
-      this.edgeConfigs[table] = {
-        name: table,
-        to: table + "s",
+      this.edgeConfigs[edgeName] = {
+        name: edgeName,
+        to: edgeName + "s",
         cardinality: "single",
         type: "ref",
-        ref: null, // gets filled in by defineEntSchema
+        ref: options.ref ?? null,
       };
     }
     return this;

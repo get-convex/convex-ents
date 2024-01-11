@@ -18,7 +18,7 @@ const schema = defineEntSchema(
       .edges("messages")
       .edges("followers", { to: "users", inverse: "followees" })
       .edges("friends", { to: "users" })
-      .edge("secret", { optional: true }),
+      .edge("secret", { ref: "ownerId", optional: true }),
 
     profiles: defineEnt({
       bio: v.string(),
@@ -43,7 +43,7 @@ const schema = defineEntSchema(
 
     secrets: defineEnt({
       value: v.string(),
-    }).edge("user"),
+    }).edge("user", { field: "ownerId" }),
   },
   { schemaValidation: false }
 );

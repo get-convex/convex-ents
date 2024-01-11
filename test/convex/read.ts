@@ -34,8 +34,8 @@ setup(async (ctx) => {
     { text: "My awesome video", type: "video", numLikes: 0 },
   ]);
   await ctx.omni("secrets").insertMany([
-    { value: "chicka blah", userId: user1._id },
-    { value: "bada boom", userId: user2._id },
+    { value: "chicka blah", ownerId: user1._id },
+    { value: "bada boom", ownerId: user2._id },
   ]);
 });
 
@@ -83,6 +83,11 @@ test("1:1 edgeX from ref side, missing", async (ctx) => {
   expect(async () => {
     await ctx.table("users").getX("email", "elon@musk.com").edgeX("profile");
   }).rejects.toThrowError('Edge "profile" does not exist for document with ID');
+});
+
+test("1:1 edge from ref side, existing, custom field name", async (ctx) => {
+  const firstUserSecret = await ctx.table("users").firstX().edge("secret");
+  expect(firstUserSecret).not.toBeNull();
 });
 
 test("has method", async (ctx) => {

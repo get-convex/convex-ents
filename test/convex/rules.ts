@@ -22,16 +22,18 @@ function getEntDefinitionsWithRules(
   return addEntRules(entDefinitions, {
     secrets: {
       read: async (secret) => {
-        return ctx.viewer?._id === secret.userId;
+        return ctx.viewer?._id === secret.ownerId;
       },
       write: async (secret, changes) => {
         if (changes === undefined) {
           return false;
         }
         if (secret === undefined) {
-          return ctx.viewer?._id === changes.userId;
+          return ctx.viewer?._id === changes.ownerId;
         }
-        return changes.userId === undefined || changes.userId === secret.userId;
+        return (
+          changes.ownerId === undefined || changes.ownerId === secret.ownerId
+        );
       },
     },
   });

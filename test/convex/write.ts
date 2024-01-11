@@ -180,12 +180,12 @@ test("write rule on insert", async (ctx) => {
     .table("users")
     .insert({ name: "Jobs", email: "steve@jobs.com" });
   // rules.ts: This works because the viewer is writing
-  await ctx.table("secrets").insert({ value: "123", userId: viewer._id });
+  await ctx.table("secrets").insert({ value: "123", ownerId: viewer._id });
   expect(async () => {
     // rules.ts: We only allow the viewer to create secrets
     await ctx.table("secrets").insert({
       value: "123",
-      userId: otherUserId,
+      ownerId: otherUserId,
     });
   }).rejects.toThrowError(`Cannot insert into table \"secrets\":`);
 });
@@ -194,7 +194,7 @@ test("write rule on delete", async (ctx) => {
   const viewer = await ctx.table("users").firstX();
   const secret = await ctx
     .table("secrets")
-    .insert({ value: "123", userId: viewer._id })
+    .insert({ value: "123", ownerId: viewer._id })
     .get();
   expect(async () => {
     // rules.ts: We don't allow anyone to delete a secret
@@ -208,7 +208,7 @@ test("read rule on patch", async (ctx) => {
     .insert({ name: "Jobs", email: "steve@jobs.com" });
   const secretId = await ctx
     .omni("secrets")
-    .insert({ value: "123", userId: otherUserId });
+    .insert({ value: "123", ownerId: otherUserId });
 
   expect(async () => {
     // rules.ts: Only owners can see and update their secrets
@@ -222,11 +222,11 @@ test("write rule on patch", async (ctx) => {
     .insert({ name: "Jobs", email: "steve@jobs.com" });
   const secretId = await ctx
     .omni("secrets")
-    .insert({ value: "123", userId: ctx.viewer!._id });
+    .insert({ value: "123", ownerId: ctx.viewer!._id });
 
   expect(async () => {
     // rules.ts: The user edge is immutable
-    await ctx.table("secrets").getX(secretId).patch({ userId: otherUserId });
+    await ctx.table("secrets").getX(secretId).patch({ ownerId: otherUserId });
   }).rejects.toThrowError(`Cannot update document with ID`);
 
   // This is ok
@@ -239,14 +239,14 @@ test("read rule on replace", async (ctx) => {
     .insert({ name: "Jobs", email: "steve@jobs.com" });
   const secretId = await ctx
     .omni("secrets")
-    .insert({ value: "123", userId: otherUserId });
+    .insert({ value: "123", ownerId: otherUserId });
 
   expect(async () => {
     // rules.ts: Only owners can see and update their secrets
     await ctx
       .table("secrets")
       .getX(secretId)
-      .replace({ userId: otherUserId, value: "456" });
+      .replace({ ownerId: otherUserId, value: "456" });
   }).rejects.toThrowError(`Cannot update document with ID`);
 });
 
@@ -256,21 +256,21 @@ test("write rule on replace", async (ctx) => {
     .insert({ name: "Jobs", email: "steve@jobs.com" });
   const secretId = await ctx
     .omni("secrets")
-    .insert({ value: "123", userId: ctx.viewer!._id });
+    .insert({ value: "123", ownerId: ctx.viewer!._id });
 
   expect(async () => {
     // rules.ts: The user edge is immutable
     await ctx
       .table("secrets")
       .getX(secretId)
-      .replace({ userId: otherUserId, value: "456" });
+      .replace({ ownerId: otherUserId, value: "456" });
   }).rejects.toThrowError(`Cannot update document with ID`);
 
   // This is ok
   await ctx
     .table("secrets")
     .getX(secretId)
-    .replace({ userId: ctx.viewer!._id, value: "456" });
+    .replace({ ownerId: ctx.viewer!._id, value: "456" });
 });
 
 function assertEqual(actual: any, expected: any) {
