@@ -9,7 +9,6 @@ import {
   SchemaDefinition,
   SearchIndexConfig,
   TableDefinition,
-  TableNamesInDataModel,
   defineSchema,
 } from "convex/server";
 import {
@@ -27,14 +26,23 @@ export function defineEntSchema<
   schema: Schema,
   options?: DefineSchemaOptions<StrictTableNameTypes>
 ): SchemaDefinition<Schema, StrictTableNameTypes> {
-  // If we have two ref edges pointing at each other,
-  // we gotta add the table for them with indexes
+  // Set the properties of edges which requires knowing their inverses,
+  // and add edge tables.
   const tableNames = Object.keys(schema);
   for (const tableName of tableNames) {
     const table = schema[tableName];
-    for (const edge of Object.values(
-      (table as any).edgeConfigs as Record<string, EdgeConfigFromEntDefinition>
-    )) {
+    for (const edge of edgeConfigsFromEntDefinition(table)) {
+      if (
+        (edge.cardinality === "multiple" &&
+          edge.type === "ref" &&
+          edge.inverse !== undefined) ||
+        // symmetric is only set by defineEntSchema,
+        // so we already processed the pair
+        (edge as any).symmetric !== undefined
+      ) {
+        continue;
+      }
+
       const otherTableName = edge.to;
       const otherTable = schema[otherTableName];
       if (otherTable === undefined) {
@@ -46,58 +54,14 @@ export function defineEntSchema<
 
       const isSelfDirected = edge.to === tableName;
 
-      const inverseEdgeCandidates = Object.values(
-        (otherTable as any).edgeConfigs as Record<
-          string,
-          EdgeConfigFromEntDefinition
-        >
-      ).filter((candidate) => {
-        if (candidate.to !== tableName) {
-          return false;
-        }
-        // ref is known, only consider edges with matching field
-        if (
-          (edge.cardinality === "single" &&
-            edge.type === "ref" &&
-            edge.ref !== null) ||
-          (edge.cardinality === "multiple" &&
-            edge.type !== "ref" &&
-            edge.ref !== undefined)
-        ) {
-          if (
-            candidate.cardinality === "single" &&
-            candidate.type === "field"
-          ) {
-            return edge.ref === candidate.field;
-          }
-        }
-        // field is known, only consider edges with matching ref
-        if (
-          edge.cardinality === "single" &&
-          edge.type === "field" &&
-          edge.field !== null
-        ) {
-          if (
-            (candidate.cardinality === "single" &&
-              candidate.type === "ref" &&
-              candidate.ref !== null) ||
-            (candidate.cardinality === "multiple" &&
-              candidate.type !== "ref" &&
-              candidate.ref !== undefined)
-          ) {
-            return edge.field === candidate.ref;
-          }
-        }
-        return (
-          candidate.name !== edge.name &&
-          (!isSelfDirected || (candidate.type === null && candidate.inverse))
-        );
-      });
+      const inverseEdgeCandidates = edgeConfigsFromEntDefinition(
+        otherTable
+      ).filter(canBeInverseEdge(tableName, edge, isSelfDirected));
       if (inverseEdgeCandidates.length > 1) {
         throw new Error(
-          'Too many potential inverse edges for "' +
-            edge.name +
-            `", all eligible: ${inverseEdgeCandidates
+          `Edge "${edge.name}" in table "${tableName}" ` +
+            `has too many potential inverse edges in table "${otherTableName}": ` +
+            `${inverseEdgeCandidates
               .map((edge) => `"${edge.name}"`)
               .join(", ")}`
         );
@@ -105,9 +69,17 @@ export function defineEntSchema<
       const inverseEdge: EdgeConfigFromEntDefinition | undefined =
         inverseEdgeCandidates[0];
 
+      // Default `ref` on the multiple end of the edge,
       if (edge.cardinality === "single" && edge.type === "ref") {
+        if (inverseEdge === undefined) {
+          throw new Error(
+            `Missing inverse edge in table "${otherTableName}" ${
+              edge.ref !== null ? `with field "${edge.ref}" ` : ""
+            }for edge "${edge.name}" in table "${tableName}"`
+          );
+        }
         if (
-          inverseEdge?.cardinality === "single" &&
+          inverseEdge.cardinality === "single" &&
           inverseEdge.type === "ref"
         ) {
           // TODO: If we want to support optional 1:1 edges in the future
@@ -123,13 +95,6 @@ export function defineEntSchema<
               `as optional, choose one to be required.`
           );
         }
-        if (inverseEdge === undefined) {
-          throw new Error(
-            `Missing inverse edge in table "${otherTableName}" ${
-              edge.ref !== null ? `with field "${edge.ref}" ` : ""
-            }for edge "${edge.name}" in table "${tableName}"`
-          );
-        }
         if (
           inverseEdge.cardinality !== "single" ||
           inverseEdge.type !== "field"
@@ -140,20 +105,24 @@ export function defineEntSchema<
         }
         if (edge.ref === null) {
           (edge as any).ref = inverseEdge.field;
-          (inverseEdge as any).unique = true;
         }
+        // For now the the non-optional end is always unique
+        (inverseEdge as any).unique = true;
       }
       if (edge.cardinality === "multiple") {
-        if (edge.type !== null) {
-          continue;
-        }
-
         if (inverseEdge?.cardinality === "single") {
           if (inverseEdge.type === "ref") {
             throw new Error(
               `The edge "${inverseEdge.name}" in table "${otherTable}" ` +
                 `cannot be optional, as it must store the 1:many edge as a field. ` +
-                `Check the its inverse edge "${edge.name}" in table "${inverseEdge.to}".`
+                `Check the its inverse edge "${edge.name}" in table "${tableName}".`
+            );
+          }
+          if (edge.type === "ref") {
+            throw new Error(
+              `The edge "${inverseEdge.name}" in table "${otherTable}" ` +
+                `cannot be singular, as the "${edge.name}" in table "${tableName}" defined ` +
+                `the \`table\` option, so it must be a many:many edge.`
             );
           }
           (edge as any).type = "field";
@@ -162,7 +131,9 @@ export function defineEntSchema<
 
         if (inverseEdge?.cardinality === "multiple" || isSelfDirected) {
           const edgeTableName =
-            inverseEdge === undefined
+            edge.type === "ref" && edge.table !== undefined
+              ? edge.table
+              : inverseEdge === undefined
               ? `${tableName}_${edge.name}`
               : inverseEdge.name !== tableName
               ? `${tableName}_${inverseEdge.name}_to_${edge.name}`
@@ -198,12 +169,96 @@ export function defineEntSchema<
             (inverseEdge as any).table = edgeTableName;
             (inverseEdge as any).field = inverseId;
             (inverseEdge as any).ref = forwardId;
+            (inverseEdge as any).symmetric = false;
           }
         }
       }
     }
   }
   return defineSchema(schema, options);
+}
+
+function canBeInverseEdge(
+  tableName: string,
+  edge: EdgeConfigFromEntDefinition,
+  isSelfDirected: boolean
+) {
+  return (candidate: EdgeConfigFromEntDefinition) => {
+    if (candidate.to !== tableName) {
+      return false;
+    }
+    // Simple: pick out explicit inverse edges
+    if (isSelfDirected) {
+      return (
+        candidate.cardinality === "multiple" &&
+        candidate.type === "ref" &&
+        candidate.inverse === edge.name
+      );
+    }
+    // If both ref and field are known, only consider matching edges (from the ref side)
+    if (
+      (edge.cardinality === "single" &&
+        edge.type === "ref" &&
+        edge.ref !== null) ||
+      (edge.cardinality === "multiple" &&
+        edge.type === "field" &&
+        edge.ref !== undefined)
+    ) {
+      if (candidate.cardinality === "single" && candidate.type === "field") {
+        return edge.ref === candidate.field;
+      }
+    }
+    // If both ref and field are known, only consider matching edges (from the field side)
+    if (
+      edge.cardinality === "single" &&
+      edge.type === "field" &&
+      edge.field !== null
+    ) {
+      if (
+        (candidate.cardinality === "single" &&
+          candidate.type === "ref" &&
+          candidate.ref !== null) ||
+        (candidate.cardinality === "multiple" &&
+          candidate.type === "field" &&
+          candidate.ref !== undefined)
+      ) {
+        return edge.field === candidate.ref;
+      }
+    }
+
+    // If table is known on both ends, only consider matching edges
+    if (
+      edge.cardinality === "multiple" &&
+      edge.type === "ref" &&
+      edge.table !== undefined
+    ) {
+      return (
+        candidate.cardinality === "multiple" &&
+        candidate.type === "ref" &&
+        edge.table === candidate.table
+      );
+    }
+    if (
+      candidate.cardinality === "multiple" &&
+      candidate.type === "ref" &&
+      candidate.table !== undefined
+    ) {
+      return (
+        edge.cardinality === "multiple" &&
+        edge.type === "ref" &&
+        edge.table === candidate.table
+      );
+    }
+    return true;
+  };
+}
+
+function edgeConfigsFromEntDefinition(
+  table: EntDefinition<any, any, any, any, any, any>
+) {
+  return Object.values(
+    (table as any).edgeConfigs as Record<string, EdgeConfigFromEntDefinition>
+  );
 }
 
 export function defineEnt<
@@ -489,7 +544,7 @@ interface EntDefinition<
 
   edges<EdgesName extends string>(
     edge: EdgesName,
-    options?: { ref?: string }
+    options?: { ref?: string; table?: string }
   ): EntDefinition<
     Document,
     FieldPaths,
@@ -507,7 +562,7 @@ interface EntDefinition<
   >;
   edges<EdgesName extends string, TableName extends string>(
     edge: EdgesName,
-    options: { to: TableName; ref?: string }
+    options: { to: TableName; ref?: string; table?: string }
   ): EntDefinition<
     Document,
     FieldPaths,
@@ -529,7 +584,7 @@ interface EntDefinition<
     InverseEdgesNames extends string
   >(
     edge: EdgesName,
-    options: { to: TableName; inverse: InverseEdgesNames }
+    options: { to: TableName; inverse: InverseEdgesNames; table?: string }
   ): EntDefinition<
     Document,
     FieldPaths,
@@ -571,6 +626,7 @@ type EdgesOptions = {
   to?: string;
   inverse?: string;
   ref?: string;
+  table?: string;
 };
 
 class EntDefinitionImpl {
@@ -694,20 +750,25 @@ class EntDefinitionImpl {
   }
 
   edges(name: string, options?: EdgesOptions): this {
-    this.edgeConfigs[name] = {
-      name: name,
-      to: options?.to ?? name,
-      cardinality: "multiple",
-      type: null, // gets filled in by defineEntSchema
-      ref: options?.ref,
-    };
-    if (typeof options?.inverse === "string") {
-      this.edgeConfigs[options?.inverse] = {
-        name: options?.inverse,
-        to: options?.to ?? name,
-        cardinality: "multiple",
-        type: null, // gets filled in by defineEntSchema
-        inverse: true,
+    const cardinality = "multiple";
+    const to = options?.to ?? name;
+    const ref = options?.ref;
+    const table = options?.table;
+    const inverseName = options?.inverse;
+    this.edgeConfigs[name] =
+      ref !== undefined
+        ? { name, to, cardinality, type: "field", ref }
+        : table !== undefined || inverseName !== undefined
+        ? { name, to, cardinality, type: "ref", table }
+        : { name, to, cardinality, type: null };
+    if (inverseName !== undefined) {
+      this.edgeConfigs[inverseName] = {
+        name: inverseName,
+        to,
+        cardinality,
+        type: "ref",
+        inverse: name,
+        table,
       };
     }
     return this;
@@ -766,14 +827,13 @@ type EdgeConfigFromEntDefinition = {
   | ({
       cardinality: "multiple";
     } & (
-      | { type: null; inverse?: true; ref?: string }
+      | { type: null; inverse?: true }
       | { type: "field"; ref: string }
       | {
           type: "ref";
-          table: string;
-          field: string;
-          ref: string;
-          inverse?: true;
+          table?: string;
+          field?: string;
+          inverse?: string;
         }
     ))
 );

@@ -37,10 +37,24 @@ setup(async (ctx) => {
     { value: "chicka blah", ownerId: user1._id },
     { value: "bada boom", ownerId: user2._id },
   ]);
-  await ctx.table("attachments").insertMany([
-    { originId: postId1, copyId: postId2, shareId: postId1 },
-    { originId: postId2, copyId: postId1, shareId: postId1 },
-  ]);
+  const [attachmentId1, attachmentId2] = await ctx
+    .table("attachments")
+    .insertMany([
+      {
+        originId: postId1,
+        copyId: postId2,
+        shareId: postId1,
+        in: [postId1, postId2],
+      },
+      { originId: postId2, copyId: postId1, shareId: postId1 },
+    ]);
+  await ctx
+    .table("attachments")
+    .getX(attachmentId1)
+    .patch({
+      siblings: { add: [attachmentId2] },
+      replacing: { add: [attachmentId2] },
+    });
 });
 
 test("index field", async (ctx) => {
@@ -123,6 +137,66 @@ test("1:many edge from ref end, custom ref", async (ctx) => {
     .firstX()
     .edge("allAttachments");
   expect(attachments).toHaveLength(2);
+});
+
+test("many:many edge", async (ctx) => {
+  const messageTags = await ctx.table("messages").firstX().edge("tags");
+  expect(messageTags).toHaveLength(1);
+  expect(messageTags[0].name).toEqual("Orange");
+
+  const tagsMessages = await ctx.table("tags").firstX().edge("messages");
+  expect(tagsMessages).toHaveLength(1);
+});
+
+test("many:many self-directed edge", async (ctx) => {
+  const firstsFollowers = await ctx.table("users").firstX().edge("followers");
+  expect(firstsFollowers).toHaveLength(0);
+  const firstsFollowees = await ctx.table("users").firstX().edge("followees");
+  expect(firstsFollowees).toHaveLength(1);
+  expect(firstsFollowees[0]!.name).toEqual("Musk");
+
+  const firstsFirstFolloweeFollowers = await firstsFollowees[0]!.edge(
+    "followers"
+  );
+  expect(firstsFirstFolloweeFollowers).toHaveLength(1);
+  expect(firstsFirstFolloweeFollowers[0]!.name).toEqual("Stark");
+});
+
+test("many:many symmetric edge", async (ctx) => {
+  const friends = await ctx.table("users").firstX().edge("friends");
+  assertEqual(friends.length, 1);
+  assertEqual(friends[0].name, "Musk");
+  assertEqual((await friends[0].edge("friends"))[0].name, "Stark");
+});
+
+test("many:many edge, custom table name", async (ctx) => {
+  const attachmentInPosts = await ctx.table("attachments").firstX().edge("in");
+  expect(attachmentInPosts).toHaveLength(2);
+});
+
+test("many:many self-directed edge, custom table name", async (ctx) => {
+  const firstAttachment = await ctx.table("attachments").firstX();
+  const attachmentSiblings = await firstAttachment.edge("replacing");
+  expect(attachmentSiblings).toHaveLength(1);
+  const siblingsSibligns = await attachmentSiblings[0].edge("replaced");
+  expect(siblingsSibligns).toHaveLength(1);
+  expect(siblingsSibligns[0]._id).toEqual(firstAttachment._id);
+});
+
+test("many:many symmetric edge, custom table name", async (ctx) => {
+  const firstAttachment = await ctx.table("attachments").firstX();
+  const attachmentSiblings = await firstAttachment.edge("siblings");
+  expect(attachmentSiblings).toHaveLength(1);
+  const siblingsSibligns = await attachmentSiblings[0].edge("siblings");
+  expect(siblingsSibligns).toHaveLength(1);
+  expect(siblingsSibligns[0]._id).toEqual(firstAttachment._id);
+});
+
+test("many:many edge first", async (ctx) => {
+  const firstsFirstFollowee = (
+    await ctx.table("users").firstX().edge("followees")
+  )[0]!; // I removed .firstX() from materialized lists for now
+  assertEqual(firstsFirstFollowee.name, "Musk");
 });
 
 test("has method", async (ctx) => {
@@ -299,26 +373,6 @@ test("normalizeId", async (ctx) => {
   const id = (await ctx.table("users").firstX())._id;
   const idToo = ctx.table("users").normalizeId(id);
   assertEqual(id, idToo);
-});
-
-test("symmetric many:many edge", async (ctx) => {
-  const friends = await ctx.table("users").firstX().edge("friends");
-  assertEqual(friends.length, 1);
-  assertEqual(friends[0].name, "Musk");
-  assertEqual((await friends[0].edge("friends"))[0].name, "Stark");
-});
-
-test("many to many edge first", async (ctx) => {
-  const firstsFirstFollowee = (
-    await ctx.table("users").firstX().edge("followees")
-  )[0]!;
-  assertEqual(firstsFirstFollowee.name, "Musk");
-});
-
-test("many to many edge", async (ctx) => {
-  const firstMessageTags = await ctx.table("messages").firstX().edge("tags");
-  assertEqual(firstMessageTags.length, 1);
-  assertEqual(firstMessageTags[0].name, "Orange");
 });
 
 test("paginate", async (ctx) => {
