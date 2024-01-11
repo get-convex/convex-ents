@@ -54,23 +54,23 @@ test("default fields", async (ctx) => {
   assertEqual(firstPost.type, "text");
 });
 
-test("1:1 edge from field side", async (ctx) => {
+test("1:1 edge from field end", async (ctx) => {
   const firstProfileUser = await ctx.table("profiles").firstX().edge("user");
   expect(firstProfileUser.name).toEqual("Stark");
 });
 
 // No difference in type, since the edge is required
-test("1:1 edgeX from field side", async (ctx) => {
+test("1:1 edgeX from field end", async (ctx) => {
   const firstProfileUser = await ctx.table("profiles").firstX().edgeX("user");
   expect(firstProfileUser.name).toEqual("Stark");
 });
 
-test("1:1 edge from ref side, existing", async (ctx) => {
+test("1:1 edge from ref end, existing", async (ctx) => {
   const firstUserProfile = await ctx.table("users").firstX().edge("profile");
   expect(firstUserProfile).not.toBeNull();
 });
 
-test("1:1 edge from ref side, missing", async (ctx) => {
+test("1:1 edge from ref end, missing", async (ctx) => {
   const firstUserProfile = await ctx
     .table("users")
     .getX("email", "elon@musk.com")
@@ -78,23 +78,23 @@ test("1:1 edge from ref side, missing", async (ctx) => {
   expect(firstUserProfile).toBeNull();
 });
 
-test("1:1 edgeX from ref side, existing", async (ctx) => {
+test("1:1 edgeX from ref end, existing", async (ctx) => {
   const firstUserProfile = await ctx.table("users").firstX().edgeX("profile");
   assertEqual(firstUserProfile.bio, "Hello world");
 });
 
-test("1:1 edgeX from ref side, missing", async (ctx) => {
+test("1:1 edgeX from ref end, missing", async (ctx) => {
   expect(async () => {
     await ctx.table("users").getX("email", "elon@musk.com").edgeX("profile");
   }).rejects.toThrowError('Edge "profile" does not exist for document with ID');
 });
 
-test("1:1 edge from ref side, existing, custom field name", async (ctx) => {
+test("1:1 edge from ref end, existing, custom field name", async (ctx) => {
   const firstUserSecret = await ctx.table("users").firstX().edge("secret");
   expect(firstUserSecret).not.toBeNull();
 });
 
-test("1:1 edge from ref side, existing, custom name", async (ctx) => {
+test("1:1 edge from ref end, existing, custom name", async (ctx) => {
   const [, secondAttachment] = await ctx.table("attachments").take(2);
   const firstAttachmentsPost = await ctx
     .table("attachments")
@@ -104,6 +104,25 @@ test("1:1 edge from ref side, existing, custom name", async (ctx) => {
     "secondaryAttachment"
   );
   expect(secondAttachment._id).toEqual(secondaryAttachment?._id);
+});
+
+test("1:many edge from ref end", async (ctx) => {
+  const firstUserMessages = await ctx.table("users").firstX().edge("messages");
+  expect(firstUserMessages).toHaveLength(1);
+});
+
+test("1:many edge from field end", async (ctx) => {
+  const firstMessageUser = await ctx.table("messages").firstX().edge("user");
+  assertEqual(firstMessageUser.name, "Stark");
+});
+
+test("1:many edge from ref end, custom ref", async (ctx) => {
+  const attachments = await ctx
+    .table("posts")
+    .filter((q) => q.eq(q.field("text"), "My great video"))
+    .firstX()
+    .edge("allAttachments");
+  expect(attachments).toHaveLength(2);
 });
 
 test("has method", async (ctx) => {
@@ -320,11 +339,6 @@ test("edge after edge", async (ctx) => {
     .edge("messages");
   assertEqual(lastMessageAuthorsMessages.length, 1);
   assertEqual(lastMessageAuthorsMessages[0].text, "Hello world");
-});
-
-test("1:many edge from field end", async (ctx) => {
-  const lastMessageAuthor = await ctx.table("messages").firstX().edge("user");
-  assertEqual(lastMessageAuthor.name, "Stark");
 });
 
 test("edge after getX using index", async (ctx) => {
