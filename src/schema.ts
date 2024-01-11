@@ -33,6 +33,7 @@ export function defineEntSchema<
     const table = schema[tableName];
     for (const edge of edgeConfigsFromEntDefinition(table)) {
       if (
+        // Skip inverse edges, we process their forward edges
         (edge.cardinality === "multiple" &&
           edge.type === "ref" &&
           edge.inverse !== undefined) ||
@@ -140,14 +141,22 @@ export function defineEntSchema<
               : `${inverseEdge.name}_to_${edge.name}`;
 
           const forwardId =
-            inverseEdge === undefined
+            edge.type === "ref" && edge.field !== undefined
+              ? edge.field
+              : inverseEdge === undefined
               ? "aId"
               : tableName === otherTableName
               ? inverseEdge.name + "Id"
               : tableName + "Id";
           const inverseId =
-            inverseEdge === undefined
+            isSelfDirected &&
+            edge.type === "ref" &&
+            edge.inverseField !== undefined
+              ? edge.inverseField
+              : inverseEdge === undefined
               ? "bId"
+              : inverseEdge.type === "ref" && inverseEdge.field !== undefined
+              ? inverseEdge.field
               : tableName === otherTableName
               ? edge.name + "Id"
               : otherTableName + "Id";
@@ -542,9 +551,22 @@ interface EntDefinition<
     }
   >;
 
+  /**
+   * Define many:1 or many:many edge to another table.
+   * @param edge The name of the edge, also the name of the target table.
+   * @param options.ref The name of the field that stores the many:1 edge
+   *   on the other table.
+   * @param options.table Optional, name of the table to store the many:many edge in.
+   * @param options.field Optional, name of the field to store the ID of the
+   *   this end of the many:many edge.
+   */
   edges<EdgesName extends string>(
     edge: EdgesName,
-    options?: { ref?: string; table?: string }
+    options?: {
+      ref?: string;
+      table?: string;
+      field?: string;
+    }
   ): EntDefinition<
     Document,
     FieldPaths,
@@ -560,9 +582,28 @@ interface EntDefinition<
       };
     }
   >;
+  /**
+   * Define many:1 or many:many edge to another table.
+   * @param edge The name of the edge.
+   * @param options.to Name of the table the edge points to.
+   *   If it's the same as the table this edge is defined on, this edge is
+   *   a symmetric, self-directed many:many edge.
+   * @param options.table Optional, name of the table to store the many:many edge in.
+   * @param options.field Optional, name of the field to store the ID of the
+   *   of the source end of the forward many:many edge.
+   * @param options.inverseField Optional, name of the field to store the ID
+   *   of the target end of the forward edge. Only allowed for symmetric,
+   *   self-directed many:many edges.
+   */
   edges<EdgesName extends string, TableName extends string>(
     edge: EdgesName,
-    options: { to: TableName; ref?: string; table?: string }
+    options: {
+      to: TableName;
+      ref?: string;
+      table?: string;
+      field?: string;
+      inverseField?: string;
+    }
   ): EntDefinition<
     Document,
     FieldPaths,
@@ -578,13 +619,31 @@ interface EntDefinition<
       };
     }
   >;
+  /**
+   * Define self-directed, assymetric, many:many edge.
+   * @param edge The name of the edge.
+   * @param options.to Name of the table the edge points to.
+   *   Must be the same as the table this edge is defined on.
+   * @param options.inverse Name of the inverse edge.
+   * @param options.table Optional, name of the table to store the many:many edge in.
+   * @param options.field Optional, name of the field to store the ID of the
+   *   of the source end of the forward many:many edge.
+   * @param options.inverseField Optional, name of the field to store the ID
+   *   of the target end of the forward many:many edge.
+   */
   edges<
     EdgesName extends string,
     TableName extends string,
     InverseEdgesNames extends string
   >(
     edge: EdgesName,
-    options: { to: TableName; inverse: InverseEdgesNames; table?: string }
+    options: {
+      to: TableName;
+      inverse: InverseEdgesNames;
+      table?: string;
+      field?: string;
+      inverseField?: string;
+    }
   ): EntDefinition<
     Document,
     FieldPaths,
@@ -627,6 +686,8 @@ type EdgesOptions = {
   inverse?: string;
   ref?: string;
   table?: string;
+  field?: string;
+  inverseField?: string;
 };
 
 class EntDefinitionImpl {
@@ -754,12 +815,35 @@ class EntDefinitionImpl {
     const to = options?.to ?? name;
     const ref = options?.ref;
     const table = options?.table;
+    // TODO: Do this later when we have the table name,
+    // or rework schema to use a builder pattern.
+    if (ref !== undefined && table !== undefined) {
+      throw new Error(
+        `Cannot specify both \`ref\` and \`table\` for the same edge, ` +
+          `as the former is for 1:many edges and the latter ` +
+          `for many:many edges. Config: \`${JSON.stringify(options)}\``
+      );
+    }
+    const field = options?.field;
+    const inverseField = options?.inverseField;
+    // TODO: Do this later when we have the table name,
+    // or rework schema to use a builder pattern.
+    if (
+      (field !== undefined || inverseField !== undefined) &&
+      table === undefined
+    ) {
+      throw new Error(
+        `Specify \`table\` if you're customizing the \`field\` or ` +
+          `\`inverseField\` for a many:many edge. ` +
+          `Config: \`${JSON.stringify(options)}\``
+      );
+    }
     const inverseName = options?.inverse;
     this.edgeConfigs[name] =
       ref !== undefined
         ? { name, to, cardinality, type: "field", ref }
         : table !== undefined || inverseName !== undefined
-        ? { name, to, cardinality, type: "ref", table }
+        ? { name, to, cardinality, type: "ref", table, field, inverseField }
         : { name, to, cardinality, type: null };
     if (inverseName !== undefined) {
       this.edgeConfigs[inverseName] = {
@@ -827,12 +911,13 @@ type EdgeConfigFromEntDefinition = {
   | ({
       cardinality: "multiple";
     } & (
-      | { type: null; inverse?: true }
+      | { type: null }
       | { type: "field"; ref: string }
       | {
           type: "ref";
           table?: string;
           field?: string;
+          inverseField?: string;
           inverse?: string;
         }
     ))

@@ -57,11 +57,29 @@ const schema = defineEntSchema(
       .edge("copy", { to: "posts", field: "copyId" })
       .edge("share", { to: "posts", field: "shareId" })
       .edges("in", { to: "posts", table: "posts_to_anyattachments" })
+      .edges("in2", {
+        to: "posts",
+        table: "posts_to_anyattachments2",
+        field: "attachId",
+      })
       .edges("siblings", { to: "attachments", table: "attachment_to_siblings" })
       .edges("replaced", {
         to: "attachments",
         inverse: "replacing",
         table: "attachment_to_replaced",
+      })
+      .edges("siblings2", {
+        to: "attachments",
+        table: "attachment_to_siblings2",
+        field: "sibling1Id",
+        inverseField: "sibling2Id",
+      })
+      .edges("replaced2", {
+        to: "attachments",
+        inverse: "replacing2",
+        table: "attachment_to_replaced2",
+        field: "r1Id",
+        inverseField: "r2Id",
       }),
 
     secrets: defineEnt({
