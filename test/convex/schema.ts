@@ -45,17 +45,19 @@ const schema = defineEntSchema(
         ref: "copyId",
         to: "attachments",
         optional: true,
-      }),
+      })
+      .edges("allAttachments", { to: "attachments", ref: "shareId" }),
 
     attachments: defineEnt({})
       .edge("origin", { to: "posts", field: "originId" })
-      .edge("copy", { to: "posts", field: "copyId" }),
+      .edge("copy", { to: "posts", field: "copyId" })
+      .edge("share", { to: "posts", field: "shareId" }),
 
     secrets: defineEnt({
       value: v.string(),
     }).edge("user", { field: "ownerId" }),
   },
-  { schemaValidation: false }
+  { schemaValidation: true }
 );
 
 export default schema;

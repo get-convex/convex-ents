@@ -38,7 +38,10 @@ export function defineEntSchema<
       const otherTableName = edge.to;
       const otherTable = schema[otherTableName];
       if (otherTable === undefined) {
-        continue;
+        throw new Error(
+          `Edge "${edge.name}" in table "${tableName}" ` +
+            `points to an undefined table "${otherTableName}"`
+        );
       }
 
       const isSelfDirected = edge.to === tableName;
@@ -58,16 +61,15 @@ export function defineEntSchema<
             edge.type === "ref" &&
             edge.ref !== null) ||
           (edge.cardinality === "multiple" &&
-            edge.type === "field" &&
-            edge.ref !== null)
+            edge.type !== "ref" &&
+            edge.ref !== undefined)
         ) {
           if (
-            candidate.cardinality !== "single" ||
-            candidate.type !== "field"
+            candidate.cardinality === "single" &&
+            candidate.type === "field"
           ) {
-            return false;
+            return edge.ref === candidate.field;
           }
-          return edge.ref === candidate.field;
         }
         // field is known, only consider edges with matching ref
         if (
@@ -76,14 +78,16 @@ export function defineEntSchema<
           edge.field !== null
         ) {
           if (
-            (candidate.cardinality === "single" && candidate.type !== "ref") ||
-            (candidate.cardinality === "multiple" && candidate.type !== "field")
+            (candidate.cardinality === "single" &&
+              candidate.type === "ref" &&
+              candidate.ref !== null) ||
+            (candidate.cardinality === "multiple" &&
+              candidate.type !== "ref" &&
+              candidate.ref !== undefined)
           ) {
-            return false;
+            return edge.field === candidate.ref;
           }
-          return edge.field === candidate.ref;
         }
-
         return (
           candidate.name !== edge.name &&
           (!isSelfDirected || (candidate.type === null && candidate.inverse))
@@ -484,7 +488,8 @@ interface EntDefinition<
   >;
 
   edges<EdgesName extends string>(
-    edge: EdgesName
+    edge: EdgesName,
+    options?: { ref?: string }
   ): EntDefinition<
     Document,
     FieldPaths,
@@ -502,7 +507,7 @@ interface EntDefinition<
   >;
   edges<EdgesName extends string, TableName extends string>(
     edge: EdgesName,
-    options: { to: TableName }
+    options: { to: TableName; ref?: string }
   ): EntDefinition<
     Document,
     FieldPaths,
@@ -547,7 +552,6 @@ interface EntDefinition<
       };
     }
   >;
-  edges(table: string, options: EdgesOptions): this;
 }
 
 type FieldOptions = {
@@ -566,6 +570,7 @@ type EdgeOptions = {
 type EdgesOptions = {
   to?: string;
   inverse?: string;
+  ref?: string;
 };
 
 class EntDefinitionImpl {
@@ -694,6 +699,7 @@ class EntDefinitionImpl {
       to: options?.to ?? name,
       cardinality: "multiple",
       type: null, // gets filled in by defineEntSchema
+      ref: options?.ref,
     };
     if (typeof options?.inverse === "string") {
       this.edgeConfigs[options?.inverse] = {
@@ -760,7 +766,7 @@ type EdgeConfigFromEntDefinition = {
   | ({
       cardinality: "multiple";
     } & (
-      | { type: null; inverse?: true }
+      | { type: null; inverse?: true; ref?: string }
       | { type: "field"; ref: string }
       | {
           type: "ref";

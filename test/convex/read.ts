@@ -38,8 +38,8 @@ setup(async (ctx) => {
     { value: "bada boom", ownerId: user2._id },
   ]);
   await ctx.table("attachments").insertMany([
-    { originId: postId1, copyId: postId2 },
-    { originId: postId2, copyId: postId1 },
+    { originId: postId1, copyId: postId2, shareId: postId1 },
+    { originId: postId2, copyId: postId1, shareId: postId1 },
   ]);
 });
 

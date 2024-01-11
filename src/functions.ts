@@ -1110,13 +1110,14 @@ export class PromiseEntOrNullImpl<
             ).filter(<TValue>(doc: TValue | null, i: number): doc is TValue => {
               if (doc === null) {
                 throw new Error(
-                  `Dangling reference "${
-                    edgeDocs[i][edgeDefinition.field] as string
-                  }" found in edge document with ID "${
-                    edgeDocs[i]._id as string
-                  }", expected to find a document with the first ID in table ${
-                    edgeDefinition.to
-                  }.`
+                  `Dangling reference for edge "${edgeDefinition.name}" in ` +
+                    `table "${this.table}" for document with ID "${id}": ` +
+                    `Could not find a document with ID "${
+                      edgeDocs[i][edgeDefinition.field] as string
+                    }"` +
+                    ` in table "${edgeDefinition.to}" (edge document ID is "${
+                      edgeDocs[i]._id as string
+                    }").`
                 );
               }
               return true;
@@ -1176,13 +1177,10 @@ export class PromiseEntOrNullImpl<
             const otherDoc = await this.ctx.db.get(otherId);
             if (otherDoc === null) {
               throw new Error(
-                `Dangling reference "${
-                  doc[edgeDefinition.field] as string
-                }" found in document with ID "${
-                  doc._id as string
-                }", expected to find a document with the first ID in table ${
-                  edgeDefinition.to
-                }.`
+                `Dangling reference for edge "${edgeDefinition.name}" in ` +
+                  `table "${this.table}" for document with ID "${id}": ` +
+                  `Could not find a document with ID "${otherId}"` +
+                  ` in table "${edgeDefinition.to}".`
               );
             }
             return otherDoc;
