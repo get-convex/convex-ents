@@ -368,8 +368,9 @@ edge to be asymmetrical, it has to specify the `inverse` name. In this example,
 if this edge is between user A and user B, B is a "followee" of A (is being
 followed by A), and A is a "follower" of B.
 
-We can also specify the `table`, `field` and `inverseField` options to control
-how the edge is stored and to allow multiple self-directed edges.
+The table storing the edges is named after the edges, and so are its fields. You
+can also specify the `table`, `field` and `inverseField` options to control how
+the edge is stored and to allow multiple self-directed edges.
 
 #### Symmetrical self-directed many:many edges
 
