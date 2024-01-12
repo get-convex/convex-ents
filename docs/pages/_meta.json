@@ -4,6 +4,10 @@
   "schema": "Ent Schema",
   "read": "Reading Ents",
   "write": "Writing Ents",
+  "---": {
+    "type": "separator"
+  },
+  "status": "Project Status",
   "docs": {
     "title": "Convex Docs",
     "type": "page",
