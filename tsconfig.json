@@ -9,8 +9,7 @@
     "esModuleInterop": true,
     "module": "ESNext",
     "moduleResolution": "Node",
-    "isolatedModules": true,
-    "incremental": true
+    "isolatedModules": true
   },
   "include": ["**/*.ts"],
   "exclude": ["node_modules"]

@@ -288,7 +288,7 @@ export type GenericEdgeConfig = {
   type: "field" | "ref";
 };
 
-interface EntDefinition<
+export interface EntDefinition<
   Document extends GenericDocument = GenericDocument,
   FieldPaths extends string = string,
   // eslint-disable-next-line @typescript-eslint/ban-types

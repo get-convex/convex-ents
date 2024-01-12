@@ -5,7 +5,7 @@ module.exports = {
     "eslint:recommended",
     "plugin:@typescript-eslint/recommended-type-checked",
   ],
-  ignorePatterns: [".eslintrc.cjs", "test", "docs"],
+  ignorePatterns: [".eslintrc.cjs", "test", "docs", "dist"],
   parser: "@typescript-eslint/parser",
   parserOptions: {
     project: true,

@@ -45,7 +45,7 @@ import {
 //   >;
 // };
 
-interface PromiseOrderedQueryOrNull<
+export interface PromiseOrderedQueryOrNull<
   EntsDataModel extends GenericEntsDataModel,
   Table extends TableNamesInDataModel<EntsDataModel>
 > extends Promise<
@@ -79,7 +79,7 @@ interface PromiseOrderedQueryOrNull<
   docs(): Promise<DocumentByName<EntsDataModel, Table>[] | null>;
 }
 
-interface PromiseQueryOrNull<
+export interface PromiseQueryOrNull<
   EntsDataModel extends GenericEntsDataModel,
   Table extends TableNamesInDataModel<EntsDataModel>
 > extends PromiseOrderedQueryOrNull<EntsDataModel, Table> {
@@ -91,7 +91,7 @@ interface PromiseQueryOrNull<
   ): PromiseOrderedQueryOrNull<EntsDataModel, Table>;
 }
 
-interface PromiseTableBase<
+export interface PromiseTableBase<
   EntsDataModel extends GenericEntsDataModel,
   Table extends TableNamesInDataModel<EntsDataModel>
 > {
@@ -144,7 +144,7 @@ interface PromiseTableBase<
   normalizeId(id: string): GenericId<Table> | null;
 }
 
-interface PromiseTable<
+export interface PromiseTable<
   EntsDataModel extends GenericEntsDataModel,
   Table extends TableNamesInDataModel<EntsDataModel>
 > extends PromiseQuery<EntsDataModel, Table>,
@@ -200,7 +200,7 @@ interface PromiseTable<
   ): PromiseOrderedQuery<EntsDataModel, Table>;
 }
 
-interface PromiseOrderedQueryBase<
+export interface PromiseOrderedQueryBase<
   EntsDataModel extends GenericEntsDataModel,
   Table extends TableNamesInDataModel<EntsDataModel>
 > {
@@ -220,7 +220,7 @@ interface PromiseOrderedQueryBase<
   unique(): PromiseEntOrNull<EntsDataModel, Table>;
 }
 
-interface PromiseOrderedQuery<
+export interface PromiseOrderedQuery<
   EntsDataModel extends GenericEntsDataModel,
   Table extends TableNamesInDataModel<EntsDataModel>
 > extends Promise<
@@ -244,7 +244,7 @@ interface PromiseOrderedQuery<
   docs(): Promise<DocumentByName<EntsDataModel, Table>[]>;
 }
 
-interface PromiseQuery<
+export interface PromiseQuery<
   EntsDataModel extends GenericEntsDataModel,
   Table extends TableNamesInDataModel<EntsDataModel>
 > extends PromiseOrderedQuery<EntsDataModel, Table> {
@@ -521,7 +521,7 @@ class PromiseQueryOrNullImpl<
   }
 }
 
-export class PromiseTableImpl<
+class PromiseTableImpl<
   EntsDataModel extends GenericEntsDataModel,
   Table extends TableNamesInDataModel<EntsDataModel>
 > extends PromiseQueryOrNullImpl<EntsDataModel, Table> {
@@ -701,7 +701,7 @@ export class PromiseTableImpl<
 // This lazy promise materializes objects, so chaining to this type of
 // lazy promise performs one operation for each
 // retrieved document in JavaScript, basically as if using `Promise.all()`.
-interface PromiseEntsOrNull<
+export interface PromiseEntsOrNull<
   EntsDataModel extends GenericEntsDataModel,
   Table extends TableNamesInDataModel<EntsDataModel>
 > extends Promise<
@@ -724,7 +724,7 @@ interface PromiseEntsOrNull<
 // lazy promise performs one operation for each
 // retrieved document in JavaScript, basically as if using
 // `Promise.all()`.
-interface PromiseEnts<
+export interface PromiseEnts<
   EntsDataModel extends GenericEntsDataModel,
   Table extends TableNamesInDataModel<EntsDataModel>
 > extends Promise<
@@ -891,7 +891,7 @@ class PromiseEntsOrNullImpl<
 // lazy promise performs one operation for each
 // retrieved document in JavaScript, basically as if using
 // `Promise.all()`.
-interface PromiseEntsOrNulls<
+export interface PromiseEntsOrNulls<
   EntsDataModel extends GenericEntsDataModel,
   Table extends TableNamesInDataModel<EntsDataModel>
 > extends Promise<
@@ -981,7 +981,7 @@ export interface PromiseEnt<
   doc(): Promise<DocumentByName<EntsDataModel, Table>>;
 }
 
-export class PromiseEntOrNullImpl<
+class PromiseEntOrNullImpl<
     EntsDataModel extends GenericEntsDataModel,
     Table extends TableNamesInDataModel<EntsDataModel>
   >
