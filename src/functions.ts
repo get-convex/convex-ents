@@ -25,7 +25,7 @@ import {
   WithoutSystemFields,
 } from "convex/server";
 import { GenericId } from "convex/values";
-import { EdgeConfig, Expand, GenericEntsDataModel } from "./schema";
+import { EdgeConfig, GenericEntsDataModel } from "./schema";
 import {
   EdgeChanges,
   WithEdgePatches,
@@ -493,7 +493,7 @@ class PromiseQueryOrNullImpl<
       return await query.take(n);
     }
     let numItems = n;
-    let docs = [];
+    const docs = [];
     let hasMore = true;
     const iterator = query[Symbol.asyncIterator]();
     while (hasMore && docs.length < n) {
@@ -1021,7 +1021,9 @@ export class PromiseEntOrNullImpl<
       );
       if (this.throwIfNull && !decision) {
         throw new Error(
-          `Document cannot be read with id \`${doc._id}\` in table "${this.table}"`
+          `Document cannot be read with id \`${doc._id as string}\` in table "${
+            this.table
+          }"`
         );
       }
       return decision ? doc : null;
@@ -2042,15 +2044,15 @@ const nullRetriever = {
   doc: async () => null,
 };
 
-function idRetriever<
-  DataModel extends GenericDataModel,
-  Table extends TableNamesInDataModel<DataModel>
->(ctx: GenericQueryCtx<DataModel>, id: GenericId<Table>) {
-  return {
-    id,
-    doc: async () => ctx.db.get(id),
-  };
-}
+// function idRetriever<
+//   DataModel extends GenericDataModel,
+//   Table extends TableNamesInDataModel<DataModel>
+// >(ctx: GenericQueryCtx<DataModel>, id: GenericId<Table>) {
+//   return {
+//     id,
+//     doc: async () => ctx.db.get(id),
+//   };
+// }
 
 function loadedRetriever<
   DataModel extends GenericDataModel,
@@ -2117,7 +2119,9 @@ async function filterByReadRule(
         );
         if (throwIfNull && !decision) {
           throw new Error(
-            `Document cannot be read with id \`${doc._id}\` in table "${table}"`
+            `Document cannot be read with id \`${
+              doc._id as string
+            }\` in table "${table}"`
           );
         }
         return decision;

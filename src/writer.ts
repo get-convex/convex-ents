@@ -1,19 +1,17 @@
 import {
   DocumentByName,
-  GenericDataModel,
   GenericDocument,
   GenericMutationCtx,
   TableNamesInDataModel,
-  WithoutSystemFields,
 } from "convex/server";
 import { GenericId } from "convex/values";
+import { getReadRule, getWriteRule } from "./functions";
 import {
   EdgeConfig,
   FieldConfig,
   GenericEdgeConfig,
   GenericEntsDataModel,
 } from "./schema";
-import { getReadRule, getWriteRule } from "./functions";
 
 export class WriterImplBase<
   EntsDataModel extends GenericEntsDataModel,

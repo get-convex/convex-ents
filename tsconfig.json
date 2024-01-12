@@ -1,6 +1,7 @@
 {
   "compilerOptions": {
     "target": "ESNext",
+    "noEmit": true,
     "lib": ["ES2021", "ESNext.Array"],
     "allowJs": true,
     "skipLibCheck": true,
