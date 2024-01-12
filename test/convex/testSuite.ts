@@ -1,5 +1,5 @@
 import { FunctionReference } from "convex/server";
-import { ActionCtx, action } from "./_generated/server";
+import { ActionCtx } from "./_generated/server";
 import { mutation, query } from "./functions";
 import { Id } from "./_generated/dataModel";
 import { QueryCtx } from "./types";
@@ -23,7 +23,7 @@ export function testSuite() {
 
   const clear = mutation(async (ctx, { except }) => {
     for (const table of TABLES) {
-      let exceptIdSet = new Set(
+      const exceptIdSet = new Set(
         ((except ?? {}) as Record<string, Id<any>[]>)[table] || []
       );
       await ctx.omni(table).map(async (doc) => {
@@ -37,7 +37,7 @@ export function testSuite() {
   async function snapshotSetup(ctx: QueryCtx) {
     const snapshot: Record<string, Id<any>[]> = {};
     for (const table of TABLES) {
-      snapshot[table] = await ctx.omni(table).map((doc) => doc._id);
+      snapshot[table] = await ctx.omni(table).map((doc: any) => doc._id);
     }
     return snapshot;
   }

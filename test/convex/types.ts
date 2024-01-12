@@ -1,6 +1,6 @@
 import { CustomCtx } from "convex-helpers/server/customFunctions";
 import { GenericEnt, GenericEntWriter } from "../../src";
-import { DataModel, TableNames } from "./_generated/dataModel";
+import { TableNames } from "./_generated/dataModel";
 import { mutation, query } from "./functions";
 import { entDefinitions } from "./schema";
 

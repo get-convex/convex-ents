@@ -8,6 +8,7 @@ function assertEqual(actual: any, expected: any) {
   expect(actual).toEqual(expected);
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const { test, testOnly, setup, runner, query, mutation } = testSuite();
 
 setup(async (ctx) => {
@@ -98,7 +99,7 @@ test("1:1 edgeX from ref end, existing", async (ctx) => {
 });
 
 test("1:1 edgeX from ref end, missing", async (ctx) => {
-  expect(async () => {
+  await expect(async () => {
     await ctx.table("users").getX("email", "elon@musk.com").edgeX("profile");
   }).rejects.toThrowError('Edge "profile" does not exist for document with ID');
 });

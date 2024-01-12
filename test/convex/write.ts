@@ -181,13 +181,13 @@ test("write rule on insert", async (ctx) => {
     .insert({ name: "Jobs", email: "steve@jobs.com" });
   // rules.ts: This works because the viewer is writing
   await ctx.table("secrets").insert({ value: "123", ownerId: viewer._id });
-  expect(async () => {
+  await expect(async () => {
     // rules.ts: We only allow the viewer to create secrets
     await ctx.table("secrets").insert({
       value: "123",
       ownerId: otherUserId,
     });
-  }).rejects.toThrowError(`Cannot insert into table \"secrets\":`);
+  }).rejects.toThrowError(`Cannot insert into table "secrets":`);
 });
 
 test("write rule on delete", async (ctx) => {
@@ -196,10 +196,10 @@ test("write rule on delete", async (ctx) => {
     .table("secrets")
     .insert({ value: "123", ownerId: viewer._id })
     .get();
-  expect(async () => {
+  await expect(async () => {
     // rules.ts: We don't allow anyone to delete a secret
     await secret.delete();
-  }).rejects.toThrowError(`Cannot delete from table \"secrets\" with ID`);
+  }).rejects.toThrowError(`Cannot delete from table "secrets" with ID`);
 });
 
 test("read rule on patch", async (ctx) => {
@@ -210,7 +210,7 @@ test("read rule on patch", async (ctx) => {
     .omni("secrets")
     .insert({ value: "123", ownerId: otherUserId });
 
-  expect(async () => {
+  await expect(async () => {
     // rules.ts: Only owners can see and update their secrets
     await ctx.table("secrets").getX(secretId).patch({ value: "456" });
   }).rejects.toThrowError(`Cannot update document with ID`);
@@ -224,7 +224,7 @@ test("write rule on patch", async (ctx) => {
     .omni("secrets")
     .insert({ value: "123", ownerId: ctx.viewer!._id });
 
-  expect(async () => {
+  await expect(async () => {
     // rules.ts: The user edge is immutable
     await ctx.table("secrets").getX(secretId).patch({ ownerId: otherUserId });
   }).rejects.toThrowError(`Cannot update document with ID`);
@@ -241,7 +241,7 @@ test("read rule on replace", async (ctx) => {
     .omni("secrets")
     .insert({ value: "123", ownerId: otherUserId });
 
-  expect(async () => {
+  await expect(async () => {
     // rules.ts: Only owners can see and update their secrets
     await ctx
       .table("secrets")
@@ -258,7 +258,7 @@ test("write rule on replace", async (ctx) => {
     .omni("secrets")
     .insert({ value: "123", ownerId: ctx.viewer!._id });
 
-  expect(async () => {
+  await expect(async () => {
     // rules.ts: The user edge is immutable
     await ctx
       .table("secrets")
