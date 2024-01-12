@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "test": "cd test && npm run test",
-    "lint": "tsc && eslint ."
+    "lint": "tsc && eslint . && cd test && npm run lint"
   },
   "peerDependencies": {
     "convex": "^1.9.0-alpha.0"
