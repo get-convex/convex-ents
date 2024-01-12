@@ -20,7 +20,7 @@ import {
 } from "convex/values";
 
 export function defineEntSchema<
-  Schema extends Record<string, EntDefinition<any, any, any, any, any, any>>,
+  Schema extends Record<string, EntDefinition>,
   StrictTableNameTypes extends boolean = true
 >(
   schema: Schema,
@@ -262,9 +262,7 @@ function canBeInverseEdge(
   };
 }
 
-function edgeConfigsFromEntDefinition(
-  table: EntDefinition<any, any, any, any, any, any>
-) {
+function edgeConfigsFromEntDefinition(table: EntDefinition) {
   return Object.values(
     (table as any).edgeConfigs as Record<string, EdgeConfigFromEntDefinition>
   );
@@ -478,9 +476,9 @@ interface EntDefinition<
     edge: EdgeName,
     options: { field: FieldName }
   ): EntDefinition<
-    Document & { [key in FieldName]: GenericId<`${EdgeName}s`> },
-    FieldPaths | FieldName,
-    Indexes & { [key in FieldName]: [FieldName] },
+    Document & { [key in NoInfer<FieldName>]: GenericId<`${EdgeName}s`> },
+    FieldPaths | NoInfer<FieldName>,
+    Indexes & { [key in NoInfer<FieldName>]: [NoInfer<FieldName>] },
     SearchIndexes,
     VectorIndexes,
     Edges & {
@@ -500,9 +498,9 @@ interface EntDefinition<
     edge: EdgeName,
     options: { field: FieldName; to: ToTable }
   ): EntDefinition<
-    Document & { [key in FieldName]: GenericId<ToTable> },
-    FieldPaths | FieldName,
-    Indexes & { [key in FieldName]: [FieldName] },
+    Document & { [key in NoInfer<FieldName>]: GenericId<ToTable> },
+    FieldPaths | NoInfer<FieldName>,
+    Indexes & { [key in NoInfer<FieldName>]: [NoInfer<FieldName>] },
     SearchIndexes,
     VectorIndexes,
     Edges & {
@@ -544,7 +542,7 @@ interface EntDefinition<
     Edges & {
       [key in EdgeName]: {
         name: EdgeName;
-        to: ToTable;
+        to: NoInfer<ToTable>;
         type: "ref";
         cardinality: "single";
       };
@@ -613,7 +611,7 @@ interface EntDefinition<
     Edges & {
       [key in EdgesName]: {
         name: EdgesName;
-        to: TableName;
+        to: NoInfer<TableName>;
         type: "ref";
         cardinality: "multiple";
       };
@@ -653,20 +651,22 @@ interface EntDefinition<
     Edges & {
       [key in EdgesName]: {
         name: EdgesName;
-        to: TableName;
+        to: NoInfer<TableName>;
         type: "ref";
         cardinality: "multiple";
       };
     } & {
-      [key in InverseEdgesNames]: {
-        name: InverseEdgesNames;
-        to: TableName;
+      [key in NoInfer<InverseEdgesNames>]: {
+        name: NoInfer<InverseEdgesNames>;
+        to: NoInfer<TableName>;
         type: "ref";
         cardinality: "multiple";
       };
     }
   >;
 }
+
+type NoInfer<T> = [T][T extends any ? 0 : never];
 
 type FieldOptions = {
   index?: true;
