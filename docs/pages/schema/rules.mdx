@@ -295,7 +295,7 @@ export const mutation = customMutation(
     const { viewer, entDefinitions } = await ctxProperties(ctx);
     return {
       table: entsTableWriterFactory(ctx, entDefinitions),
-      omni: entsTableFactory(ctx, entDefinitionsWithoutRules),
+      omni: entsTableWriterFactory(ctx, entDefinitionsWithoutRules),
       viewer,
       db: undefined,
     };
@@ -308,7 +308,7 @@ export const internalMutation = customMutation(
     const { viewer, entDefinitions } = await ctxProperties(ctx);
     return {
       table: entsTableWriterFactory(ctx, entDefinitions),
-      omni: entsTableFactory(ctx, entDefinitionsWithoutRules),
+      omni: entsTableWriterFactory(ctx, entDefinitionsWithoutRules),
       viewer,
       db: undefined,
     };

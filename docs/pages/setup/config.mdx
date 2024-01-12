@@ -148,9 +148,81 @@ export const entInternalMutation = customMutation(
 With this code you can now import `entQuery`, `entInternalQuery`, `entMutation`
 and `entInternalMutation` from `./functions` in the `convex` folder.
 
-To make sure the invariants Convex Ents maintain are not violated, we recommend
-accessing a given Convex table in only one variant of your functions (either
-with the built-in `ctx.db` or with Ents-specific `ctx.table`).
+To make sure the invariants Convex Ents maintain are not violated, you should
+not acccess a table with any Ents specific definitions (unique fields, edges)
+via the built-in `ctx.db`. You can set up custom functions with `ctx.db`
+restricted to a set of tables:
+
+```ts filename="convex/legacyFunctions.ts"
+import {
+  customCtx,
+  customMutation,
+  customQuery,
+} from "convex-helpers/server/customFunctions";
+import {
+  query as baseQuery,
+  mutation as baseMutation,
+  internalQuery as baseInternalQuery,
+  internalMutation as baseInternalMutation,
+} from "./_generated/server";
+import { GenericDatabaseReader, GenericDatabaseWriter } from "convex/server";
+import { DataModel } from "./_generated/dataModel";
+
+export const query = customQuery(
+  baseQuery,
+  customCtx(async (ctx) => {
+    return {
+      db: ctx.db as unknown as GenericDatabaseReader<
+        Pick<DataModel, "oldTable", "anotherOldTable">
+      >,
+    };
+  })
+);
+
+export const internalQuery = customQuery(
+  baseInternalQuery,
+  customCtx(async (ctx) => {
+    return {
+      db: ctx.db as unknown as GenericDatabaseReader<
+        Pick<DataModel, "oldTable", "anotherOldTable">
+      >,
+    };
+  })
+);
+
+export const mutation = customMutation(
+  baseMutation,
+  customCtx(async (ctx) => {
+    return {
+      db: ctx.db as GenericDatabaseWriter<
+        Pick<DataModel, "oldTable", "anotherOldTable">
+      >,
+    };
+  })
+);
+
+export const internalMutation = customMutation(
+  baseInternalMutation,
+  customCtx(async (ctx) => {
+    const { viewer, entDefinitions } = await ctxProperties(ctx);
+    return {
+      db: ctx.db as GenericDatabaseWriter<
+        Pick<DataModel, "oldTable", "anotherOldTable">
+      >,
+    };
+  })
+);
+```
+
+With the file shown in place you can import `query` and `mutation` from
+`./legacyFunctions` inside the `convex` folder, and TypeScript will only allow
+the provided `ctx.db` object to read and write into the listed tables (in the
+example `"oldTable"` and `"anotherOldTable"`). But remember that this purely a
+TypeScript enforcement, not a runtime one.
+
+Feel free to name the `ctx.table` using functions `query`/`mutation` and the
+ones using `ctx.db` `legacyQuery`/`legacyMutation`: the adoption path is up to
+you.
 
 ## Exposing built-in `db`
 
