@@ -492,38 +492,32 @@ class PromiseQueryOrNullImpl<
     if (readPolicy === undefined) {
       return await query.take(n);
     }
-    // TODO: Use pagination after the db API gets fixed
-    const docs = await query.collect();
-    return await filterByReadRule(
-      this.ctx,
-      this.entDefinitions,
-      this.table,
-      docs,
-      false,
-      n
-    );
-    // TODO: Use pagination after the db API gets fixed
-    // let numItems = n;
-    // let docs = [];
-    // let cursor = null;
-    // while (docs.length < n) {
-    //   const result = await query.paginate({ numItems, cursor });
-    //   docs.push(
-    //     ...(await filterByReadRule(
-    //       this.ctx,
-    //       this.entDefinitions,
-    //       this.table,
-    //       result.page,
-    //       false
-    //     ))!
-    //   );
-    //   if (result.isDone) {
-    //     break;
-    //   }
-    //   numItems = Math.min(64, numItems * 2);
-    //   cursor = result.continueCursor;
-    // }
-    // return docs;
+    let numItems = n;
+    let docs = [];
+    let hasMore = true;
+    const iterator = query[Symbol.asyncIterator]();
+    while (hasMore && docs.length < n) {
+      const page = [];
+      for (let i = 0; i < numItems; i++) {
+        const { done, value } = await iterator.next();
+        if (done) {
+          hasMore = false;
+          break;
+        }
+        page.push(value);
+      }
+      docs.push(
+        ...(await filterByReadRule(
+          this.ctx,
+          this.entDefinitions,
+          this.table,
+          page,
+          false
+        ))!.slice(0, n - docs.length)
+      );
+      numItems = Math.min(64, numItems * 2);
+    }
+    return docs;
   }
 }
 
@@ -2109,34 +2103,13 @@ async function filterByReadRule(
   entDefinitions: GenericEntsDataModel,
   table: string,
   docs: GenericDocument[] | null,
-  throwIfNull: boolean,
-  n: number | null = null
+  throwIfNull: boolean
 ) {
   if (docs === null) {
     return null;
   }
   const readPolicy = getReadRule(entDefinitions, table);
   if (readPolicy !== undefined) {
-    if (n !== null) {
-      const filtered = [];
-      for (const doc of docs) {
-        const decision = await readPolicy(
-          entWrapper(doc, ctx, entDefinitions, table)
-        );
-        if (throwIfNull && !decision) {
-          throw new Error(
-            `Document cannot be read with id \`${doc._id}\` in table "${table}"`
-          );
-        }
-        if (decision) {
-          filtered.push(doc);
-          if (filtered.length >= n) {
-            break;
-          }
-        }
-      }
-      return filtered;
-    }
     const decisions = await Promise.all(
       docs.map(async (doc) => {
         const decision = await readPolicy(

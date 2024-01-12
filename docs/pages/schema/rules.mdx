@@ -1,4 +1,5 @@
 import { Steps } from "nextra/components";
+import { Aside } from "../../components/Aside";
 
 # Rules
 
@@ -189,6 +190,14 @@ implemented. These methods need to paginate through the underlying table (or
 index range), on top of the scanning that is performed by the built-in `db` API.
 You should be mindful of how many ents your read rules might filter out for a
 given query.
+
+<Aside title="How exactly do `first`, `unique` and `take` paginate?">
+  The methods first try to load the requested number of ents (`1`, `2` or `n`
+  respectively). If the ents loaded first get filtered out, the method loads 2
+  times more documents, performs the filtering, and if again there aren't enough
+  ents, it doubles the number again, and so on, for a maximum of 64 ents being
+  evaluated at a time.
+</Aside>
 
 ## Write rules
 
