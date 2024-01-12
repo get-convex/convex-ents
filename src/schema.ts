@@ -114,14 +114,14 @@ export function defineEntSchema<
         if (inverseEdge?.cardinality === "single") {
           if (inverseEdge.type === "ref") {
             throw new Error(
-              `The edge "${inverseEdge.name}" in table "${otherTable}" ` +
+              `The edge "${inverseEdge.name}" in table "${otherTableName}" ` +
                 `cannot be optional, as it must store the 1:many edge as a field. ` +
                 `Check the its inverse edge "${edge.name}" in table "${tableName}".`
             );
           }
           if (edge.type === "ref") {
             throw new Error(
-              `The edge "${inverseEdge.name}" in table "${otherTable}" ` +
+              `The edge "${inverseEdge.name}" in table "${otherTableName}" ` +
                 `cannot be singular, as the "${edge.name}" in table "${tableName}" defined ` +
                 `the \`table\` option, so it must be a many:many edge.`
             );
