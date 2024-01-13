@@ -213,20 +213,17 @@ return addEntRules(entDefinitions, {
     read: async (secret) => {
       return ctx.viewer?._id === secret.userId;
     },
-    write: async (write) => {
-      if (write.operation === "delete") {
+    write: async ({ operation, ent: secret, value }) => {
+      if (operation === "delete") {
         // Example: No one is allowed to delete secrets
         return false;
       }
-      if (write.operation === "create") {
+      if (operation === "create") {
         // Example: Only the viewer can create secrets
-        return ctx.viewer?._id === write.values.ownerId;
+        return ctx.viewer?._id === value.ownerId;
       }
       // Example: secret's user edge is immutable
-      return (
-        write.values.ownerId === undefined ||
-        write.values.ownerId === write.ent.ownerId
-      );
+      return value.ownerId === undefined || value.ownerId === secret.ownerId;
     },
   },
 });

@@ -1709,7 +1709,7 @@ class PromiseEntWriterImpl<
       async () => {
         const { id: docId } = await this.retrieve();
         const id = docId!;
-        await this.base.checkReadAndWriteRule("updated", id, value);
+        await this.base.checkReadAndWriteRule("update", id, value);
         await this.base.checkUniqueness(value, id);
         const fields = this.base.fieldsOnly(value);
         await this.ctx.db.patch(id, fields);
@@ -2072,16 +2072,18 @@ type RuleConfig = {
     args:
       | {
           operation: "create";
-          values: WithoutSystemFields<GenericDocument>;
+          ent: undefined;
+          value: WithoutSystemFields<GenericDocument>;
         }
       | {
           operation: "update";
           ent: Ent<any, GenericDocument, any>;
-          values: Partial<WithoutSystemFields<GenericDocument>>;
+          value: Partial<WithoutSystemFields<GenericDocument>>;
         }
       | {
           operation: "delete";
           ent: Ent<any, GenericDocument, any>;
+          value: undefined;
         }
   ) => Promise<boolean>;
 };
@@ -2098,7 +2100,8 @@ export function addEntRules<EntsDataModel extends GenericEntsDataModel>(
             args:
               | {
                   operation: "create";
-                  values: WithoutSystemFields<
+                  ent: undefined;
+                  value: WithoutSystemFields<
                     DocumentByName<EntsDataModel, Table>
                   >;
                 }
@@ -2109,7 +2112,7 @@ export function addEntRules<EntsDataModel extends GenericEntsDataModel>(
                     DocumentByName<EntsDataModel, Table>,
                     EntsDataModel
                   >;
-                  values: Partial<
+                  value: Partial<
                     WithoutSystemFields<DocumentByName<EntsDataModel, Table>>
                   >;
                 }
@@ -2120,6 +2123,7 @@ export function addEntRules<EntsDataModel extends GenericEntsDataModel>(
                     DocumentByName<EntsDataModel, Table>,
                     EntsDataModel
                   >;
+                  value: undefined;
                 }
           ) => Promise<boolean>;
         }

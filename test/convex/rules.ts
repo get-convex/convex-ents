@@ -24,17 +24,14 @@ function getEntDefinitionsWithRules(
       read: async (secret) => {
         return ctx.viewer?._id === secret.ownerId;
       },
-      write: async (write) => {
-        if (write.operation === "delete") {
+      write: async ({ operation, ent: secret, value }) => {
+        if (operation === "delete") {
           return false;
         }
-        if (write.operation === "create") {
-          return ctx.viewer?._id === write.values.ownerId;
+        if (operation === "create") {
+          return ctx.viewer?._id === value.ownerId;
         }
-        return (
-          write.values.ownerId === undefined ||
-          write.values.ownerId === write.ent.ownerId
-        );
+        return value.ownerId === undefined || value.ownerId === secret.ownerId;
       },
     },
   });

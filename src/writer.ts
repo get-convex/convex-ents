@@ -275,7 +275,7 @@ export class WriterImplBase<
     const decision = await writePolicy({
       operation,
       ent: ent as any,
-      values: value as any,
+      value: value as any,
     });
     if (!decision) {
       if (id === undefined) {
