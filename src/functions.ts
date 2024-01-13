@@ -107,7 +107,6 @@ export interface PromiseTableBase<
     >
   ): PromiseEntOrNull<EntsDataModel, Table>;
   get(id: GenericId<Table>): PromiseEntOrNull<EntsDataModel, Table>;
-
   getMany<
     Indexes extends EntsDataModel[Table]["indexes"],
     Index extends keyof Indexes
@@ -119,7 +118,6 @@ export interface PromiseTableBase<
     >[]
   ): PromiseEntsOrNulls<EntsDataModel, Table>;
   getMany(ids: GenericId<Table>[]): PromiseEntsOrNulls<EntsDataModel, Table>;
-
   getManyX<
     Indexes extends EntsDataModel[Table]["indexes"],
     Index extends keyof Indexes
@@ -131,7 +129,6 @@ export interface PromiseTableBase<
     >[]
   ): PromiseEnts<EntsDataModel, Table>;
   getManyX(ids: GenericId<Table>[]): PromiseEnts<EntsDataModel, Table>;
-
   /**
    * Returns the string ID format for the ID in a given table, or null if the ID
    * is from a different table or is not a valid ID.
@@ -167,7 +164,6 @@ export interface PromiseTable<
    * Fetch a document from the DB for a given ID, throw if it doesn't exist.
    */
   getX(id: GenericId<Table>): PromiseEnt<EntsDataModel, Table>;
-
   /**
    * Query by running a full text search against a search index.
    *
@@ -218,6 +214,8 @@ export interface PromiseOrderedQueryBase<
   first(): PromiseEntOrNull<EntsDataModel, Table>;
 
   unique(): PromiseEntOrNull<EntsDataModel, Table>;
+
+  docs(): Promise<DocumentByName<EntsDataModel, Table>[]>;
 }
 
 export interface PromiseOrderedQuery<
@@ -240,8 +238,6 @@ export interface PromiseOrderedQuery<
   firstX(): PromiseEnt<EntsDataModel, Table>;
 
   uniqueX(): PromiseEnt<EntsDataModel, Table>;
-
-  docs(): Promise<DocumentByName<EntsDataModel, Table>[]>;
 }
 
 export interface PromiseQuery<
@@ -1482,7 +1478,6 @@ export interface PromiseTableWriter<
    * Fetch a document from the DB for a given ID, throw if it doesn't exist.
    */
   getX(id: GenericId<Table>): PromiseEntWriter<EntsDataModel, Table>;
-
   /**
    * Query by running a full text search against a search index.
    *
@@ -1513,7 +1508,6 @@ export interface PromiseTableWriter<
       >
     ) => SearchFilter
   ): PromiseOrderedQueryWriter<EntsDataModel, Table>;
-
   /**
    * Insert a new document into a table.
    *
@@ -1530,7 +1524,6 @@ export interface PromiseTableWriter<
       >
     >
   ): PromiseEntId<EntsDataModel, Table>;
-
   /**
    * Insert new documents into a table.
    *
@@ -1631,6 +1624,8 @@ export interface PromiseEntWriter<
   edgeX<Edge extends keyof EntsDataModel[Table]["edges"]>(
     edge: Edge
   ): PromiseEdgeOrThrow<EntsDataModel, Table, Edge>;
+
+  doc(): Promise<DocumentByName<EntsDataModel, Table>>;
 
   /**
    * Patch this existing document, shallow merging it with the given partial
