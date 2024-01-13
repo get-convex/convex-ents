@@ -24,15 +24,16 @@ function getEntDefinitionsWithRules(
       read: async (secret) => {
         return ctx.viewer?._id === secret.ownerId;
       },
-      write: async (secret, changes) => {
-        if (changes === undefined) {
+      write: async (write) => {
+        if (write.operation === "delete") {
           return false;
         }
-        if (secret === undefined) {
-          return ctx.viewer?._id === changes.ownerId;
+        if (write.operation === "create") {
+          return ctx.viewer?._id === write.values.ownerId;
         }
         return (
-          changes.ownerId === undefined || changes.ownerId === secret.ownerId
+          write.values.ownerId === undefined ||
+          write.values.ownerId === write.ent.ownerId
         );
       },
     },

@@ -213,28 +213,31 @@ return addEntRules(entDefinitions, {
     read: async (secret) => {
       return ctx.viewer?._id === secret.userId;
     },
-    write: async (secret, changes) => {
-      // No changes, so this is a deletion:
-      if (changes === undefined) {
+    write: async (write) => {
+      if (write.operation === "delete") {
         // Example: No one is allowed to delete secrets
         return false;
       }
-      // No existing ent, so this is a creation:
-      if (secret === undefined) {
+      if (write.operation === "create") {
         // Example: Only the viewer can create secrets
-        return ctx.viewer?._id === changes.userId;
+        return ctx.viewer?._id === write.values.ownerId;
       }
-      // There's an existing ent and changes, this is an update:
       // Example: secret's user edge is immutable
-      return changes.userId === undefined || changes.userId === secret.userId;
+      return (
+        write.values.ownerId === undefined ||
+        write.values.ownerId === write.ent.ownerId
+      );
     },
   },
 });
 ```
 
 The `read` rule is always checked for updates first. The `write` rule is given
-the existing ent, if applicable, and the changes provided to `.replace()` or
-`.patch()`.
+an object with
+
+- `operation`, one of `"create"`, `"update"` or `"delete"`
+- `ent` the existing ent if this is an update or delete
+- `values`, the values provided to `.replace()` or `.patch()`.
 
 The methods `insert`, `insertMany`, `patch`, `replace`, `delete` throw an
 `Error` if the `write` rule returns `false`.

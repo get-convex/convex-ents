@@ -5,7 +5,7 @@ import {
   TableNamesInDataModel,
 } from "convex/server";
 import { GenericId } from "convex/values";
-import { getReadRule, getWriteRule } from "./functions";
+import { entWrapper, getReadRule, getWriteRule } from "./functions";
 import {
   EdgeConfig,
   FieldConfig,
@@ -238,6 +238,7 @@ export class WriterImplBase<
   }
 
   async checkReadAndWriteRule(
+    operation: "create" | "update" | "delete",
     id: GenericId<Table> | undefined,
     value: Partial<GenericDocument> | undefined
   ) {
@@ -262,8 +263,20 @@ export class WriterImplBase<
     if (writePolicy === undefined) {
       return;
     }
-    const doc = id === undefined ? undefined : (await this.ctx.db.get(id))!;
-    const decision = await writePolicy(doc, value);
+    const ent =
+      id === undefined
+        ? undefined
+        : entWrapper(
+            (await this.ctx.db.get(id))!,
+            this.ctx,
+            this.entDefinitions,
+            this.table
+          );
+    const decision = await writePolicy({
+      operation,
+      ent: ent as any,
+      values: value as any,
+    });
     if (!decision) {
       if (id === undefined) {
         throw new Error(

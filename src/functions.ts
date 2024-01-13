@@ -1188,7 +1188,7 @@ class PromiseEntOrNullImpl<
   }
 }
 
-function entWrapper<
+export function entWrapper<
   EntsDataModel extends GenericEntsDataModel,
   Table extends TableNamesInDataModel<EntsDataModel>
 >(
@@ -1577,7 +1577,7 @@ class PromiseTableWriterImpl<
       this.entDefinitions,
       this.table,
       async () => {
-        await this.base.checkReadAndWriteRule(undefined, value);
+        await this.base.checkReadAndWriteRule("create", undefined, value);
         await this.base.checkUniqueness(value);
         const fields = this.base.fieldsOnly(value as any);
         const docId = await this.ctx.db.insert(this.table, fields as any);
@@ -1709,7 +1709,7 @@ class PromiseEntWriterImpl<
       async () => {
         const { id: docId } = await this.retrieve();
         const id = docId!;
-        await this.base.checkReadAndWriteRule(id, value);
+        await this.base.checkReadAndWriteRule("updated", id, value);
         await this.base.checkUniqueness(value, id);
         const fields = this.base.fieldsOnly(value);
         await this.ctx.db.patch(id, fields);
@@ -1767,7 +1767,7 @@ class PromiseEntWriterImpl<
       async () => {
         const { id } = await this.retrieve();
         const docId = id!;
-        await this.base.checkReadAndWriteRule(docId, value);
+        await this.base.checkReadAndWriteRule("update", docId, value);
         await this.base.checkUniqueness(value, docId);
         const fields = this.base.fieldsOnly(value as any);
         await this.ctx.db.replace(docId, fields as any);
@@ -1861,7 +1861,7 @@ class PromiseEntWriterImpl<
   async delete() {
     const { id: docId } = await this.retrieve();
     const id = docId!;
-    await this.base.checkReadAndWriteRule(id, undefined);
+    await this.base.checkReadAndWriteRule("delete", id, undefined);
     let memoized: GenericDocument | undefined = undefined;
     const oldDoc = async () => {
       if (memoized !== undefined) {
@@ -2069,8 +2069,20 @@ type Rules = Record<string, RuleConfig>;
 type RuleConfig = {
   read?: (doc: GenericDocument) => Promise<boolean>;
   write?: (
-    doc: GenericDocument | undefined,
-    changes: Partial<GenericDocument> | undefined
+    args:
+      | {
+          operation: "create";
+          values: WithoutSystemFields<GenericDocument>;
+        }
+      | {
+          operation: "update";
+          ent: Ent<any, GenericDocument, any>;
+          values: Partial<WithoutSystemFields<GenericDocument>>;
+        }
+      | {
+          operation: "delete";
+          ent: Ent<any, GenericDocument, any>;
+        }
   ) => Promise<boolean>;
 };
 
@@ -2083,15 +2095,32 @@ export function addEntRules<EntsDataModel extends GenericEntsDataModel>(
             ent: Ent<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel>
           ) => Promise<boolean>;
           write?: (
-            ent:
-              | Ent<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel>
-              | undefined,
-            changes: Partial<
-              WithEdgePatches<
-                DocumentByName<EntsDataModel, Table>,
-                EntsDataModel[Table]["edges"]
-              >
-            >
+            args:
+              | {
+                  operation: "create";
+                  values: WithoutSystemFields<
+                    DocumentByName<EntsDataModel, Table>
+                  >;
+                }
+              | {
+                  operation: "update";
+                  ent: Ent<
+                    Table,
+                    DocumentByName<EntsDataModel, Table>,
+                    EntsDataModel
+                  >;
+                  values: Partial<
+                    WithoutSystemFields<DocumentByName<EntsDataModel, Table>>
+                  >;
+                }
+              | {
+                  operation: "delete";
+                  ent: Ent<
+                    Table,
+                    DocumentByName<EntsDataModel, Table>,
+                    EntsDataModel
+                  >;
+                }
           ) => Promise<boolean>;
         }
       : never;
