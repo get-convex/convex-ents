@@ -13,28 +13,30 @@ import { mutationCtxWithRules, queryCtxWithRules } from "./rules";
 
 export const query = customQuery(
   baseQuery,
-  customCtx(async (ctx) => {
-    return await queryCtxWithRules(ctx);
+  customCtx(async (baseCtx) => {
+    const { ctx } = await queryCtxWithRules(baseCtx);
+    return ctx;
   })
 );
 
 export const internalQuery = customQuery(
   baseInternalQuery,
-  customCtx(async (ctx) => {
-    return await queryCtxWithRules(ctx);
+  customCtx(async (baseCtx) => {
+    const { ctx } = await queryCtxWithRules(baseCtx);
+    return ctx;
   })
 );
 
 export const mutation = customMutation(
   baseMutation,
-  customCtx(async (ctx) => {
-    return await mutationCtxWithRules(ctx);
+  customCtx(async (baseCtx) => {
+    return await mutationCtxWithRules(baseCtx);
   })
 );
 
 export const internalMutation = customMutation(
   baseInternalMutation,
-  customCtx(async (ctx) => {
-    return await mutationCtxWithRules(ctx);
+  customCtx(async (baseCtx) => {
+    return await mutationCtxWithRules(baseCtx);
   })
 );

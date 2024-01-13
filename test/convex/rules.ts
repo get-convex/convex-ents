@@ -7,10 +7,10 @@ import { MutationCtx, QueryCtx } from "./_generated/server";
 import { entDefinitions } from "./schema";
 
 export async function mutationCtxWithRules(baseCtx: MutationCtx) {
-  const { viewer, entDefinitionsWithRules } = await queryCtxWithRules(baseCtx);
+  const { ctx, entDefinitionsWithRules } = await queryCtxWithRules(baseCtx);
   return {
     db: undefined,
-    viewer,
+    viewer: ctx.viewer,
     skipRules: { table: entsTableWriterFactory(baseCtx, entDefinitions) },
     table: entsTableWriterFactory(baseCtx, entDefinitionsWithRules),
   };
@@ -21,7 +21,7 @@ export async function queryCtxWithRules(baseCtx: QueryCtx) {
   const entDefinitionsWithRules = getEntDefinitionsWithRules(ctx);
   // Here we make sure that the rules also apply when they're evaluated
   ctx.table = entsTableFactory(baseCtx, entDefinitionsWithRules);
-  return { ...ctx, entDefinitionsWithRules };
+  return { ctx, entDefinitionsWithRules };
 }
 
 async function queryCtxWithViewer(baseCtx: QueryCtx) {
@@ -65,6 +65,6 @@ function queryCtxForLoadingViewer(baseCtx: QueryCtx) {
 }
 
 async function getViewer(ctx: ReturnType<typeof queryCtxForLoadingViewer>) {
-  // TODO: Implement me
+  // TODO: Implement me via `ctx.skipRules.table()`
   return ctx.skipRules.table("users").first();
 }
