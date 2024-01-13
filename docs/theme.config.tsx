@@ -1,5 +1,5 @@
 import React from "react";
-import { DocsThemeConfig } from "nextra-theme-docs";
+import { DocsThemeConfig, useConfig } from "nextra-theme-docs";
 import { Details, Summary } from "./components/details";
 
 const config: DocsThemeConfig = {
@@ -14,6 +14,23 @@ const config: DocsThemeConfig = {
     return {
       titleTemplate: "%s - Convex Ents",
     };
+  },
+  head: () => {
+    const { frontMatter } = useConfig();
+    return (
+      <>
+        <meta
+          property="og:title"
+          content={frontMatter.title || "Convex Ents"}
+        />
+        <meta
+          property="og:description"
+          content={
+            "Relations, default values, unique fields and more for Convex"
+          }
+        />
+      </>
+    );
   },
   docsRepositoryBase: "https://github.com/xixixao/convex-ents/tree/main/docs",
   gitTimestamp() {
