@@ -1,13 +1,8 @@
-# Convex + TypeScript + Next.js + Tailwind + shadcn/ui
+# Convex Ents
 
-This template provides a minimal setup to get Convex working with [Next.js](https://nextjs.org/).
+Convex Ents are an ergonomic layer on top of the Convex built-in ctx.db API for
+reading from and writing to the database. They simplify working with
+relationships between documents, allow specifying unique fields, default values
+and rules (row level security).
 
-Start by editing `convex/myFunctions.ts` and interact with your Next.js app.
-
-See Convex docs at https://docs.convex.dev/home
-
-## Setting up
-
-```
-npm create convex@latest -t nextjs-shadcn
-```
+Check out the docs: https://labs.convex.dev/convex-ents
