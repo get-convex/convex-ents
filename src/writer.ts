@@ -272,10 +272,13 @@ export class WriterImplBase<
             this.entDefinitions,
             this.table
           );
+    // Replace allows _id and _creationTime, but rules should not
+    // rely on them.
+    const { _id, _creationTime, ...safeValue } = value ?? {};
     const decision = await writePolicy({
       operation,
       ent: ent as any,
-      value: value as any,
+      value: value !== undefined ? (safeValue as any) : undefined,
     });
     if (!decision) {
       if (id === undefined) {
