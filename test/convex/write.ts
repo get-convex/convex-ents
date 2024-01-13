@@ -3,7 +3,8 @@ import { testSuite } from "./testSuite";
 import { action } from "./_generated/server";
 import { api } from "./_generated/api";
 
-const { test, setup, mutation, runner } = testSuite();
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const { test, testOnly, setup, mutation, runner } = testSuite();
 
 setup(async (ctx) => {
   // Setting up the viewer
@@ -206,8 +207,8 @@ test("read rule on patch", async (ctx) => {
   const otherUserId = await ctx
     .table("users")
     .insert({ name: "Jobs", email: "steve@jobs.com" });
-  const secretId = await ctx
-    .omni("secrets")
+  const secretId = await ctx.skipRules
+    .table("secrets")
     .insert({ value: "123", ownerId: otherUserId });
 
   await expect(async () => {
@@ -220,8 +221,8 @@ test("write rule on patch", async (ctx) => {
   const otherUserId = await ctx
     .table("users")
     .insert({ name: "Jobs", email: "steve@jobs.com" });
-  const secretId = await ctx
-    .omni("secrets")
+  const secretId = await ctx.skipRules
+    .table("secrets")
     .insert({ value: "123", ownerId: ctx.viewer!._id });
 
   await expect(async () => {
@@ -237,8 +238,8 @@ test("read rule on replace", async (ctx) => {
   const otherUserId = await ctx
     .table("users")
     .insert({ name: "Jobs", email: "steve@jobs.com" });
-  const secretId = await ctx
-    .omni("secrets")
+  const secretId = await ctx.skipRules
+    .table("secrets")
     .insert({ value: "123", ownerId: otherUserId });
 
   await expect(async () => {
@@ -254,8 +255,8 @@ test("write rule on replace", async (ctx) => {
   const otherUserId = await ctx
     .table("users")
     .insert({ name: "Jobs", email: "steve@jobs.com" });
-  const secretId = await ctx
-    .omni("secrets")
+  const secretId = await ctx.skipRules
+    .table("secrets")
     .insert({ value: "123", ownerId: ctx.viewer!._id });
 
   await expect(async () => {

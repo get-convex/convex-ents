@@ -4,63 +4,37 @@ import {
   customQuery,
 } from "convex-helpers/server/customFunctions";
 import {
-  query as baseQuery,
-  mutation as baseMutation,
-  internalQuery as baseInternalQuery,
   internalMutation as baseInternalMutation,
+  internalQuery as baseInternalQuery,
+  mutation as baseMutation,
+  query as baseQuery,
 } from "./_generated/server";
-import { entsTableFactory, entsTableWriterFactory } from "../../src";
-import { ctxProperties } from "./rules";
-import { entDefinitions as entDefinitionsWithoutRules } from "./schema";
+import { mutationCtxWithRules, queryCtxWithRules } from "./rules";
 
 export const query = customQuery(
   baseQuery,
   customCtx(async (ctx) => {
-    const { viewer, entDefinitions } = await ctxProperties(ctx);
-    return {
-      table: entsTableFactory(ctx, entDefinitions),
-      omni: entsTableFactory(ctx, entDefinitionsWithoutRules),
-      db: ctx.db as unknown as undefined,
-      viewer,
-    };
+    return await queryCtxWithRules(ctx);
   })
 );
 
 export const internalQuery = customQuery(
   baseInternalQuery,
   customCtx(async (ctx) => {
-    const { viewer, entDefinitions } = await ctxProperties(ctx);
-    return {
-      table: entsTableFactory(ctx, entDefinitions),
-      omni: entsTableFactory(ctx, entDefinitionsWithoutRules),
-      db: ctx.db as unknown as undefined,
-      viewer,
-    };
+    return await queryCtxWithRules(ctx);
   })
 );
 
 export const mutation = customMutation(
   baseMutation,
   customCtx(async (ctx) => {
-    const { viewer, entDefinitions } = await ctxProperties(ctx);
-    return {
-      table: entsTableWriterFactory(ctx, entDefinitions),
-      omni: entsTableWriterFactory(ctx, entDefinitionsWithoutRules),
-      db: ctx.db as unknown as undefined,
-      viewer,
-    };
+    return await mutationCtxWithRules(ctx);
   })
 );
 
 export const internalMutation = customMutation(
   baseInternalMutation,
   customCtx(async (ctx) => {
-    const { viewer, entDefinitions } = await ctxProperties(ctx);
-    return {
-      table: entsTableWriterFactory(ctx, entDefinitions),
-      omni: entsTableWriterFactory(ctx, entDefinitionsWithoutRules),
-      db: ctx.db as unknown as undefined,
-      viewer,
-    };
+    return await mutationCtxWithRules(ctx);
   })
 );

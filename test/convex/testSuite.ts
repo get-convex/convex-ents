@@ -26,7 +26,7 @@ export function testSuite() {
       const exceptIdSet = new Set(
         ((except ?? {}) as Record<string, Id<any>[]>)[table] || []
       );
-      await ctx.omni(table).map(async (doc) => {
+      await ctx.skipRules.table(table).map(async (doc) => {
         if (!exceptIdSet.has(doc._id)) {
           await doc.delete();
         }
@@ -37,7 +37,9 @@ export function testSuite() {
   async function snapshotSetup(ctx: QueryCtx) {
     const snapshot: Record<string, Id<any>[]> = {};
     for (const table of TABLES) {
-      snapshot[table] = await ctx.omni(table).map((doc: any) => doc._id);
+      snapshot[table] = await ctx.skipRules
+        .table(table)
+        .map((doc: any) => doc._id);
     }
     return snapshot;
   }

@@ -34,7 +34,7 @@ setup(async (ctx) => {
     { text: "My great video", type: "video", numLikes: 4 },
     { text: "My awesome video", type: "video", numLikes: 0 },
   ]);
-  await ctx.omni("secrets").insertMany([
+  await ctx.skipRules.table("secrets").insertMany([
     { value: "chicka blah", ownerId: user1._id },
     { value: "bada boom", ownerId: user2._id },
   ]);

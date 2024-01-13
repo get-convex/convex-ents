@@ -32,27 +32,26 @@ via custom functions, see [Configuring Functions](/setup/config).
 
 Add a `rules.ts` file with the following contents:
 
-```ts filename="convex/rules.ts" {22-30}
+```ts filename="convex/rules.ts" {21-29}
 import { addEntRules, entsTableFactory } from "convex-ents";
 import { QueryCtx } from "./_generated/server";
 import { entDefinitions } from "./schema";
 
 export async function ctxProperties<Ctx extends QueryCtx>(ctx: Ctx) {
-  const baseCtx = await ctxWithoutRules(ctx);
-  return {
-    viewer: baseCtx.viewer,
-    entDefinitions: getEntDefinitionsWithRules(baseCtx),
-  };
+  const baseCtx = await ctxWithViewer(ctx);
+  const entDefinitionsWithRules = getEntDefinitionsWithRules(baseCtx);
+  baseCtx.table = entsTableFactory(ctx, entDefinitionsWithRules);
+  return { viewer: baseCtx.viewer, entDefinitionsWithRules };
 }
 
-async function ctxWithoutRules(baseCtx: QueryCtx) {
+async function ctxWithViewer(baseCtx: QueryCtx) {
   const ctx = ctxForLoadingViewer(baseCtx);
   const viewer = await getViewer(ctx);
   return { ...ctx, viewer };
 }
 
 function getEntDefinitionsWithRules(
-  ctx: Awaited<ReturnType<typeof ctxWithoutRules>>
+  ctx: Awaited<ReturnType<typeof ctxWithViewer>>
 ) {
   return addEntRules(entDefinitions, {
     // "secrets" is one of our tables
@@ -85,9 +84,10 @@ Here we're creating 3 versions of `ctx`, from the bottom of the file:
    has a concept of a viewer, although this is totally up to your use case. This
    version has `ctx.table` available, but it does not enforce any rules we
    define here. It also doesn't have `ctx.viewer`, since we're just defining it.
-2. Second version of `ctx` is used to implement the rules. It has the same
-   version of `ctx.table` as the first version, but also has `ctx.viewer`
-   available.
+2. Second version of `ctx` is used to define the rules. In addition to the first
+   context, it has `ctx.viewer` available. This `ctx` is passed to
+   `getEntDefinitionsWithRules`, and then mutated so that its `table` also uses
+   those rules.
 3. Finally we return the `viewer` and `entDefinitions` including our rules from
    `ctxProperties`.
 
@@ -118,9 +118,9 @@ import { ctxProperties } from "./rules";
 export const query = customQuery(
   baseQuery,
   customCtx(async (ctx) => {
-    const { viewer, entDefinitions } = await ctxProperties(ctx);
+    const { viewer, entDefinitionsWithRules } = await ctxProperties(ctx);
     return {
-      table: entsTableFactory(ctx, entDefinitions),
+      table: entsTableFactory(ctx, entDefinitionsWithRules),
       viewer,
       db: undefined,
     };
@@ -130,9 +130,9 @@ export const query = customQuery(
 export const internalQuery = customQuery(
   baseInternalQuery,
   customCtx(async (ctx) => {
-    const { viewer, entDefinitions } = await ctxProperties(ctx);
+    const { viewer, entDefinitionsWithRules } = await ctxProperties(ctx);
     return {
-      table: entsTableFactory(ctx, entDefinitions),
+      table: entsTableFactory(ctx, entDefinitionsWithRules),
       viewer,
       db: undefined,
     };
@@ -142,9 +142,9 @@ export const internalQuery = customQuery(
 export const mutation = customMutation(
   baseMutation,
   customCtx(async (ctx) => {
-    const { viewer, entDefinitions } = await ctxProperties(ctx);
+    const { viewer, entDefinitionsWithRules } = await ctxProperties(ctx);
     return {
-      table: entsTableWriterFactory(ctx, entDefinitions),
+      table: entsTableWriterFactory(ctx, entDefinitionsWithRules),
       viewer,
       db: undefined,
     };
@@ -154,9 +154,9 @@ export const mutation = customMutation(
 export const internalMutation = customMutation(
   baseInternalMutation,
   customCtx(async (ctx) => {
-    const { viewer, entDefinitions } = await ctxProperties(ctx);
+    const { viewer, entDefinitionsWithRules } = await ctxProperties(ctx);
     return {
-      table: entsTableWriterFactory(ctx, entDefinitions),
+      table: entsTableWriterFactory(ctx, entDefinitionsWithRules),
       viewer,
       db: undefined,
     };
@@ -198,6 +198,43 @@ given query.
   ents, it doubles the number again, and so on, for a maximum of 64 ents being
   evaluated at a time.
 </Aside>
+
+## Common read rule patterns
+
+### Delegating to another ent
+
+```ts
+return addEntRules(entDefinitions, {
+  profiles: {
+    read: async (profile) => {
+      return (await profile.edge("user")) !== null;
+    },
+  },
+});
+```
+
+When the user connected to the profile can be read, the profile can be read.
+
+Watch out for infinite loops between read rules, and break them up
+
+### Testing for an edge
+
+```ts
+return addEntRules(entDefinitions, {
+  users: {
+    read: async (user) => {
+      return (
+        ctx.viewer !== null &&
+        (ctx.viewer._id === user._id ||
+          (await user.edge("friends").has(ctx.viewer._id)))
+      );
+    },
+  },
+});
+```
+
+A user ent can be read when it is the viewer or when there is a `"friends"` edge
+between the viewer and the user.
 
 ## Write rules
 
@@ -260,16 +297,16 @@ import {
   internalMutation as baseInternalMutation,
 } from "./_generated/server";
 import { entsTableFactory, entsTableWriterFactory } from "convex-ents";
-import { entDefinitions as entDefinitionsWithoutRules } from "./schema";
+import { entDefinitions } from "./schema";
 import { ctxProperties } from "./rules";
 
 export const query = customQuery(
   baseQuery,
   customCtx(async (ctx) => {
-    const { viewer, entDefinitions } = await ctxProperties(ctx);
+    const { viewer, entDefinitionsWithRules } = await ctxProperties(ctx);
     return {
-      table: entsTableFactory(ctx, entDefinitions),
-      omni: entsTableFactory(ctx, entDefinitionsWithoutRules),
+      table: entsTableFactory(ctx, entDefinitionsWithRules),
+      skipRules: { table: entsTableFactory(ctx, entDefinitions) },
       viewer,
       db: undefined,
     };
@@ -279,10 +316,10 @@ export const query = customQuery(
 export const internalQuery = customQuery(
   baseInternalQuery,
   customCtx(async (ctx) => {
-    const { viewer, entDefinitions } = await ctxProperties(ctx);
+    const { viewer, entDefinitionsWithRules } = await ctxProperties(ctx);
     return {
-      table: entsTableFactory(ctx, entDefinitions),
-      omni: entsTableFactory(ctx, entDefinitionsWithoutRules),
+      table: entsTableFactory(ctx, entDefinitionsWithRules),
+      skipRules: { table: entsTableFactory(ctx, entDefinitions) },
       viewer,
       db: undefined,
     };
@@ -292,10 +329,12 @@ export const internalQuery = customQuery(
 export const mutation = customMutation(
   baseMutation,
   customCtx(async (ctx) => {
-    const { viewer, entDefinitions } = await ctxProperties(ctx);
+    const { viewer, entDefinitionsWithRules } = await ctxProperties(ctx);
     return {
-      table: entsTableWriterFactory(ctx, entDefinitions),
-      omni: entsTableWriterFactory(ctx, entDefinitionsWithoutRules),
+      table: entsTableWriterFactory(ctx, entDefinitionsWithRules),
+      skipRules: {
+        table: entsTableWriterFactory(ctx, entDefinitions),
+      },
       viewer,
       db: undefined,
     };
@@ -305,10 +344,12 @@ export const mutation = customMutation(
 export const internalMutation = customMutation(
   baseInternalMutation,
   customCtx(async (ctx) => {
-    const { viewer, entDefinitions } = await ctxProperties(ctx);
+    const { viewer, entDefinitionsWithRules } = await ctxProperties(ctx);
     return {
-      table: entsTableWriterFactory(ctx, entDefinitions),
-      omni: entsTableWriterFactory(ctx, entDefinitionsWithoutRules),
+      table: entsTableWriterFactory(ctx, entDefinitionsWithRules),
+      skipRules: {
+        table: entsTableWriterFactory(ctx, entDefinitions),
+      },
       viewer,
       db: undefined,
     };
@@ -316,8 +357,8 @@ export const internalMutation = customMutation(
 );
 ```
 
-In this example we called it `omni`, short for omniscient and omnipotent: a
-version of `ctx.table` that can see everything and can do everything.
+In this example we called it `ctx.skipRules.table`, which is a version of
+`ctx.table` that can read every ent and write to every ent.
 
 It is preferable to still use Convex Ents over using the built-in `ctx.db` API
 to maintain invariants around edges and unique fields, see
