@@ -306,25 +306,21 @@ export type WithEdges<
   Document extends GenericDocument,
   Edges extends Record<string, GenericEdgeConfig>
 > = Document & {
-  [key in keyof Edges]?: Edges[key]["cardinality"] extends "single"
-    ? Edges[key]["type"] extends "ref"
-      ? never
-      : GenericId<Edges[key]["to"]>
-    : GenericId<Edges[key]["to"]>[];
+  [key in keyof Edges as Edges[key]["cardinality"] extends "single"
+    ? never
+    : key]?: GenericId<Edges[key]["to"]>[];
 };
 
 export type WithEdgePatches<
   Document extends GenericDocument,
   Edges extends Record<string, GenericEdgeConfig>
 > = Document & {
-  [key in keyof Edges]?: Edges[key]["cardinality"] extends "single"
-    ? Edges[key]["type"] extends "ref"
-      ? never
-      : GenericId<Edges[key]["to"]>
-    : {
-        add?: GenericId<Edges[key]["to"]>[];
-        remove?: GenericId<Edges[key]["to"]>[];
-      };
+  [key in keyof Edges as Edges[key]["cardinality"] extends "single"
+    ? never
+    : key]?: {
+    add?: GenericId<Edges[key]["to"]>[];
+    remove?: GenericId<Edges[key]["to"]>[];
+  };
 };
 
 export type EdgeChanges = Record<
