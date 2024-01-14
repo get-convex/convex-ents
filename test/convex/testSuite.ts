@@ -2,7 +2,7 @@ import { FunctionReference } from "convex/server";
 import { ActionCtx } from "./_generated/server";
 import { mutation, query } from "./functions";
 import { Id } from "./_generated/dataModel";
-import { QueryCtx } from "./types";
+import { MutationCtx, QueryCtx } from "./types";
 
 export function testSuite() {
   let SETUP: Parameters<typeof mutation>[0] = async () => {};
@@ -21,18 +21,19 @@ export function testSuite() {
     "secrets",
   ] as const;
 
-  const clear = mutation(async (ctx, { except }) => {
+  const clear = async (
+    ctx: MutationCtx,
+    except?: Record<string, Id<any>[]>
+  ) => {
     for (const table of TABLES) {
-      const exceptIdSet = new Set(
-        ((except ?? {}) as Record<string, Id<any>[]>)[table] || []
-      );
+      const exceptIdSet = new Set((except ?? {})[table] || []);
       await ctx.skipRules.table(table).map(async (doc) => {
         if (!exceptIdSet.has(doc._id)) {
           await doc.delete();
         }
       });
     }
-  });
+  };
 
   async function snapshotSetup(ctx: QueryCtx) {
     const snapshot: Record<string, Id<any>[]> = {};
@@ -68,11 +69,11 @@ export function testSuite() {
     }),
     mutation: mutation(async (ctx, { name }) => {
       if (name === "setup") {
-        await clear(ctx as any, {});
+        await clear(ctx);
         await (SETUP as any)(ctx);
         return;
       } else if (name === "teardown") {
-        await clear(ctx as any, {});
+        await clear(ctx);
         return;
       }
       const snapshot = await snapshotSetup(ctx as any);
@@ -80,7 +81,7 @@ export function testSuite() {
         try {
           await fn(ctx);
           if (name === "clearAfterEach") {
-            await clear(ctx as any, { except: snapshot });
+            await clear(ctx, snapshot);
           }
         } catch (error) {
           console.error(`Failed test "${testName}"`);

@@ -1261,6 +1261,12 @@ export function entsTableFactory<EntsDataModel extends GenericEntsDataModel>(
     indexName?: string,
     indexRange?: any
   ) => {
+    // Consider being strict here if people struggle with setup:
+    // if (typeof ctx.db?.query !== "function") {
+    //   throw new Error(
+    //     `Expected context with \`db\`, got \`${JSON.stringify(ctx)}\``
+    //   );
+    // }
     if (typeof table !== "string") {
       throw new Error(`Expected table name, got \`${table as any}\``);
     }
@@ -1283,6 +1289,12 @@ export function entsTableWriterFactory<
     indexName?: string,
     indexRange?: any
   ) => {
+    // Consider being strict here if people struggle with setup:
+    // if (typeof ctx.db?.query !== "function") {
+    //   throw new Error(
+    //     `Expected context with \`db\`, got \`${JSON.stringify(ctx)}\``
+    //   );
+    // }
     if (typeof table !== "string") {
       throw new Error(`Expected table name, got \`${table as any}\``);
     }
