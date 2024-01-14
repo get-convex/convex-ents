@@ -713,6 +713,14 @@ export interface PromiseEntsOrNull<
   // // the previous steps in the query. Otherwise it behaves like db.query().unique().
   // unique(): PromiseEntOrNull<EntsDataModel, Table>;
 
+  map<TOutput>(
+    callbackFn: (
+      value: Ent<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel>,
+      index: number,
+      array: Ent<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel>[]
+    ) => Promise<TOutput> | TOutput
+  ): Promise<TOutput[] | null>;
+
   docs(): Promise<DocumentByName<EntsDataModel, Table>[] | null>;
 }
 
@@ -743,15 +751,26 @@ export interface PromiseEnts<
   // // Otherwise it behaves like db.query().unique().
   // uniqueX(): PromiseEnt<EntsDataModel, Table>;
 
+  map<TOutput>(
+    callbackFn: (
+      value: Ent<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel>,
+      index: number,
+      array: Ent<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel>[]
+    ) => Promise<TOutput> | TOutput
+  ): Promise<TOutput[]>;
+
   docs(): Promise<DocumentByName<EntsDataModel, Table>[]>;
 }
 
 class PromiseEntsOrNullImpl<
-  EntsDataModel extends GenericEntsDataModel,
-  Table extends TableNamesInDataModel<EntsDataModel>
-> extends Promise<
-  Ent<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel>[] | null
-> {
+    EntsDataModel extends GenericEntsDataModel,
+    Table extends TableNamesInDataModel<EntsDataModel>
+  >
+  extends Promise<
+    Ent<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel>[] | null
+  >
+  implements PromiseEntsOrNull<EntsDataModel, Table>
+{
   constructor(
     private ctx: GenericQueryCtx<EntsDataModel>,
     private entDefinitions: EntsDataModel,
@@ -762,6 +781,20 @@ class PromiseEntsOrNullImpl<
     private throwIfNull: boolean
   ) {
     super(() => {});
+  }
+
+  async map<TOutput>(
+    callbackFn: (
+      value: Ent<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel>,
+      index: number,
+      array: Ent<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel>[]
+    ) => Promise<TOutput> | TOutput
+  ) {
+    const array = await this;
+    if (array === null) {
+      return [];
+    }
+    return await Promise.all(array.map(callbackFn));
   }
 
   first() {
