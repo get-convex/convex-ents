@@ -130,6 +130,13 @@ export function defineEntSchema<
           (edge as any).ref = inverseEdge.field;
         }
 
+        if (!isSelfDirected && inverseEdge === undefined) {
+          throw new Error(
+            `Missing inverse edge in table "${otherTableName}" ` +
+              `for edge "${edge.name}" in table "${tableName}"`
+          );
+        }
+
         if (inverseEdge?.cardinality === "multiple" || isSelfDirected) {
           const edgeTableName =
             edge.type === "ref" && edge.table !== undefined

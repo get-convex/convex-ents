@@ -50,6 +50,11 @@ const schema = defineEntSchema(
       .edges("anyAttachments", {
         to: "attachments",
         table: "posts_to_anyattachments",
+      })
+      .edges("anyAttachments2", {
+        to: "attachments",
+        table: "posts_to_anyattachments2",
+        field: "owningPostId",
       }),
 
     attachments: defineEnt({})
