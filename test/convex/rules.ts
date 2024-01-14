@@ -9,7 +9,7 @@ import { entDefinitions } from "./schema";
 export async function mutationCtxWithRules(baseCtx: MutationCtx) {
   const { ctx, entDefinitionsWithRules } = await queryCtxWithRules(baseCtx);
   return {
-    db: undefined,
+    db: baseCtx.db as unknown as undefined,
     viewer: ctx.viewer,
     skipRules: { table: entsTableWriterFactory(baseCtx, entDefinitions) },
     table: entsTableWriterFactory(baseCtx, entDefinitionsWithRules),
@@ -59,7 +59,7 @@ function getEntDefinitionsWithRules(
 function queryCtxForLoadingViewer(baseCtx: QueryCtx) {
   return {
     ...baseCtx,
-    db: undefined,
+    db: baseCtx.db as unknown as undefined,
     skipRules: { table: entsTableFactory(baseCtx, entDefinitions) },
   };
 }
