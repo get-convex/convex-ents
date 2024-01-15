@@ -19,6 +19,7 @@ export type {
   PromiseEnts,
   PromiseEntsOrNulls,
   PromiseEntOrNull,
+  PromiseEntWriterOrNull,
   PromiseEnt,
   PromiseTableWriter,
   PromiseEntWriter,

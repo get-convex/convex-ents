@@ -95,18 +95,6 @@ export interface PromiseTableBase<
   EntsDataModel extends GenericEntsDataModel,
   Table extends TableNamesInDataModel<EntsDataModel>
 > {
-  get<
-    Indexes extends EntsDataModel[Table]["indexes"],
-    Index extends keyof Indexes
-  >(
-    indexName: Index,
-    // TODO: Figure out how to make this variadic
-    value0: FieldTypeFromFieldPath<
-      DocumentByName<EntsDataModel, Table>,
-      Indexes[Index][0]
-    >
-  ): PromiseEntOrNull<EntsDataModel, Table>;
-  get(id: GenericId<Table>): PromiseEntOrNull<EntsDataModel, Table>;
   getMany<
     Indexes extends EntsDataModel[Table]["indexes"],
     Index extends keyof Indexes
@@ -146,6 +134,18 @@ export interface PromiseTable<
   Table extends TableNamesInDataModel<EntsDataModel>
 > extends PromiseQuery<EntsDataModel, Table>,
     PromiseTableBase<EntsDataModel, Table> {
+  get<
+    Indexes extends EntsDataModel[Table]["indexes"],
+    Index extends keyof Indexes
+  >(
+    indexName: Index,
+    // TODO: Figure out how to make this variadic
+    value0: FieldTypeFromFieldPath<
+      DocumentByName<EntsDataModel, Table>,
+      Indexes[Index][0]
+    >
+  ): PromiseEntOrNull<EntsDataModel, Table>;
+  get(id: GenericId<Table>): PromiseEntOrNull<EntsDataModel, Table>;
   /**
    * Fetch a document from the DB using given index, throw if it doesn't exist.
    */
@@ -1505,6 +1505,18 @@ export interface PromiseTableWriter<
   EntsDataModel extends GenericEntsDataModel
 > extends PromiseQueryWriter<EntsDataModel, Table>,
     PromiseTableBase<EntsDataModel, Table> {
+  get<
+    Indexes extends EntsDataModel[Table]["indexes"],
+    Index extends keyof Indexes
+  >(
+    indexName: Index,
+    // TODO: Figure out how to make this variadic
+    value0: FieldTypeFromFieldPath<
+      DocumentByName<EntsDataModel, Table>,
+      Indexes[Index][0]
+    >
+  ): PromiseEntWriterOrNull<EntsDataModel, Table>;
+  get(id: GenericId<Table>): PromiseEntWriterOrNull<EntsDataModel, Table>;
   /**
    * Fetch a document from the DB using given index, throw if it doesn't exist.
    */
@@ -1654,6 +1666,21 @@ class PromiseTableWriterImpl<
   ) {
     return await Promise.all(values.map((value) => this.insert(value)));
   }
+}
+
+export interface PromiseEntWriterOrNull<
+  EntsDataModel extends GenericEntsDataModel,
+  Table extends TableNamesInDataModel<EntsDataModel>
+> extends Promise<EntWriter<
+    Table,
+    DocumentByName<EntsDataModel, Table>,
+    EntsDataModel
+  > | null> {
+  edge<Edge extends keyof EntsDataModel[Table]["edges"]>(
+    edge: Edge
+  ): PromiseEdgeOrNull<EntsDataModel, Table, Edge>;
+
+  doc(): Promise<DocumentByName<EntsDataModel, Table> | null>;
 }
 
 export interface PromiseEntWriter<
