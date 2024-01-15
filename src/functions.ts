@@ -4,6 +4,8 @@ import {
   FieldTypeFromFieldPath,
   FilterBuilder,
   GenericDataModel,
+  GenericDatabaseReader,
+  GenericDatabaseWriter,
   GenericDocument,
   GenericMutationCtx,
   GenericQueryCtx,
@@ -1285,38 +1287,15 @@ export function entWrapper<
   return doc as any;
 }
 
-export function entsTableFactory<EntsDataModel extends GenericEntsDataModel>(
-  ctx: GenericQueryCtx<any>,
-  entDefinitions: EntsDataModel
-): EntsTable<EntsDataModel> {
-  return (
-    table: TableNamesInDataModel<EntsDataModel>,
-    indexName?: string,
-    indexRange?: any
-  ) => {
-    // Consider being strict here if people struggle with setup:
-    // if (typeof ctx.db?.query !== "function") {
-    //   throw new Error(
-    //     `Expected context with \`db\`, got \`${JSON.stringify(ctx)}\``
-    //   );
-    // }
-    if (typeof table !== "string") {
-      throw new Error(`Expected table name, got \`${table as any}\``);
-    }
-    const impl = new PromiseTableImpl(ctx, entDefinitions, table);
-    if (indexName !== undefined) {
-      return impl.withIndex(indexName, indexRange);
-    }
-    return impl as any;
-  };
-}
-
-export function entsTableWriterFactory<
+export function entsTableFactory<
+  Database extends GenericDatabaseReader<any>,
   EntsDataModel extends GenericEntsDataModel
 >(
-  ctx: GenericMutationCtx<any>,
+  db: Database,
   entDefinitions: EntsDataModel
-): EntsTableWriter<EntsDataModel> {
+): Database extends GenericDatabaseWriter<any>
+  ? EntsTableWriter<EntsDataModel>
+  : EntsTable<EntsDataModel> {
   return (
     table: TableNamesInDataModel<EntsDataModel>,
     indexName?: string,
@@ -1332,12 +1311,20 @@ export function entsTableWriterFactory<
       throw new Error(`Expected table name, got \`${table as any}\``);
     }
     if (indexName !== undefined) {
-      return new PromiseTableImpl(ctx, entDefinitions, table).withIndex(
-        indexName,
-        indexRange
-      );
+      return new PromiseTableImpl(
+        { db } as any,
+        entDefinitions,
+        table
+      ).withIndex(indexName, indexRange);
     }
-    return new PromiseTableWriterImpl(ctx, entDefinitions, table) as any;
+    if ((db as any).insert !== undefined) {
+      return new PromiseTableWriterImpl(
+        { db } as any,
+        entDefinitions,
+        table
+      ) as any;
+    }
+    return new PromiseTableImpl({ db } as any, entDefinitions, table);
   };
 }
 

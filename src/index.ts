@@ -1,10 +1,6 @@
 export { defineEnt, defineEntSchema, getEntDefinitions } from "./schema";
 export type { EntDefinition } from "./schema";
-export {
-  entsTableFactory,
-  entsTableWriterFactory,
-  addEntRules,
-} from "./functions";
+export { entsTableFactory, addEntRules } from "./functions";
 export type {
   GenericEnt,
   GenericEntWriter,
