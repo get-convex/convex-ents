@@ -32,47 +32,14 @@ via custom functions, see [Configuring Functions](/setup/config).
 
 Add a `rules.ts` file with the following contents:
 
-```ts filename="convex/rules.ts" {41-49}
-import {
-  addEntRules,
-  entsTableFactory,
-  entsTableWriterFactory,
-} from "../../src";
-import { MutationCtx, QueryCtx } from "./_generated/server";
+```ts filename="convex/rules.ts" {8-16}
+import { addEntRules } from "convex-ents";
 import { entDefinitions } from "./schema";
+import { Ent, QueryCtx } from "./types";
 
-export async function mutationCtxWithRules(baseCtx: MutationCtx) {
-  const { ctx, entDefinitionsWithRules } = await queryCtxWithRules(baseCtx);
-  return {
-    db: undefined,
-    viewer: ctx.viewer,
-    skipRules: { table: entsTableWriterFactory(baseCtx, entDefinitions) },
-    table: entsTableWriterFactory(baseCtx, entDefinitionsWithRules),
-  };
-}
-
-export async function queryCtxWithRules(baseCtx: QueryCtx) {
-  const ctx = await queryCtxWithViewer(baseCtx);
-  const entDefinitionsWithRules = getEntDefinitionsWithRules(ctx);
-  // Here we make sure that the rules also apply when they're evaluated
-  ctx.table = entsTableFactory(baseCtx, entDefinitionsWithRules);
-  return { ctx, entDefinitionsWithRules };
-}
-
-async function queryCtxWithViewer(baseCtx: QueryCtx) {
-  const ctx = queryCtxForLoadingViewer(baseCtx);
-  const viewer = await getViewer(ctx);
-  return {
-    ...ctx,
-    viewer,
-    // This one is here just for its type, and won't be used at runtime
-    table: entsTableFactory(baseCtx, entDefinitions),
-  };
-}
-
-function getEntDefinitionsWithRules(
-  ctx: Awaited<ReturnType<typeof queryCtxWithViewer>>
-) {
+export function getEntDefinitionsWithRules(
+  ctx: QueryCtx
+): typeof entDefinitions {
   return addEntRules(entDefinitions, {
     // "secrets" is one of our tables
     secrets: {
@@ -84,96 +51,181 @@ function getEntDefinitionsWithRules(
   });
 }
 
-function queryCtxForLoadingViewer(baseCtx: QueryCtx) {
-  return {
-    ...baseCtx,
-    db: undefined,
-    skipRules: { table: entsTableFactory(baseCtx, entDefinitions) },
-  };
-}
-
-async function getViewer(ctx: ReturnType<typeof queryCtxForLoadingViewer>) {
-  // TODO: Implement me via `ctx.skipRules.table()`
-  return null;
+// Example: Retrieve viewer ID using `ctx.auth`:
+export async function getViewerId(
+  ctx: Omit<QueryCtx, "table" | "viewerId" | "viewer" | "viewerX">
+): Promise<Id<"users"> | null> {
+  const user = await ctx.auth.getUserIdentity();
+  if (user === null) {
+    return null;
+  }
+  const viewer = await await ctx.skipRules
+    .table("users")
+    .get("tokenIdentifier", user.tokenIdentifier);
+  return viewer?._id;
 }
 ```
 
-This code defines 4 versions of `ctx`, from the bottom of the file:
+The rules are defined in the second argument to `addEntRules`, which takes
+`entDefinitions` from our schema, adds any rules you specify and returns
+augmented `entDefinitions`.
 
-1. `queryCtxForLoadingViewer` is used to retrieve the viewer. Authorization
-   commonly has a concept of a viewer, although this is totally up to your use
-   case. This version has `ctx.skipRules.table` available, which does not
-   enforce any rules. It also doesn't have `ctx.viewer`, since it's used to
-   define it.
-2. `queryCtxWithViewer` is used to define the rules. In addition to the first
-   context, it has `ctx.viewer` available. It has `ctx.table`, which is used to
-   declare its type in the signature of `getEntDefinitionsWithRules`.
-3. `queryCtxWithRules` will be used in queries, and it also exposes
-   `entDefinitionsWithRules` for define mutation `ctx`.
-   - It takes the `queryCtxWithViewer` and passes it to
-     `getEntDefinitionsWithRules` , and then mutates it so that its `ctx.table`
-     also uses those rules. This way
-     [read rules can depend on other read rules](#delegating-to-another-ent).
-4. `mutationCtxWithRules` is used in mutations. Because it uses the mutable
-   version of the built-in `ctx`, it has to redefine `ctx.skipRules.table` and
-   `ctx.table` (and optionally `db`).
-
-The call to `addEntRules`, which takes `entDefinitions` from our schema, and
-adds any rules you specify, returning augmented `entDefinitions`, is where the
-rules are actually defined.
+Authorization commonly has a concept of a viewer, although this is totally up to
+your use case. The `rules.ts` file is a good place for defining how to retrieve
+the viewer ID.
 
 ### Apply rules
 
-Back in your `functions.ts` file, use the `queryCtxWithRules` and
-`mutationCtxWithRules` you defined in `rules.ts`:
+Replace your `functions.ts` file with the following code, which uses your
+implementations from `rules.ts`:
 
-```ts filename="convex/functions.ts" {13,18,30,42,54}
+```ts filename="convex/functions.ts" {15}
 import {
   customCtx,
   customMutation,
   customQuery,
 } from "convex-helpers/server/customFunctions";
+import { entsTableFactory } from "../../src";
 import {
+  MutationCtx,
+  QueryCtx,
   internalMutation as baseInternalMutation,
   internalQuery as baseInternalQuery,
   mutation as baseMutation,
   query as baseQuery,
 } from "./_generated/server";
-import { mutationCtxWithRules, queryCtxWithRules } from "./rules";
+import { getEntDefinitionsWithRules, getViewer } from "./rules";
+import { entDefinitions } from "./schema";
 
 export const query = customQuery(
   baseQuery,
   customCtx(async (baseCtx) => {
-    const { ctx } = await queryCtxWithRules(baseCtx);
-    return ctx;
+    return await queryCtx(baseCtx);
   })
 );
 
 export const internalQuery = customQuery(
   baseInternalQuery,
   customCtx(async (baseCtx) => {
-    const { ctx } = await queryCtxWithRules(baseCtx);
-    return ctx;
+    return await queryCtx(baseCtx);
   })
 );
 
 export const mutation = customMutation(
   baseMutation,
   customCtx(async (baseCtx) => {
-    return await mutationCtxWithRules(baseCtx);
+    return await mutationCtx(baseCtx);
   })
 );
 
 export const internalMutation = customMutation(
   baseInternalMutation,
   customCtx(async (baseCtx) => {
-    return await mutationCtxWithRules(baseCtx);
+    return await mutationCtx(baseCtx);
   })
 );
+
+async function queryCtx(baseCtx: QueryCtx) {
+  const ctx = {
+    db: baseCtx.db as unknown as undefined,
+    skipRules: { table: entsTableFactory(baseCtx.db, entDefinitions) },
+  };
+  const entDefinitionsWithRules = getEntDefinitionsWithRules(ctx as any);
+  const viewerId = await getViewerId({ ...baseCtx, ...ctx });
+  (ctx as any).viewerId = viewerId;
+  const table = entsTableFactory(baseCtx.db, entDefinitionsWithRules);
+  (ctx as any).table = table;
+  // Example: add `viewer` and `viewerX` helpers to `ctx`:
+  const viewer = async () =>
+    viewerId !== null ? await table("users").get(viewerId) : null;
+  (ctx as any).viewer = viewer;
+  const viewerX = async () => {
+    const ent = await viewer();
+    if (ent === null) {
+      throw new Error("Expected authenticated viewer");
+    }
+    return ent;
+  };
+  (ctx as any).viewerX = viewerX;
+  return { ...ctx, table, viewer, viewerX, viewerId };
+}
+
+async function mutationCtx(baseCtx: MutationCtx) {
+  const ctx = {
+    db: baseCtx.db as unknown as undefined,
+    skipRules: { table: entsTableFactory(baseCtx.db, entDefinitions) },
+  };
+  const entDefinitionsWithRules = getEntDefinitionsWithRules(ctx as any);
+  const viewerId = await getViewerId({ ...baseCtx, ...ctx });
+  (ctx as any).viewerId = viewerId;
+  const table = entsTableFactory(baseCtx.db, entDefinitionsWithRules);
+  (ctx as any).table = table;
+  // Example: add `viewer` and `viewerX` helpers to `ctx`:
+  const viewer = async () =>
+    viewerId !== null ? await table("users").get(viewerId) : null;
+  (ctx as any).viewer = viewer;
+  const viewerX = async () => {
+    const ent = await viewer();
+    if (ent === null) {
+      throw new Error("Expected authenticated viewer");
+    }
+    return ent;
+  };
+  (ctx as any).viewerX = viewerX;
+  return { ...ctx, table, viewer, viewerX, viewerId };
+}
 ```
 
-We structured the setup this way to provide the most consistency of `ctx` used
-to fetch the viewer, implement rules and implement your functions.
+In this example we pulled out the logic for defining query and mutation `ctx`
+into helper functions, so we don't have to duplicate the code between public and
+internal constructors (but you can inline this code if you actually need
+different setup for each).
+
+The logic for setting up the query and mutation `ctx`s is the same, but we
+define them separately to get the right types inferred by TypeScript.
+
+<Aside title="Here's an annotated version of the code with explanation of each step:">
+
+```ts
+// The `ctx` object is mutated as we build it out.
+// It starts off with `ctx.skipRules.table`, a version `ctx.table`
+// that doesn't use the rules we defined in `rules.ts`:
+const ctx = {
+  db: undefined,
+  skipRules: { table: entsTableFactory(baseCtx.db, entDefinitions) },
+};
+// We bind our rule implementations to this `ctx` object:
+const entDefinitionsWithRules = getEntDefinitionsWithRules(ctx as any);
+// We retrieve the viewer ID, without using rules (as our rules
+// depend on having the viewer loaded), and add it to `ctx`:
+const viewerId = await getViewerId({ ...baseCtx, ...ctx });
+(ctx as any).viewerId = viewerId;
+// We get a `ctx.table` using rules and add it to `ctx`:
+const table = entsTableFactory(baseCtx.db, entDefinitionsWithRules);
+(ctx as any).table = table;
+// As an example we define helpers that allow retrieving
+// the viewer as an ent. These have to be functions, to allow
+// our rule implementations to use them as well.
+// Anything that we want our rule implementations to have
+// access to has to be added to the `ctx`.
+const viewer = async () =>
+  viewerId !== null ? await table("users").get(viewerId) : null;
+(ctx as any).viewer = viewer;
+const viewerX = async () => {
+  const ent = await viewer();
+  if (ent === null) {
+    throw new Error("Expected authenticated viewer");
+  }
+  return ent;
+};
+(ctx as any).viewerX = viewerX;
+// Finally we again list everything we want our
+// functions to have access to. We have to do this
+// for TypeScript to correctly infer the `ctx` type.
+return { ...ctx, table, viewer, viewerX, viewerId };
+```
+
+</Aside>
 
 </Steps>
 
@@ -214,6 +266,9 @@ given query.
 
 #### Delegating to another ent
 
+Example: _When the user connected to the profile can be read, the profile can be
+read_:
+
 ```ts
 return addEntRules(entDefinitions, {
   profiles: {
@@ -224,28 +279,27 @@ return addEntRules(entDefinitions, {
 });
 ```
 
-When the user connected to the profile can be read, the profile can be read.
-
-Watch out for infinite loops between read rules, and break them up
+Watch out for infinite loops between read rules, and break them up using
+`ctx.skipRules`.
 
 #### Testing for an edge
+
+Example: _A user ent can be read when it is the viewer or when there is a
+`"friends"` edge between the viewer and the user_:
 
 ```ts
 return addEntRules(entDefinitions, {
   users: {
     read: async (user) => {
       return (
-        ctx.viewer !== null &&
-        (ctx.viewer._id === user._id ||
-          (await user.edge("friends").has(ctx.viewer._id)))
+        ctx.viewerId !== null &&
+        (ctx.viewerId === user._id ||
+          (await user.edge("friends").has(ctx.viewerId)))
       );
     },
   },
 });
 ```
-
-A user ent can be read when it is the viewer or when there is a `"friends"` edge
-between the viewer and the user.
 
 ## Write rules
 
@@ -277,8 +331,10 @@ return addEntRules(entDefinitions, {
 });
 ```
 
-The `read` rule is always checked for updates first. The `write` rule is given
-an object with
+If defined, the `read` rule is always checked first before ents are updated or
+deleted.
+
+The `write` rule is given an object with
 
 - `operation`, one of `"create"`, `"update"` or `"delete"`
 - `ent`, the existing ent if this is an update or delete
@@ -297,6 +353,17 @@ who isn't the current viewer.
 For this purpose the [Setup](#setup) section above defines
 `ctx.skipRules.table`, which is a version of `ctx.table` that can read and write
 to the database without checking the rules.
+
+**Remember that methods called on ents retrieved using `ctx.skipRules.table`
+also ignore rules!** For this reason it's best to return plain documents or IDs
+when using `ctx.skipRules.table`:
+
+```ts
+// Avoid!!!
+return await ctx.skipRules.table("foos").get(someId);
+// Return an ID instead:
+return (await ctx.skipRules.table("foos").get(someId))._id;
+```
 
 It is preferable to still use Convex Ents over using the built-in `ctx.db` API
 for this purpose, to maintain invariants around edges and unique fields. See

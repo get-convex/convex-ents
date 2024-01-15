@@ -25,14 +25,14 @@ import {
   internalQuery as baseInternalQuery,
   internalMutation as baseInternalMutation,
 } from "./_generated/server";
-import { entsTableFactory, entsTableWriterFactory } from "convex-ents";
+import { entsTableFactory } from "convex-ents";
 import { entDefinitions } from "./schema";
 
 export const query = customQuery(
   baseQuery,
   customCtx(async (ctx) => {
     return {
-      table: entsTableFactory(ctx, entDefinitions),
+      table: entsTableFactory(ctx.db, entDefinitions),
       db: undefined,
     };
   })
@@ -42,7 +42,7 @@ export const internalQuery = customQuery(
   baseInternalQuery,
   customCtx(async (ctx) => {
     return {
-      table: entsTableFactory(ctx, entDefinitions),
+      table: entsTableFactory(ctx.db, entDefinitions),
       db: undefined,
     };
   })
@@ -52,7 +52,7 @@ export const mutation = customMutation(
   baseMutation,
   customCtx(async (ctx) => {
     return {
-      table: entsTableWriterFactory(ctx, entDefinitions),
+      table: entsTableFactory(ctx.db, entDefinitions),
       db: undefined,
     };
   })
@@ -62,7 +62,7 @@ export const internalMutation = customMutation(
   baseInternalMutation,
   customCtx(async (ctx) => {
     return {
-      table: entsTableWriterFactory(ctx, entDefinitions),
+      table: entsTableFactory(ctx.db, entDefinitions),
       db: undefined,
     };
   })
@@ -101,14 +101,14 @@ import {
   internalQuery,
   internalMutation,
 } from "./_generated/server";
-import { entsTableFactory, entsTableWriterFactory } from "convex-ents";
+import { entsTableFactory } from "convex-ents";
 import { entDefinitions } from "./schema";
 
 export const entQuery = customQuery(
   baseQuery,
   customCtx(async (ctx) => {
     return {
-      table: entsTableFactory(ctx, entDefinitions),
+      table: entsTableFactory(ctx.db, entDefinitions),
       db: undefined,
     };
   })
@@ -118,7 +118,7 @@ export const entInternalQuery = customQuery(
   baseInternalQuery,
   customCtx(async (ctx) => {
     return {
-      table: entsTableFactory(ctx, entDefinitions),
+      table: entsTableFactory(ctx.db, entDefinitions),
       db: undefined,
     };
   })
@@ -128,7 +128,7 @@ export const entMutation = customMutation(
   baseMutation,
   customCtx(async (ctx) => {
     return {
-      table: entsTableWriterFactory(ctx, entDefinitions),
+      table: entsTableFactory(ctx.db, entDefinitions),
       db: undefined,
     };
   })
@@ -138,7 +138,7 @@ export const entInternalMutation = customMutation(
   baseInternalMutation,
   customCtx(async (ctx) => {
     return {
-      table: entsTableWriterFactory(ctx, entDefinitions),
+      table: entsTableFactory(ctx.db, entDefinitions),
       db: undefined,
     };
   })
@@ -217,8 +217,8 @@ export const internalMutation = customMutation(
 With the file shown in place you can import `query` and `mutation` from
 `./legacyFunctions` inside the `convex` folder, and TypeScript will only allow
 the provided `ctx.db` object to read and write into the listed tables (in the
-example `"oldTable"` and `"anotherOldTable"`). But remember that this purely a
-TypeScript enforcement, not a runtime one.
+example `"oldTable"` and `"anotherOldTable"`). But remember that this is purely
+a TypeScript enforcement, not a runtime one.
 
 Feel free to name the `ctx.table` using functions `query`/`mutation` and the
 ones using `ctx.db` `legacyQuery`/`legacyMutation`: the adoption path is up to
@@ -228,7 +228,7 @@ you.
 
 The `ctx.table` API can do everything the built-in `ctx.db` API can do with one
 expection: It has to know which table you want to read or write into. So for
-example the following function is not implementable with `ctx.table`:
+example the following function is not implementable with `ctx.table` as is:
 
 ```ts filename="convex/myFunctions.ts"
 import { internalMutation } from "./_generated/server";
@@ -272,14 +272,14 @@ import {
   internalQuery as baseInternalQuery,
   internalMutation as baseInternalMutation,
 } from "./_generated/server";
-import { entsTableFactory, entsTableWriterFactory } from "convex-ents";
+import { entsTableFactory } from "convex-ents";
 import { entDefinitions } from "./schema";
 
 export const query = customQuery(
   baseQuery,
   customCtx(async (ctx) => {
     return {
-      table: entsTableFactory(ctx, entDefinitions),
+      table: entsTableFactory(ctx.db, entDefinitions),
       db: undefined,
       unsafeDB_DO_NOT_USE_OR_YOULL_BE_FIRED: db,
     };
@@ -290,7 +290,7 @@ export const internalQuery = customQuery(
   baseInternalQuery,
   customCtx(async (ctx) => {
     return {
-      table: entsTableFactory(ctx, entDefinitions),
+      table: entsTableFactory(ctx.db, entDefinitions),
       db: undefined,
       unsafeDB_DO_NOT_USE_OR_YOULL_BE_FIRED: db,
     };
@@ -301,7 +301,7 @@ export const mutation = customMutation(
   baseMutation,
   customCtx(async (ctx) => {
     return {
-      table: entsTableWriterFactory(ctx, entDefinitions),
+      table: entsTableFactory(ctx.db, entDefinitions),
       db: undefined,
       unsafeDB_DO_NOT_USE_OR_YOULL_BE_FIRED: db,
     };
@@ -312,7 +312,7 @@ export const internalMutation = customMutation(
   baseInternalMutation,
   customCtx(async (ctx) => {
     return {
-      table: entsTableWriterFactory(ctx, entDefinitions),
+      table: entsTableFactory(ctx.db, entDefinitions),
       db: undefined,
       unsafeDB_DO_NOT_USE_OR_YOULL_BE_FIRED: db,
     };

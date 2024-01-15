@@ -12,7 +12,7 @@ import {
   mutation as baseMutation,
   query as baseQuery,
 } from "./_generated/server";
-import { getEntDefinitionsWithRules, getViewer } from "./rules";
+import { getEntDefinitionsWithRules, getViewerId } from "./rules";
 import { entDefinitions } from "./schema";
 
 export const query = customQuery(
@@ -49,14 +49,22 @@ async function queryCtx(baseCtx: QueryCtx) {
     skipRules: { table: entsTableFactory(baseCtx.db, entDefinitions) },
   };
   const entDefinitionsWithRules = getEntDefinitionsWithRules(ctx as any);
-  const viewerNoRules = await getViewer({ ...baseCtx, ...ctx });
-  (ctx as any).viewer = viewerNoRules;
+  const viewerId = await getViewerId({ ...baseCtx, ...ctx });
+  (ctx as any).viewerId = viewerId;
   const table = entsTableFactory(baseCtx.db, entDefinitionsWithRules);
   (ctx as any).table = table;
-  const viewer =
-    viewerNoRules !== null ? await table("users").get(viewerNoRules._id) : null;
+  const viewer = async () =>
+    viewerId !== null ? await table("users").get(viewerId) : null;
   (ctx as any).viewer = viewer;
-  return { ...ctx, table, viewer };
+  const viewerX = async () => {
+    const ent = await viewer();
+    if (ent === null) {
+      throw new Error("Expected authenticated viewer");
+    }
+    return ent;
+  };
+  (ctx as any).viewerX = viewerX;
+  return { ...ctx, table, viewer, viewerX, viewerId };
 }
 
 async function mutationCtx(baseCtx: MutationCtx) {
@@ -65,12 +73,20 @@ async function mutationCtx(baseCtx: MutationCtx) {
     skipRules: { table: entsTableFactory(baseCtx.db, entDefinitions) },
   };
   const entDefinitionsWithRules = getEntDefinitionsWithRules(ctx as any);
-  const viewerNoRules = await getViewer({ ...baseCtx, ...ctx });
-  (ctx as any).viewer = viewerNoRules;
+  const viewerId = await getViewerId({ ...baseCtx, ...ctx });
+  (ctx as any).viewerId = viewerId;
   const table = entsTableFactory(baseCtx.db, entDefinitionsWithRules);
   (ctx as any).table = table;
-  const viewer =
-    viewerNoRules !== null ? await table("users").get(viewerNoRules._id) : null;
+  const viewer = async () =>
+    viewerId !== null ? await table("users").get(viewerId) : null;
   (ctx as any).viewer = viewer;
-  return { ...ctx, table, viewer };
+  const viewerX = async () => {
+    const ent = await viewer();
+    if (ent === null) {
+      throw new Error("Expected authenticated viewer");
+    }
+    return ent;
+  };
+  (ctx as any).viewerX = viewerX;
+  return { ...ctx, table, viewer, viewerX, viewerId };
 }

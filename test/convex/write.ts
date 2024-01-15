@@ -223,7 +223,7 @@ test("write rule on patch", async (ctx) => {
     .insert({ name: "Jobs", email: "steve@jobs.com" });
   const secretId = await ctx.skipRules
     .table("secrets")
-    .insert({ value: "123", ownerId: ctx.viewer!._id });
+    .insert({ value: "123", ownerId: ctx.viewerId! });
 
   await expect(async () => {
     // rules.ts: The user edge is immutable
@@ -257,7 +257,7 @@ test("write rule on replace", async (ctx) => {
     .insert({ name: "Jobs", email: "steve@jobs.com" });
   const secretId = await ctx.skipRules
     .table("secrets")
-    .insert({ value: "123", ownerId: ctx.viewer!._id });
+    .insert({ value: "123", ownerId: ctx.viewerId! });
 
   await expect(async () => {
     // rules.ts: The user edge is immutable
@@ -271,7 +271,7 @@ test("write rule on replace", async (ctx) => {
   await ctx
     .table("secrets")
     .getX(secretId)
-    .replace({ ownerId: ctx.viewer!._id, value: "456" });
+    .replace({ ownerId: ctx.viewerId!, value: "456" });
 });
 
 function assertEqual(actual: any, expected: any) {

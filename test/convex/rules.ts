@@ -1,6 +1,7 @@
 import { addEntRules } from "../../src";
+import { Id } from "./_generated/dataModel";
 import { entDefinitions } from "./schema";
-import { Ent, QueryCtx } from "./types";
+import { QueryCtx } from "./types";
 
 export function getEntDefinitionsWithRules(
   ctx: QueryCtx
@@ -8,14 +9,16 @@ export function getEntDefinitionsWithRules(
   return addEntRules(entDefinitions, {
     secrets: {
       read: async (secret) => {
-        return ctx.viewer?._id === secret.ownerId;
+        console.log(ctx);
+
+        return ctx.viewerId === secret.ownerId;
       },
       write: async ({ operation, ent: secret, value }) => {
         if (operation === "delete") {
           return false;
         }
         if (operation === "create") {
-          return ctx.viewer?._id === value.ownerId;
+          return ctx.viewerId === value.ownerId;
         }
         return value.ownerId === undefined || value.ownerId === secret.ownerId;
       },
@@ -23,9 +26,9 @@ export function getEntDefinitionsWithRules(
   });
 }
 
-export async function getViewer(
-  ctx: Omit<QueryCtx, "table" | "viewer">
-): Promise<Ent<"users"> | null> {
+export async function getViewerId(
+  ctx: Omit<QueryCtx, "table" | "viewerId" | "viewer" | "viewerX">
+): Promise<Id<"users"> | null> {
   // TODO: Implement me via `ctx.skipRules.table()`
-  return await ctx.skipRules.table("users").first();
+  return (await ctx.skipRules.table("users").first())?._id ?? null;
 }
