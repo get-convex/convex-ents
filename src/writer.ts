@@ -1,7 +1,7 @@
 import {
   DocumentByName,
+  GenericDatabaseWriter,
   GenericDocument,
-  GenericMutationCtx,
   TableNamesInDataModel,
 } from "convex/server";
 import { GenericId } from "convex/values";
@@ -18,7 +18,7 @@ export class WriterImplBase<
   Table extends TableNamesInDataModel<EntsDataModel>
 > {
   constructor(
-    protected ctx: GenericMutationCtx<EntsDataModel>,
+    protected db: GenericDatabaseWriter<EntsDataModel>,
     protected entDefinitions: EntsDataModel,
     protected table: Table
   ) {}
@@ -37,10 +37,10 @@ export class WriterImplBase<
             if (idOrIds.remove !== undefined) {
               // Cascading delete because 1:1 edges are not optional
               // on the stored field end.
-              await this.ctx.db.delete(idOrIds.remove as GenericId<any>);
+              await this.db.delete(idOrIds.remove as GenericId<any>);
             }
             if (idOrIds.add !== undefined) {
-              await this.ctx.db.patch(
+              await this.db.patch(
                 idOrIds.add as GenericId<any>,
                 { [edgeDefinition.ref]: docId } as any
               );
@@ -53,13 +53,13 @@ export class WriterImplBase<
               // on the stored field end.
               await Promise.all(
                 (idOrIds.remove as GenericId<any>[]).map((id) =>
-                  this.ctx.db.delete(id)
+                  this.db.delete(id)
                 )
               );
               // This would be behavior for optional edge:
               // await Promise.all(
               //   (idOrIds.remove as GenericId<any>[]).map((id) =>
-              //     this.ctx.db.patch(id, {
+              //     this.db.patch(id, {
               //       [edgeDefinition.ref]: undefined,
               //     } as any)
               //   )
@@ -68,7 +68,7 @@ export class WriterImplBase<
             if (idOrIds.add !== undefined) {
               await Promise.all(
                 (idOrIds.add as GenericId<any>[]).map(async (id) =>
-                  this.ctx.db.patch(id, {
+                  this.db.patch(id, {
                     [edgeDefinition.ref]: docId,
                   } as any)
                 )
@@ -81,7 +81,7 @@ export class WriterImplBase<
                 await Promise.all(
                   (idOrIds.remove as GenericId<any>[]).map(async (id) =>
                     (
-                      await this.ctx.db
+                      await this.db
                         .query(edgeDefinition.table)
                         .withIndex(edgeDefinition.field, (q) =>
                           (q.eq(edgeDefinition.field, docId as any) as any).eq(
@@ -92,7 +92,7 @@ export class WriterImplBase<
                         .collect()
                     ).concat(
                       edgeDefinition.symmetric
-                        ? await this.ctx.db
+                        ? await this.db
                             .query(edgeDefinition.table)
                             .withIndex(edgeDefinition.ref, (q) =>
                               (
@@ -113,7 +113,7 @@ export class WriterImplBase<
               await Promise.all(
                 removeEdges.map(async (id) => {
                   try {
-                    await this.ctx.db.delete(id);
+                    await this.db.delete(id);
                   } catch (e) {
                     // TODO:
                     // For now we're gonna ignore errors here,
@@ -131,12 +131,12 @@ export class WriterImplBase<
             if (idOrIds.add !== undefined) {
               await Promise.all(
                 (idOrIds.add as GenericId<any>[]).map(async (id) => {
-                  await this.ctx.db.insert(edgeDefinition.table, {
+                  await this.db.insert(edgeDefinition.table, {
                     [edgeDefinition.field]: docId,
                     [edgeDefinition.ref]: id,
                   } as any);
                   if (edgeDefinition.symmetric) {
-                    await this.ctx.db.insert(edgeDefinition.table, {
+                    await this.db.insert(edgeDefinition.table, {
                       [edgeDefinition.field]: id,
                       [edgeDefinition.ref]: docId,
                     } as any);
@@ -161,7 +161,7 @@ export class WriterImplBase<
         if (fieldDefinition.unique) {
           const key = fieldDefinition.name;
           const fieldValue = value[key];
-          const existing = await this.ctx.db
+          const existing = await this.db
             .query(this.table)
             .withIndex(key, (q) => q.eq(key, value[key] as any))
             .unique();
@@ -193,7 +193,7 @@ export class WriterImplBase<
             return;
           }
           // Enforce uniqueness
-          const existing = await this.ctx.db
+          const existing = await this.db
             .query(this.table)
             .withIndex(key, (q) => q.eq(key, value[key] as any))
             .unique();
@@ -245,7 +245,7 @@ export class WriterImplBase<
     if (id !== undefined) {
       const readPolicy = getReadRule(this.entDefinitions, this.table);
       if (readPolicy !== undefined) {
-        const doc = await this.ctx.db.get(id);
+        const doc = await this.db.get(id);
         if (doc === null) {
           throw new Error(
             `Cannot update document with ID "${id}" in table "${this.table} because it does not exist"`
@@ -267,8 +267,8 @@ export class WriterImplBase<
       id === undefined
         ? undefined
         : entWrapper(
-            (await this.ctx.db.get(id))!,
-            this.ctx,
+            (await this.db.get(id))!,
+            this.db,
             this.entDefinitions,
             this.table
           );
