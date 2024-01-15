@@ -927,7 +927,7 @@ export interface PromiseEntsOrNulls<
     (Ent<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel> | null)[]
   > {}
 
-interface PromiseEdgeEntsOrNull<
+export interface PromiseEdgeEntsOrNull<
   EntsDataModel extends GenericEntsDataModel,
   Table extends TableNamesInDataModel<EntsDataModel>
 > extends PromiseEntsOrNull<EntsDataModel, Table> {
@@ -939,7 +939,7 @@ interface PromiseEdgeEntsOrNull<
   has(id: GenericId<Table>): Promise<boolean | null>;
 }
 
-interface PromiseEdgeEnts<
+export interface PromiseEdgeEnts<
   EntsDataModel extends GenericEntsDataModel,
   Table extends TableNamesInDataModel<EntsDataModel>
 > extends PromiseEnts<EntsDataModel, Table> {
@@ -1426,7 +1426,7 @@ type PromiseEdgeOrNull<
       >
   : PromiseEntOrNull<EntsDataModel, EntsDataModel[Table]["edges"][Edge]["to"]>;
 
-interface PromiseOrderedQueryWriter<
+export interface PromiseOrderedQueryWriter<
   EntsDataModel extends GenericEntsDataModel,
   Table extends TableNamesInDataModel<EntsDataModel>
 > extends Promise<
@@ -1456,7 +1456,7 @@ interface PromiseOrderedQueryWriter<
   uniqueX(): PromiseEntWriter<EntsDataModel, Table>;
 }
 
-interface PromiseQueryWriter<
+export interface PromiseQueryWriter<
   EntsDataModel extends GenericEntsDataModel,
   Table extends TableNamesInDataModel<EntsDataModel>
 > extends PromiseOrderedQueryWriter<EntsDataModel, Table> {
@@ -1470,7 +1470,7 @@ interface PromiseQueryWriter<
 // lazy promise performs one operation for each
 // retrieved document in JavaScript, basically as if using
 // `Promise.all()`.
-interface PromiseEntsWriter<
+export interface PromiseEntsWriter<
   EntsDataModel extends GenericEntsDataModel,
   Table extends TableNamesInDataModel<EntsDataModel>
 > extends PromiseEnts<EntsDataModel, Table> {
@@ -2035,7 +2035,7 @@ export type GenericEntWriter<
   Table extends TableNamesInDataModel<EntsDataModel>
 > = EntWriter<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel>;
 
-interface PromiseEntId<
+export interface PromiseEntId<
   EntsDataModel extends GenericEntsDataModel,
   Table extends TableNamesInDataModel<EntsDataModel>
 > extends Promise<GenericId<Table>> {

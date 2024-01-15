@@ -19,4 +19,10 @@ export type {
   PromiseEnt,
   PromiseTableWriter,
   PromiseEntWriter,
+  PromiseEntId,
+  PromiseEdgeEntsOrNull,
+  PromiseEdgeEnts,
+  PromiseOrderedQueryWriter,
+  PromiseQueryWriter,
+  PromiseEntsWriter,
 } from "./functions";
