@@ -256,7 +256,19 @@ The `edge` method returns an ent for 1:1 edges, or `null` if starting from the
 const profile = await ctx.table("users").getX(userId).edge("profile");
 ```
 
-The `edgeX` method (edge or throw) throws if the edge does not exist:
+<Aside title="This is equivalent to the built-in:">
+
+```ts
+const profile = await ctx.db
+  .query("profiles")
+  .withIndex("userId", (q) => q.eq("userId", userId))
+  .unique();
+```
+
+</Aside>
+
+The `edgeX` method (pronounced "edge or throw") throws if the edge does not
+exist:
 
 ```ts
 const profile = await ctx.table("users").getX(userId).edgeX("profile");
