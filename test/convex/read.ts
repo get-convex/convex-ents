@@ -126,6 +126,15 @@ test("1:many edge from ref end", async (ctx) => {
   expect(firstUserMessages).toHaveLength(1);
 });
 
+test("1:many edge from ref end is a query", async (ctx) => {
+  const firstUserMessages = await ctx
+    .table("users")
+    .firstX()
+    .edge("messages")
+    .filter((q) => q.eq(q.field("text"), "Hello world"));
+  expect(firstUserMessages).toHaveLength(1);
+});
+
 test("1:many edge from field end", async (ctx) => {
   const firstMessageUser = await ctx.table("messages").firstX().edge("user");
   assertEqual(firstMessageUser.name, "Stark");

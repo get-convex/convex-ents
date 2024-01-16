@@ -223,10 +223,10 @@ defineEntSchema({
 You have to provide the field name on both ends of the edge (as `ref` and
 `field` respectively).
 
-Either way the name of the edge is tied to the tables names: "profile" and
+Either way the name of the edge is tied to the tables' names: "profile" and
 "user" respectively for each direction of the edge (since this is not a
 symmetrical edge). You can also provide the edge names specifically, from either
-or both ends:
+or both ends, and pass the table name in as the `to` option:
 
 ```ts
 defineEntSchema({
@@ -254,7 +254,7 @@ example, where the edge is defined via the `edge` (singular) and `edges`
 defineEntSchema({
   users: defineEnt({
     name: v.string(),
-  }).edges("messages"),
+  }).edges("messages", { ref: true }),
   messages: defineEnt({
     text: v.string(),
   }).edge("user"),
@@ -264,7 +264,9 @@ defineEntSchema({
 This is a 1:many edge because the `edges` (plural) method is used on the "users"
 ent. And since each user can have multiple associated messages, the foreign key
 must be stored in the "messages" table. Just like for 1:1 edges, the field name
-is inferred to be "userId" based on the "users" table name.
+is inferred to be "userId" based on the "users" table name. You have to pass
+`ref: true` to the `edges` method, to distinguish the edge from a many:many
+edge.
 
 If you wanted to have another field edge from messages to users, you would have
 to specify the field name. You can choose to specify the field name even if you
@@ -283,8 +285,8 @@ defineEntSchema({
 
 Either way the name of the edge is tied to the tables' names: "messages" and
 "user" respectively for each direction of the edge (since this is not a
-symmetrical edge). You can also provide the edge names explicitly, from either
-or both ends:
+symmetrical edge). You can also provide the edge names specifically, from either
+or both ends, and pass the table name in as the `to` option:
 
 ```ts
 defineEntSchema({
