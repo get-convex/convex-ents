@@ -8,7 +8,7 @@
   },
   "dependencies": {
     "@storybook/expect": "^28.1.3-5",
-    "convex": "^1.8.0-alpha.0",
+    "convex": "^1.8.0",
     "convex-helpers": "^0.1.12"
   },
   "devDependencies": {
