@@ -9,6 +9,7 @@ import {
   SchemaDefinition,
   SearchIndexConfig,
   TableDefinition,
+  VectorIndexConfig,
   defineSchema,
 } from "convex/server";
 import {
@@ -391,9 +392,6 @@ export interface EntDefinition<
     Edges
   >;
 
-  // TODO: For some reason this breaks types,
-  // even though I changed VectorIndexConfig to be exported
-  // from convex/server
   // /**
   //  * Define a vector index on this table.
   //  *
@@ -403,31 +401,31 @@ export interface EntDefinition<
   //  * @param indexConfig - The vector index configuration object.
   //  * @returns A {@link TableDefinition} with this vector index included.
   //  */
-  // vectorIndex<
-  //   IndexName extends string,
-  //   VectorField extends FieldPaths,
-  //   FilterFields extends FieldPaths = never
-  // >(
-  //   name: IndexName,
-  //   indexConfig: Expand<VectorIndexConfig<VectorField, FilterFields>>
-  // ): EntDefinition<
-  //   Document,
-  //   FieldPaths,
-  //   Indexes,
-  //   SearchIndexes,
-  //   Expand<
-  //     VectorIndexes &
-  //       Record<
-  //         IndexName,
-  //         {
-  //           vectorField: VectorField;
-  //           dimensions: number;
-  //           filterFields: FilterFields;
-  //         }
-  //       >
-  //   >,
-  //   Edges
-  // >;
+  vectorIndex<
+    IndexName extends string,
+    VectorField extends FieldPaths,
+    FilterFields extends FieldPaths = never
+  >(
+    name: IndexName,
+    indexConfig: Expand<VectorIndexConfig<VectorField, FilterFields>>
+  ): EntDefinition<
+    Document,
+    FieldPaths,
+    Indexes,
+    SearchIndexes,
+    Expand<
+      VectorIndexes &
+        Record<
+          IndexName,
+          {
+            vectorField: VectorField;
+            dimensions: number;
+            filterFields: FilterFields;
+          }
+        >
+    >,
+    Edges
+  >;
 
   field<FieldName extends string, T extends Validator<any, any, any>>(
     field: FieldName,
