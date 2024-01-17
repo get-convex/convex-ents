@@ -9,6 +9,7 @@
   ],
   "scripts": {
     "build": "npx tsup src --dts --sourcemap --clean",
+    "docs": "cd docs && npm run dev",
     "lint": "tsc && eslint . && cd test && npm run lint",
     "test": "cd test && npm run test"
   },
