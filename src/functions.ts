@@ -65,10 +65,9 @@ export interface PromiseOrderedQueryOrNull<
     ) => Promise<TOutput> | TOutput
   ): Promise<TOutput[] | null>;
 
-  // TODO: entWrapper for pagination
   paginate(
     paginationOpts: PaginationOptions
-  ): Promise<PaginationResult<DocumentByName<EntsDataModel, Table>> | null>;
+  ): PromisePaginationResultOrNull<EntsDataModel, Table>;
 
   take(n: number): PromiseEntsOrNull<EntsDataModel, Table>;
 
@@ -206,10 +205,9 @@ export interface PromiseOrderedQueryBase<
     ) => ExpressionOrValue<boolean>
   ): this;
 
-  // TODO: entWrapper for pagination
   paginate(
     paginationOpts: PaginationOptions
-  ): Promise<PaginationResult<DocumentByName<EntsDataModel, Table>>>;
+  ): PromisePaginationResult<EntsDataModel, Table>;
 
   first(): PromiseEntOrNull<EntsDataModel, Table>;
 
@@ -328,15 +326,14 @@ class PromiseQueryOrNullImpl<
     );
   }
 
-  // TODO: RLS for pagination
-  async paginate(
-    paginationOpts: PaginationOptions
-  ): Promise<PaginationResult<DocumentByName<EntsDataModel, Table>> | null> {
-    const query = await this.retrieve();
-    if (query === null) {
-      return null;
-    }
-    return await query.paginate(paginationOpts);
+  paginate(paginationOpts: PaginationOptions) {
+    return new PromisePaginationResultOrNullImpl(
+      this.db,
+      this.entDefinitions,
+      this.table,
+      this.retrieve,
+      paginationOpts
+    );
   }
 
   take(n: number) {
@@ -514,6 +511,134 @@ class PromiseQueryOrNullImpl<
       numItems = Math.min(64, numItems * 2);
     }
     return docs;
+  }
+}
+
+export interface PromisePaginationResultOrNull<
+  EntsDataModel extends GenericEntsDataModel,
+  Table extends TableNamesInDataModel<EntsDataModel>
+> extends Promise<PaginationResult<
+    Ent<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel>
+  > | null> {
+  docs(): Promise<PaginationResult<
+    DocumentByName<EntsDataModel, Table>
+  > | null>;
+
+  map<TOutput>(
+    callbackFn: (
+      value: Ent<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel>,
+      index: number,
+      array: Ent<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel>[]
+    ) => Promise<TOutput> | TOutput
+  ): Promise<PaginationResult<TOutput> | null>;
+}
+
+export interface PromisePaginationResult<
+  EntsDataModel extends GenericEntsDataModel,
+  Table extends TableNamesInDataModel<EntsDataModel>
+> extends Promise<
+    PaginationResult<
+      Ent<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel>
+    >
+  > {
+  docs(): Promise<PaginationResult<DocumentByName<EntsDataModel, Table>>>;
+
+  map<TOutput>(
+    callbackFn: (
+      value: Ent<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel>,
+      index: number,
+      array: Ent<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel>[]
+    ) => Promise<TOutput> | TOutput
+  ): Promise<PaginationResult<TOutput>>;
+}
+
+class PromisePaginationResultOrNullImpl<
+    EntsDataModel extends GenericEntsDataModel,
+    Table extends TableNamesInDataModel<EntsDataModel>
+  >
+  extends Promise<PaginationResult<
+    Ent<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel>
+  > | null>
+  implements PromisePaginationResultOrNull<EntsDataModel, Table>
+{
+  constructor(
+    private db: GenericDatabaseReader<EntsDataModel>,
+    private entDefinitions: EntsDataModel,
+    private table: Table,
+    protected retrieve: () => Promise<Query<
+      NamedTableInfo<EntsDataModel, Table>
+    > | null>,
+    protected paginationOpts: PaginationOptions
+  ) {
+    super(() => {});
+  }
+
+  async map<TOutput>(
+    callbackFn: (
+      value: Ent<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel>,
+      index: number,
+      array: Ent<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel>[]
+    ) => Promise<TOutput> | TOutput
+  ) {
+    const result = await this;
+    if (result === null) {
+      return null;
+    }
+    return {
+      ...result,
+      page: await Promise.all(result.page.map(callbackFn)),
+    };
+  }
+
+  async docs() {
+    const query = await this.retrieve();
+    if (query === null) {
+      return null;
+    }
+    const result = await query.paginate(this.paginationOpts);
+    return {
+      ...result,
+      page: (await filterByReadRule(
+        this.db,
+        this.entDefinitions,
+        this.table,
+        result.page,
+        false
+      ))!,
+    };
+  }
+
+  then<
+    TResult1 =
+      | Ent<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel>[]
+      | null,
+    TResult2 = never
+  >(
+    onfulfilled?:
+      | ((
+          value: PaginationResult<
+            Ent<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel>
+          > | null
+        ) => TResult1 | PromiseLike<TResult1>)
+      | undefined
+      | null,
+    onrejected?:
+      | ((reason: any) => TResult2 | PromiseLike<TResult2>)
+      | undefined
+      | null
+  ): Promise<TResult1 | TResult2> {
+    return this.docs()
+      .then((result) =>
+        result === null
+          ? null
+          : {
+              ...result,
+              page: result.page.map((doc) =>
+                entWrapper(doc, this.db, this.entDefinitions, this.table)
+              ),
+            }
+      )
+      .then(onfulfilled, onrejected);
   }
 }
 
@@ -1433,6 +1558,10 @@ export interface PromiseOrderedQueryWriter<
       EntWriter<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel>[]
     >,
     PromiseOrderedQueryBase<EntsDataModel, Table> {
+  paginate(
+    paginationOpts: PaginationOptions
+  ): PromisePaginationResultWriter<EntsDataModel, Table>;
+
   map<TOutput>(
     callbackFn: (
       value: EntWriter<
@@ -1482,6 +1611,33 @@ export interface PromiseEntsWriter<
   // are no documents. It does not optimize the previous steps in the query.
   // Otherwise it behaves like db.query().unique().
   uniqueX(): PromiseEntWriter<EntsDataModel, Table>;
+}
+
+export interface PromisePaginationResultWriter<
+  EntsDataModel extends GenericEntsDataModel,
+  Table extends TableNamesInDataModel<EntsDataModel>
+> extends Promise<
+    PaginationResult<
+      EntWriter<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel>
+    >
+  > {
+  docs(): Promise<PaginationResult<DocumentByName<EntsDataModel, Table>>>;
+
+  map<TOutput>(
+    callbackFn: (
+      value: EntWriter<
+        Table,
+        DocumentByName<EntsDataModel, Table>,
+        EntsDataModel
+      >,
+      index: number,
+      array: EntWriter<
+        Table,
+        DocumentByName<EntsDataModel, Table>,
+        EntsDataModel
+      >[]
+    ) => Promise<TOutput> | TOutput
+  ): Promise<PaginationResult<TOutput>>;
 }
 
 export interface PromiseTableWriter<
@@ -2126,36 +2282,36 @@ export function addEntRules<EntsDataModel extends GenericEntsDataModel>(
   return { ...entDefinitions, rules };
 }
 
-async function filterByReadRule(
+async function filterByReadRule<Doc extends GenericDocument>(
   db: GenericDatabaseReader<any>,
   entDefinitions: GenericEntsDataModel,
   table: string,
-  docs: GenericDocument[] | null,
+  docs: Doc[] | null,
   throwIfNull: boolean
 ) {
   if (docs === null) {
     return null;
   }
   const readPolicy = getReadRule(entDefinitions, table);
-  if (readPolicy !== undefined) {
-    const decisions = await Promise.all(
-      docs.map(async (doc) => {
-        const decision = await readPolicy(
-          entWrapper(doc, db, entDefinitions, table)
-        );
-        if (throwIfNull && !decision) {
-          throw new Error(
-            `Document cannot be read with id \`${
-              doc._id as string
-            }\` in table "${table}"`
-          );
-        }
-        return decision;
-      })
-    );
-    return docs.filter((_, i) => decisions[i]);
+  if (readPolicy === undefined) {
+    return docs;
   }
-  return docs;
+  const decisions = await Promise.all(
+    docs.map(async (doc) => {
+      const decision = await readPolicy(
+        entWrapper(doc, db, entDefinitions, table)
+      );
+      if (throwIfNull && !decision) {
+        throw new Error(
+          `Document cannot be read with id \`${
+            doc._id as string
+          }\` in table "${table}"`
+        );
+      }
+      return decision;
+    })
+  );
+  return docs.filter((_, i) => decisions[i]);
 }
 
 export function getReadRule(

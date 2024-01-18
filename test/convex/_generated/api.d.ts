@@ -15,6 +15,7 @@ import type {
   FunctionReference,
 } from "convex/server";
 import type * as functions from "../functions.js";
+import type * as paginate from "../paginate.js";
 import type * as read from "../read.js";
 import type * as rules from "../rules.js";
 import type * as testSuite from "../testSuite.js";
@@ -32,6 +33,7 @@ import type * as write from "../write.js";
  */
 declare const fullApi: ApiFromModules<{
   functions: typeof functions;
+  paginate: typeof paginate;
   read: typeof read;
   rules: typeof rules;
   testSuite: typeof testSuite;

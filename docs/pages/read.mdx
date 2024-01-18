@@ -201,6 +201,16 @@ const posts = await ctx
 const users = await ctx.table("users").take(5);
 ```
 
+### Loading a page of ents
+
+The `paginate` method returns a page of ents. It takes the same argument object
+as the [the built-in pagination](https://docs.convex.dev/database/pagination)
+method.
+
+```ts
+const result = await ctx.table("posts").paginate(paginationOpts);
+```
+
 ### Finding the first ent
 
 Useful chained, either to a `ctx.table` call using an index, or after `filter`,
@@ -236,12 +246,6 @@ produced more or less than 1 result:
 ```ts
 const counter = await ctx.table("counters").uniqueX();
 ```
-
-### Loading a page of ents
-
-A `paginate` method works the same as
-[the built-in pagination](https://docs.convex.dev/database/pagination).
-Currently it cannot be chained.
 
 ## Traversing edges
 
