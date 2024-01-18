@@ -1,3 +1,5 @@
+import { Tabs } from "nextra-theme-docs";
+
 # Convex Ents
 
 Convex Ents are an ergonomic layer on top of the [Convex](https://convex.dev)
@@ -25,6 +27,78 @@ Ents are a pure TypeScript/JavaScript library.
 
 Check out [these code snippets](https://labs.convex.dev/convex-vs-prisma) for
 comparison of Prisma, Convex and Convex Ents.
+
+<Tabs items={["Example query", "mutation", "schema"]}>
+
+<Tabs.Tab>
+
+```ts filename="convex/teams.ts"
+export const listTeamInvites = query({
+  args: { teamId: v.id("teams") },
+  async handler(ctx, { teamId }) {
+    return await ctx
+      .table("teams")
+      .getX(teamId)
+      .edge("invites")
+      .map(async (invite) => ({
+        _id: invite._id,
+        email: invite.email,
+        role: (await invite.edge("role")).name,
+      })); // `{ _id: Id<"invites">, email: string, role: string }[]`
+  },
+});
+```
+
+</Tabs.Tab>
+<Tabs.Tab>
+
+```ts filename="convex/teams.ts"
+export const acceptInvite = mutation({
+  args: { inviteId: v.id("invites") },
+  async handler(ctx, { inviteId }) {
+    const invite = await ctx.table("invites").getX(inviteId);
+    await ctx.table("members").insert({
+      teamId: invite.teamId,
+      userId: ctx.viewerX()._id,
+      roleId: invite.roleId,
+    });
+    await invite.delete();
+    return (await invite.edge("team")).slug;
+  },
+});
+```
+
+</Tabs.Tab>
+<Tabs.Tab>
+
+```ts filename="convex/schema.ts"
+const schema = defineEntSchema({
+  teams: defineEnt({
+    name: v.string(),
+  })
+    .field("slug", v.string(), { unique: true })
+    .edges("members", { ref: true })
+    .edges("invites", { ref: true }),
+
+  members: defineEnt({}).edge("team").edge("user").edge("role"),
+
+  invites: defineEnt({})
+    .field("email", v.string(), { unique: true })
+    .edge("team")
+    .edge("role"),
+
+  roles: defineEnt({
+    isDefault: v.boolean(),
+  }).field("name", v.union(v.literal("Admin"), v.literal("Member")), {
+    unique: true,
+  }),
+
+  users: defineEnt({}).edges("members", { ref: true }),
+});
+```
+
+</Tabs.Tab>
+</Tabs>
 
 ## I'm intrigued, what now?
 
