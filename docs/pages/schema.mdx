@@ -311,7 +311,7 @@ defineEntSchema({
   }).edges("tags"),
   tags: defineEnt({
     text: v.string(),
-  }).edge("messages"),
+  }).edges("messages"),
 });
 ```
 
@@ -329,7 +329,7 @@ defineEntSchema({
   }).edges("tags", { table: "messages_to_assignedTags" }),
   tags: defineEnt({
     text: v.string(),
-  }).edge("messages", { table: "messages_to_assignedTags" }),
+  }).edges("messages", { table: "messages_to_assignedTags" }),
 });
 ```
 
@@ -346,7 +346,7 @@ defineEntSchema({
   }).edges("assignedTags", { to: "tags", table: "messages_to_assignedTags" }),
   tags: defineEnt({
     text: v.string(),
-  }).edge("taggedMessages", {
+  }).edges("taggedMessages", {
     name: "messages",
     table: "messages_to_assignedTags",
   }),
