@@ -77,6 +77,28 @@ const task = await ctx.table("tasks").getX(taskId);
 await task.delete();
 ```
 
+### Cascading deletes
+
+When an ent is deleted, all its edges are deleted as well.
+
+If the edge is required, as is the case for 1:many and 1:1 edges for the
+[ents storing the edge as a field](/schema#understanding-how-edges-are-stored),
+the ents on the other side of the edge are deleted as well.
+
+The following scenarios are currently supported:
+
+- 1:1 edge between ent A and ent B, ents A store the edge.
+  - Ent A is deleted, that's it.
+  - Ent B is deleted, the ent A connected to it is deleted as well (which might
+    cause more edge and ent deletions).
+- 1:many edge between ent A and ent B, ents A store the edge.
+  - Ent A is deleted, that's it.
+  - Ent B is deleted, ents A connected to it are deleted as well (which might
+    cause more edge and ent deletions).
+- many:many edge between ent A and ent B.
+  - Ent A is deleted, the documents storing the edges to ents B are all deleted.
+  - Ent B is deleted, the documents storing the edges to ents A are all deleted.
+
 ## Creating edges
 
 Edges can be created together with ents using the `insert` and `insertMany`

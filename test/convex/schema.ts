@@ -7,7 +7,8 @@ const schema = defineEntSchema(
       text: v.string(),
     })
       .edge("user")
-      .edges("tags"),
+      .edges("tags")
+      .edges("messageDetails", { ref: true }),
 
     users: defineEnt({
       name: v.string(),
@@ -90,6 +91,10 @@ const schema = defineEntSchema(
     secrets: defineEnt({
       value: v.string(),
     }).edge("user", { field: "ownerId" }),
+
+    messageDetails: defineEnt({
+      value: v.string(),
+    }).edge("message"),
   },
   { schemaValidation: true }
 );

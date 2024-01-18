@@ -23,6 +23,72 @@ export class WriterImplBase<
     protected table: Table
   ) {}
 
+  async deleteId(id: GenericId<any>) {
+    await this.checkReadAndWriteRule("delete", id, undefined);
+    let memoized: GenericDocument | undefined = undefined;
+    const oldDoc = async () => {
+      if (memoized !== undefined) {
+        return memoized;
+      }
+      return (memoized = (await this.db.get(id))!);
+    };
+    const edges: EdgeChanges = {};
+    await Promise.all(
+      Object.values(
+        this.entDefinitions[this.table].edges as Record<string, EdgeConfig>
+      ).map(async (edgeDefinition) => {
+        const key = edgeDefinition.name;
+        if (edgeDefinition.cardinality === "single") {
+          if (edgeDefinition.type === "ref") {
+            edges[key] = {
+              remove: (await oldDoc())[key] as GenericId<any> | undefined,
+            };
+          }
+        } else {
+          if (edgeDefinition.type === "field") {
+            const existing = (
+              await this.db
+                .query(edgeDefinition.to)
+                .withIndex(edgeDefinition.ref, (q) =>
+                  q.eq(edgeDefinition.ref, id as any)
+                )
+                .collect()
+            ).map((doc) => doc._id);
+            edges[key] = { remove: existing as GenericId<any>[] };
+          } else {
+            const existing = (
+              await this.db
+                .query(edgeDefinition.table)
+                .withIndex(edgeDefinition.field, (q) =>
+                  q.eq(edgeDefinition.field, id as any)
+                )
+                .collect()
+            )
+              .concat(
+                edgeDefinition.symmetric
+                  ? await this.db
+                      .query(edgeDefinition.table)
+                      .withIndex(edgeDefinition.ref, (q) =>
+                        q.eq(edgeDefinition.ref, id as any)
+                      )
+                      .collect()
+                  : []
+              )
+              .map((doc) => doc._id);
+            edges[key] = { removeEdges: existing as GenericId<any>[] };
+          }
+        }
+      })
+    );
+    await this.db.delete(id);
+    await this.writeEdges(id, edges);
+    return id;
+  }
+
+  async deletedIdIn(id: GenericId<any>, table: string) {
+    await new WriterImplBase(this.db, this.entDefinitions, table).deleteId(id);
+  }
+
   async writeEdges(docId: GenericId<any>, changes: EdgeChanges) {
     await Promise.all(
       Object.values(
@@ -37,7 +103,10 @@ export class WriterImplBase<
             if (idOrIds.remove !== undefined) {
               // Cascading delete because 1:1 edges are not optional
               // on the stored field end.
-              await this.db.delete(idOrIds.remove as GenericId<any>);
+              await this.deletedIdIn(
+                idOrIds.remove as GenericId<any>,
+                edgeDefinition.to
+              );
             }
             if (idOrIds.add !== undefined) {
               await this.db.patch(
@@ -53,7 +122,7 @@ export class WriterImplBase<
               // on the stored field end.
               await Promise.all(
                 (idOrIds.remove as GenericId<any>[]).map((id) =>
-                  this.db.delete(id)
+                  this.deletedIdIn(id, edgeDefinition.to)
                 )
               );
               // This would be behavior for optional edge:

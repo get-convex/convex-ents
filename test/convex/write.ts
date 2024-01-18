@@ -274,6 +274,27 @@ test("write rule on replace", async (ctx) => {
     .replace({ ownerId: ctx.viewerId!, value: "456" });
 });
 
+test("cascading deletes", async (ctx) => {
+  const userId = await ctx
+    .table("users")
+    .insert({ name: "Jobs", email: "steve@jobs.com" });
+  const messageId = await ctx
+    .table("messages")
+    .insert({ text: "Hello world", userId });
+  const messageDetailId = await ctx
+    .table("messageDetails")
+    .insert({ value: "Some detail", messageId });
+
+  await ctx.table("users").getX(userId).delete();
+
+  const deletedMessage = await ctx.table("messages").get(messageId);
+  expect(deletedMessage).toBeNull();
+  const deletedMessageDetail = await ctx
+    .table("messageDetails")
+    .get(messageDetailId);
+  expect(deletedMessageDetail).toBeNull();
+});
+
 function assertEqual(actual: any, expected: any) {
   expect(actual).toEqual(expected);
 }

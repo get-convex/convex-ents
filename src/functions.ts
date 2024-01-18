@@ -1912,65 +1912,7 @@ class PromiseEntWriterImpl<
   async delete() {
     const { id: docId } = await this.retrieve();
     const id = docId!;
-    await this.base.checkReadAndWriteRule("delete", id, undefined);
-    let memoized: GenericDocument | undefined = undefined;
-    const oldDoc = async () => {
-      if (memoized !== undefined) {
-        return memoized;
-      }
-      return (memoized = (await this.db.get(id))!);
-    };
-    const edges: EdgeChanges = {};
-    await Promise.all(
-      Object.values(
-        this.entDefinitions[this.table].edges as Record<string, EdgeConfig>
-      ).map(async (edgeDefinition) => {
-        const key = edgeDefinition.name;
-        if (edgeDefinition.cardinality === "single") {
-          if (edgeDefinition.type === "ref") {
-            edges[key] = {
-              remove: (await oldDoc())[key] as GenericId<any> | undefined,
-            };
-          }
-        } else {
-          if (edgeDefinition.type === "field") {
-            const existing = (
-              await this.db
-                .query(edgeDefinition.to)
-                .withIndex(edgeDefinition.ref, (q) =>
-                  q.eq(edgeDefinition.ref, id as any)
-                )
-                .collect()
-            ).map((doc) => doc._id);
-            edges[key] = { remove: existing as GenericId<any>[] };
-          } else {
-            const existing = (
-              await this.db
-                .query(edgeDefinition.table)
-                .withIndex(edgeDefinition.field, (q) =>
-                  q.eq(edgeDefinition.field, id as any)
-                )
-                .collect()
-            )
-              .concat(
-                edgeDefinition.symmetric
-                  ? await this.db
-                      .query(edgeDefinition.table)
-                      .withIndex(edgeDefinition.ref, (q) =>
-                        q.eq(edgeDefinition.ref, id as any)
-                      )
-                      .collect()
-                  : []
-              )
-              .map((doc) => doc._id);
-            edges[key] = { removeEdges: existing as GenericId<any>[] };
-          }
-        }
-      })
-    );
-    await this.db.delete(id);
-    await this.base.writeEdges(id, edges);
-    return id;
+    return this.base.deleteId(id);
   }
 }
 

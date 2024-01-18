@@ -71,6 +71,17 @@ export function defineEntSchema<
       const inverseEdge: EdgeConfigFromEntDefinition | undefined =
         inverseEdgeCandidates[0];
 
+      if (
+        edge.cardinality === "single" &&
+        edge.type === "field" &&
+        inverseEdge === undefined
+      ) {
+        throw new Error(
+          `Missing inverse edge in table "${otherTableName}" ` +
+            `for edge "${edge.name}" in table "${tableName}"`
+        );
+      }
+
       // Default `ref` on the multiple end of the edge,
       if (edge.cardinality === "single" && edge.type === "ref") {
         if (inverseEdge === undefined) {
