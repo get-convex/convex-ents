@@ -1,6 +1,6 @@
 {
   "name": "convex-ents",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Relations, default values, unique fields, RLS for Convex",
   "keywords": [
     "relations",
