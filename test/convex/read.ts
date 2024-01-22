@@ -427,8 +427,16 @@ test("get", async (ctx) => {
 });
 
 test("firstX", async (ctx) => {
-  const messages = await ctx.table("messages").firstX();
-  assertEqual(messages.text, "Hello world");
+  const message = await ctx.table("messages").firstX();
+  assertEqual(message.text, "Hello world");
+});
+
+test("firstX", async (ctx) => {
+  const message = await ctx.table("messages").firstX();
+  const messageDoc = message.doc();
+  assertEqual(messageDoc.text, "Hello world");
+  // @ts-expect-error documents don't have methods
+  messageDoc.edge("user");
 });
 
 // First created user is set as viewer

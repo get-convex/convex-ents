@@ -1376,6 +1376,14 @@ export function entWrapper<
     writable: false,
     configurable: false,
   });
+  Object.defineProperty(doc, "doc", {
+    value: () => {
+      return doc;
+    },
+    enumerable: false,
+    writable: false,
+    configurable: false,
+  });
   Object.defineProperty(doc, "patch", {
     value: (value: any) => {
       return queryInterface.patch(value);
@@ -1498,6 +1506,7 @@ declare class EntInstance<
   edgeX<Edge extends keyof EntsDataModel[Table]["edges"]>(
     edge: Edge
   ): PromiseEdgeOrThrow<EntsDataModel, Table, Edge>;
+  doc(): DocumentByName<EntsDataModel, Table>;
 }
 
 export type Ent<

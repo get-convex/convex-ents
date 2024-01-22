@@ -345,14 +345,11 @@ ents support the `map` method:
 const usersWithMessagesAndProfile = await ctx
   .table("users")
   .map(async (user) => ({
-    ...user,
+    name: user.name,
     messages: await user.edge("messages"),
     profile: await user.edgeX("profile"),
   }));
 ```
-
-Note that `...` spreading `user` will leave only its fields in the resulting
-`Object`s.
 
 <Aside title="This code is equivalent to this code using only built-in Convex and JavaScript
 functionality:">
@@ -362,7 +359,7 @@ const usersWithMessagesAndProfile = await Promise.all(
   (
     await ctx.db.query("users").collect()
   ).map(async (user) => ({
-    ...user,
+    name: user.name,
     posts: await ctx.db
       .query("messages")
       .withIndex("userId", (q) => q.eq("userId", user._id))
@@ -456,3 +453,6 @@ export const list = query({
   },
 });
 ```
+
+You can also call the `doc` method on a retrieved ent, which returns the same
+object, but is typed as a plain Convex document.
