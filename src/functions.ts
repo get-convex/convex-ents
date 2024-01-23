@@ -1229,9 +1229,9 @@ class PromiseEntOrNullImpl<
     edge: Edge,
     throwIfNull = false
   ) {
-    const edgeDefinition: EdgeConfig = (
-      this.entDefinitions[this.table].edges as EntsDataModel[Table]["edges"]
-    )[edge] as any;
+    const edgeDefinition = getEdgeDefinitions(this.entDefinitions, this.table)[
+      edge
+    ];
 
     if (edgeDefinition.cardinality === "multiple") {
       if (edgeDefinition.type === "ref") {
@@ -1782,10 +1782,10 @@ class PromiseTableWriterImpl<
         const docId = await this.db.insert(this.table, fields as any);
         const edges: EdgeChanges = {};
         Object.keys(value).forEach((key) => {
-          const edgeDefinition: EdgeConfig = (
-            this.entDefinitions[this.table]
-              .edges as EntsDataModel[Table]["edges"]
-          )[key] as any;
+          const edgeDefinition = getEdgeDefinitions(
+            this.entDefinitions,
+            this.table
+          )[key];
           if (
             edgeDefinition === undefined ||
             (edgeDefinition.cardinality === "single" &&
@@ -1933,10 +1933,10 @@ class PromiseEntWriterImpl<
         const edges: EdgeChanges = {};
         await Promise.all(
           Object.keys(value).map(async (key) => {
-            const edgeDefinition: EdgeConfig = (
-              this.entDefinitions[this.table]
-                .edges as EntsDataModel[Table]["edges"]
-            )[key] as any;
+            const edgeDefinition = getEdgeDefinitions(
+              this.entDefinitions,
+              this.table
+            )[key];
             if (
               edgeDefinition === undefined ||
               (edgeDefinition.cardinality === "single" &&
@@ -1992,7 +1992,7 @@ class PromiseEntWriterImpl<
 
         await Promise.all(
           Object.values(
-            this.entDefinitions[this.table].edges as Record<string, EdgeConfig>
+            getEdgeDefinitions(this.entDefinitions, this.table)
           ).map(async (edgeDefinition) => {
             const key = edgeDefinition.name;
             const idOrIds = value[key];
@@ -2335,4 +2335,14 @@ export function getWriteRule(
   table: string
 ) {
   return (entDefinitions.rules as Rules)?.[table]?.write;
+}
+
+export function getEdgeDefinitions<
+  EntsDataModel extends GenericEntsDataModel,
+  Table extends TableNamesInDataModel<EntsDataModel>
+>(entDefinitions: EntsDataModel, table: Table) {
+  return entDefinitions[table]?.edges as Record<
+    keyof EntsDataModel[Table]["edges"],
+    EdgeConfig
+  >;
 }

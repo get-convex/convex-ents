@@ -32,7 +32,7 @@ export function defineEntSchema<
   const tableNames = Object.keys(schema);
   for (const tableName of tableNames) {
     const table = schema[tableName];
-    for (const edge of edgeConfigsFromEntDefinition(table)) {
+    for (const edge of edgeConfigsBeforeDefineSchema(table)) {
       if (
         // Skip inverse edges, we process their forward edges
         (edge.cardinality === "multiple" &&
@@ -56,7 +56,7 @@ export function defineEntSchema<
 
       const isSelfDirected = edge.to === tableName;
 
-      const inverseEdgeCandidates = edgeConfigsFromEntDefinition(
+      const inverseEdgeCandidates = edgeConfigsBeforeDefineSchema(
         otherTable
       ).filter(canBeInverseEdge(tableName, edge, isSelfDirected));
       if (inverseEdgeCandidates.length > 1) {
@@ -68,7 +68,7 @@ export function defineEntSchema<
               .join(", ")}`
         );
       }
-      const inverseEdge: EdgeConfigFromEntDefinition | undefined =
+      const inverseEdge: EdgeConfigBeforeDefineSchema | undefined =
         inverseEdgeCandidates[0];
 
       if (
@@ -223,10 +223,10 @@ export function defineEntSchema<
 
 function canBeInverseEdge(
   tableName: string,
-  edge: EdgeConfigFromEntDefinition,
+  edge: EdgeConfigBeforeDefineSchema,
   isSelfDirected: boolean
 ) {
-  return (candidate: EdgeConfigFromEntDefinition) => {
+  return (candidate: EdgeConfigBeforeDefineSchema) => {
     if (candidate.to !== tableName) {
       return false;
     }
@@ -296,9 +296,9 @@ function canBeInverseEdge(
   };
 }
 
-function edgeConfigsFromEntDefinition(table: EntDefinition) {
+function edgeConfigsBeforeDefineSchema(table: EntDefinition) {
   return Object.values(
-    (table as any).edgeConfigs as Record<string, EdgeConfigFromEntDefinition>
+    (table as any).edgeConfigs as Record<string, EdgeConfigBeforeDefineSchema>
   );
 }
 
@@ -787,7 +787,7 @@ class EntDefinitionImpl {
 
   private documentSchema: Record<string, Validator<any, any, any>>;
 
-  private edgeConfigs: Record<string, EdgeConfigFromEntDefinition> = {};
+  private edgeConfigs: Record<string, EdgeConfigBeforeDefineSchema> = {};
 
   private fieldConfigs: Record<string, FieldConfig> = {};
 
@@ -977,7 +977,7 @@ export type EdgeConfig = {
     ))
 );
 
-type EdgeConfigFromEntDefinition = {
+type EdgeConfigBeforeDefineSchema = {
   name: string;
   to: string;
 } & (
