@@ -128,12 +128,12 @@ export const internalMutation = customMutation(
 async function queryCtx(baseCtx: QueryCtx) {
   const ctx = {
     db: baseCtx.db as unknown as undefined,
-    skipRules: { table: entsTableFactory(baseCtx.db, entDefinitions) },
+    skipRules: { table: entsTableFactory(baseCtx, entDefinitions) },
   };
   const entDefinitionsWithRules = getEntDefinitionsWithRules(ctx as any);
   const viewerId = await getViewerId({ ...baseCtx, ...ctx });
   (ctx as any).viewerId = viewerId;
-  const table = entsTableFactory(baseCtx.db, entDefinitionsWithRules);
+  const table = entsTableFactory(baseCtx, entDefinitionsWithRules);
   (ctx as any).table = table;
   // Example: add `viewer` and `viewerX` helpers to `ctx`:
   const viewer = async () =>
@@ -153,12 +153,12 @@ async function queryCtx(baseCtx: QueryCtx) {
 async function mutationCtx(baseCtx: MutationCtx) {
   const ctx = {
     db: baseCtx.db as unknown as undefined,
-    skipRules: { table: entsTableFactory(baseCtx.db, entDefinitions) },
+    skipRules: { table: entsTableFactory(baseCtx, entDefinitions) },
   };
   const entDefinitionsWithRules = getEntDefinitionsWithRules(ctx as any);
   const viewerId = await getViewerId({ ...baseCtx, ...ctx });
   (ctx as any).viewerId = viewerId;
-  const table = entsTableFactory(baseCtx.db, entDefinitionsWithRules);
+  const table = entsTableFactory(baseCtx, entDefinitionsWithRules);
   (ctx as any).table = table;
   // Example: add `viewer` and `viewerX` helpers to `ctx`:
   const viewer = async () =>
@@ -192,7 +192,7 @@ define them separately to get the right types inferred by TypeScript.
 // that doesn't use the rules we defined in `rules.ts`:
 const ctx = {
   db: undefined,
-  skipRules: { table: entsTableFactory(baseCtx.db, entDefinitions) },
+  skipRules: { table: entsTableFactory(baseCtx, entDefinitions) },
 };
 // We bind our rule implementations to this `ctx` object:
 const entDefinitionsWithRules = getEntDefinitionsWithRules(ctx as any);
@@ -201,7 +201,7 @@ const entDefinitionsWithRules = getEntDefinitionsWithRules(ctx as any);
 const viewerId = await getViewerId({ ...baseCtx, ...ctx });
 (ctx as any).viewerId = viewerId;
 // We get a `ctx.table` using rules and add it to `ctx`:
-const table = entsTableFactory(baseCtx.db, entDefinitionsWithRules);
+const table = entsTableFactory(baseCtx, entDefinitionsWithRules);
 (ctx as any).table = table;
 // As an example we define helpers that allow retrieving
 // the viewer as an ent. These have to be functions, to allow

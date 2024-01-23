@@ -46,12 +46,12 @@ export const internalMutation = customMutation(
 async function queryCtx(baseCtx: QueryCtx) {
   const ctx = {
     db: baseCtx.db as unknown as undefined,
-    skipRules: { table: entsTableFactory(baseCtx.db, entDefinitions) },
+    skipRules: { table: entsTableFactory(baseCtx, entDefinitions) },
   };
   const entDefinitionsWithRules = getEntDefinitionsWithRules(ctx as any);
   const viewerId = await getViewerId({ ...baseCtx, ...ctx });
   (ctx as any).viewerId = viewerId;
-  const table = entsTableFactory(baseCtx.db, entDefinitionsWithRules);
+  const table = entsTableFactory(baseCtx, entDefinitionsWithRules);
   (ctx as any).table = table;
   const viewer = async () =>
     viewerId !== null ? await table("users").get(viewerId) : null;
@@ -70,12 +70,12 @@ async function queryCtx(baseCtx: QueryCtx) {
 async function mutationCtx(baseCtx: MutationCtx) {
   const ctx = {
     db: baseCtx.db as unknown as undefined,
-    skipRules: { table: entsTableFactory(baseCtx.db, entDefinitions) },
+    skipRules: { table: entsTableFactory(baseCtx, entDefinitions) },
   };
   const entDefinitionsWithRules = getEntDefinitionsWithRules(ctx as any);
   const viewerId = await getViewerId({ ...baseCtx, ...ctx });
   (ctx as any).viewerId = viewerId;
-  const table = entsTableFactory(baseCtx.db, entDefinitionsWithRules);
+  const table = entsTableFactory(baseCtx, entDefinitionsWithRules);
   (ctx as any).table = table;
   const viewer = async () =>
     viewerId !== null ? await table("users").get(viewerId) : null;

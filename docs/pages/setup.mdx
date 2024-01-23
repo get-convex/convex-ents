@@ -68,7 +68,7 @@ export const query = customQuery(
   baseQuery,
   customCtx(async (ctx) => {
     return {
-      table: entsTableFactory(ctx.db, entDefinitions),
+      table: entsTableFactory(ctx, entDefinitions),
       db: undefined,
     };
   })
@@ -78,7 +78,7 @@ export const internalQuery = customQuery(
   baseInternalQuery,
   customCtx(async (ctx) => {
     return {
-      table: entsTableFactory(ctx.db, entDefinitions),
+      table: entsTableFactory(ctx, entDefinitions),
       db: undefined,
     };
   })
@@ -88,7 +88,7 @@ export const mutation = customMutation(
   baseMutation,
   customCtx(async (ctx) => {
     return {
-      table: entsTableFactory(ctx.db, entDefinitions),
+      table: entsTableFactory(ctx, entDefinitions),
       db: undefined,
     };
   })
@@ -98,7 +98,7 @@ export const internalMutation = customMutation(
   baseInternalMutation,
   customCtx(async (ctx) => {
     return {
-      table: entsTableFactory(ctx.db, entDefinitions),
+      table: entsTableFactory(ctx, entDefinitions),
       db: undefined,
     };
   })

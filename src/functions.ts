@@ -17,6 +17,7 @@ import {
   PaginationResult,
   Query,
   QueryInitializer,
+  Scheduler,
   SearchFilter,
   SearchFilterBuilder,
   SearchIndexNames,
@@ -258,7 +259,7 @@ class PromiseQueryOrNullImpl<
   implements PromiseQueryOrNull<EntsDataModel, Table>
 {
   constructor(
-    protected db: GenericDatabaseReader<EntsDataModel>,
+    protected ctx: EntQueryCtx<EntsDataModel>,
     protected entDefinitions: EntsDataModel,
     protected table: Table,
     protected retrieve: () => Promise<Query<
@@ -274,7 +275,7 @@ class PromiseQueryOrNullImpl<
     ) => ExpressionOrValue<boolean>
   ): any {
     return new PromiseQueryOrNullImpl(
-      this.db,
+      this.ctx,
       this.entDefinitions,
       this.table,
       async () => {
@@ -306,7 +307,7 @@ class PromiseQueryOrNullImpl<
     indexName?: IndexNames<NamedTableInfo<EntsDataModel, Table>>
   ): any {
     return new PromiseQueryOrNullImpl(
-      this.db,
+      this.ctx,
       this.entDefinitions,
       this.table,
       async () => {
@@ -328,7 +329,7 @@ class PromiseQueryOrNullImpl<
 
   paginate(paginationOpts: PaginationOptions) {
     return new PromisePaginationResultOrNullImpl(
-      this.db,
+      this.ctx,
       this.entDefinitions,
       this.table,
       this.retrieve,
@@ -338,7 +339,7 @@ class PromiseQueryOrNullImpl<
 
   take(n: number) {
     return new PromiseEntsOrNullImpl(
-      this.db,
+      this.ctx,
       this.entDefinitions,
       this.table,
       async () => {
@@ -350,7 +351,7 @@ class PromiseQueryOrNullImpl<
 
   first() {
     return new PromiseEntOrNullImpl(
-      this.db,
+      this.ctx,
       this.entDefinitions,
       this.table,
       async () => {
@@ -367,7 +368,7 @@ class PromiseQueryOrNullImpl<
 
   firstX() {
     return new PromiseEntWriterImpl(
-      this.db as any,
+      this.ctx as any,
       this.entDefinitions,
       this.table,
       async () => {
@@ -387,7 +388,7 @@ class PromiseQueryOrNullImpl<
 
   unique() {
     return new PromiseEntOrNullImpl(
-      this.db,
+      this.ctx,
       this.entDefinitions,
       this.table,
       async () => {
@@ -410,7 +411,7 @@ class PromiseQueryOrNullImpl<
 
   uniqueX() {
     return new PromiseEntWriterImpl(
-      this.db as any,
+      this.ctx as any,
       this.entDefinitions,
       this.table,
       async () => {
@@ -438,7 +439,7 @@ class PromiseQueryOrNullImpl<
     }
     const docs = await query.collect();
     return filterByReadRule(
-      this.db,
+      this.ctx,
       this.entDefinitions,
       this.table,
       docs,
@@ -470,7 +471,7 @@ class PromiseQueryOrNullImpl<
         documents === null
           ? null
           : documents.map((doc) =>
-              entWrapper(doc, this.db, this.entDefinitions, this.table)
+              entWrapper(doc, this.ctx, this.entDefinitions, this.table)
             )
       )
       .then(onfulfilled, onrejected);
@@ -501,7 +502,7 @@ class PromiseQueryOrNullImpl<
       }
       docs.push(
         ...(await filterByReadRule(
-          this.db,
+          this.ctx,
           this.entDefinitions,
           this.table,
           page,
@@ -562,7 +563,7 @@ class PromisePaginationResultOrNullImpl<
   implements PromisePaginationResultOrNull<EntsDataModel, Table>
 {
   constructor(
-    private db: GenericDatabaseReader<EntsDataModel>,
+    private ctx: EntQueryCtx<EntsDataModel>,
     private entDefinitions: EntsDataModel,
     private table: Table,
     protected retrieve: () => Promise<Query<
@@ -599,7 +600,7 @@ class PromisePaginationResultOrNullImpl<
     return {
       ...result,
       page: (await filterByReadRule(
-        this.db,
+        this.ctx,
         this.entDefinitions,
         this.table,
         result.page,
@@ -634,7 +635,7 @@ class PromisePaginationResultOrNullImpl<
           : {
               ...result,
               page: result.page.map((doc) =>
-                entWrapper(doc, this.db, this.entDefinitions, this.table)
+                entWrapper(doc, this.ctx, this.entDefinitions, this.table)
               ),
             }
       )
@@ -647,11 +648,11 @@ class PromiseTableImpl<
   Table extends TableNamesInDataModel<EntsDataModel>
 > extends PromiseQueryOrNullImpl<EntsDataModel, Table> {
   constructor(
-    db: GenericDatabaseReader<EntsDataModel>,
+    ctx: EntQueryCtx<EntsDataModel>,
     entDefinitions: EntsDataModel,
     table: Table
   ) {
-    super(db, entDefinitions, table, async () => db.query(table));
+    super(ctx, entDefinitions, table, async () => ctx.db.query(table));
   }
 
   get(...args: any[]) {
@@ -672,19 +673,19 @@ class PromiseTableImpl<
 
   getImpl(args: any[], throwIfNull = false) {
     return new PromiseEntWriterImpl(
-      this.db as any,
+      this.ctx as any,
       this.entDefinitions,
       this.table,
       args.length === 1
         ? async () => {
             const id = args[0] as GenericId<Table>;
-            if (this.db.normalizeId(this.table, id) === null) {
+            if (this.ctx.db.normalizeId(this.table, id) === null) {
               throw new Error(`Invalid id \`${id}\` for table "${this.table}"`);
             }
             return {
               id,
               doc: async () => {
-                const doc = await this.db.get(id);
+                const doc = await this.ctx.db.get(id);
                 if (throwIfNull && doc === null) {
                   throw new Error(
                     `Document not found with id \`${id}\` in table "${this.table}"`
@@ -696,7 +697,7 @@ class PromiseTableImpl<
           }
         : async () => {
             const [indexName, value] = args;
-            const doc = await this.db
+            const doc = await this.ctx.db
               .query(this.table)
               .withIndex(indexName, (q) => q.eq(indexName, value))
               .unique();
@@ -713,14 +714,14 @@ class PromiseTableImpl<
 
   getManyImpl(args: any[], throwIfNull = false) {
     return new PromiseEntsOrNullImpl(
-      this.db as any,
+      this.ctx as any,
       this.entDefinitions as any,
       this.table,
       args.length === 1
         ? async () => {
             const ids = args[0] as GenericId<Table>[];
             ids.forEach((id) => {
-              if (this.db.normalizeId(this.table, id) === null) {
+              if (this.ctx.db.normalizeId(this.table, id) === null) {
                 throw new Error(
                   `Invalid id \`${id}\` for table "${this.table}"`
                 );
@@ -728,7 +729,7 @@ class PromiseTableImpl<
             });
             return await Promise.all(
               ids.map(async (id) => {
-                const doc = await this.db.get(id);
+                const doc = await this.ctx.db.get(id);
                 if (doc === null) {
                   throw new Error(
                     `Document not found with id \`${id}\` in table "${this.table}"`
@@ -742,7 +743,7 @@ class PromiseTableImpl<
             const [indexName, values] = args;
             return (await Promise.all(
               (values as any[]).map(async (value) => {
-                const doc = await this.db
+                const doc = await this.ctx.db
                   .query(this.table)
                   .withIndex(indexName, (q) => q.eq(indexName, value))
                   .unique();
@@ -760,7 +761,7 @@ class PromiseTableImpl<
   }
 
   normalizeId(id: string): GenericId<Table> | null {
-    return this.db.normalizeId(this.table, id);
+    return this.ctx.db.normalizeId(this.table, id);
   }
 
   // normalizeId or throw
@@ -782,7 +783,7 @@ class PromiseTableImpl<
     ) => IndexRange
   ) {
     return new PromiseQueryOrNullImpl(
-      this.db,
+      this.ctx,
       this.entDefinitions,
       this.table,
       async () => {
@@ -806,7 +807,7 @@ class PromiseTableImpl<
     ) => SearchFilter
   ) {
     return new PromiseQueryOrNullImpl(
-      this.db,
+      this.ctx,
       this.entDefinitions,
       this.table,
       async () => {
@@ -897,7 +898,7 @@ class PromiseEntsOrNullImpl<
   implements PromiseEntsOrNull<EntsDataModel, Table>
 {
   constructor(
-    private db: GenericDatabaseReader<EntsDataModel>,
+    private ctx: EntQueryCtx<EntsDataModel>,
     private entDefinitions: EntsDataModel,
     private table: Table,
     private retrieve: () => Promise<
@@ -924,7 +925,7 @@ class PromiseEntsOrNullImpl<
 
   first() {
     return new PromiseEntOrNullImpl(
-      this.db,
+      this.ctx,
       this.entDefinitions,
       this.table,
       async () => {
@@ -940,7 +941,7 @@ class PromiseEntsOrNullImpl<
 
   firstX() {
     return new PromiseEntOrNullImpl(
-      this.db,
+      this.ctx,
       this.entDefinitions,
       this.table,
       async () => {
@@ -960,7 +961,7 @@ class PromiseEntsOrNullImpl<
 
   unique() {
     return new PromiseEntOrNullImpl(
-      this.db,
+      this.ctx,
       this.entDefinitions,
       this.table,
       async () => {
@@ -979,7 +980,7 @@ class PromiseEntsOrNullImpl<
 
   uniqueX() {
     return new PromiseEntOrNullImpl(
-      this.db,
+      this.ctx,
       this.entDefinitions,
       this.table,
       async () => {
@@ -1002,7 +1003,7 @@ class PromiseEntsOrNullImpl<
   async docs() {
     const docs = await this.retrieve();
     return filterByReadRule(
-      this.db,
+      this.ctx,
       this.entDefinitions,
       this.table,
       docs,
@@ -1034,7 +1035,7 @@ class PromiseEntsOrNullImpl<
         docs === null
           ? null
           : docs.map((doc) =>
-              entWrapper(doc, this.db, this.entDefinitions, this.table)
+              entWrapper(doc, this.ctx, this.entDefinitions, this.table)
             )
       )
       .then(onfulfilled, onrejected);
@@ -1084,7 +1085,7 @@ class PromiseEdgeOrNullImpl<
   implements PromiseEdgeEntsOrNull<EntsDataModel, Table>
 {
   constructor(
-    db: GenericDatabaseReader<EntsDataModel>,
+    ctx: EntQueryCtx<EntsDataModel>,
     entDefinitions: EntsDataModel,
     table: Table,
     private field: string,
@@ -1094,7 +1095,7 @@ class PromiseEdgeOrNullImpl<
       ) => any
     ) => Promise<DocumentByName<EntsDataModel, Table>[] | null>
   ) {
-    super(db, entDefinitions, table, () => retrieveRange((q) => q), false);
+    super(ctx, entDefinitions, table, () => retrieveRange((q) => q), false);
   }
 
   async has(id: GenericId<Table>) {
@@ -1147,7 +1148,7 @@ class PromiseEntOrNullImpl<
   implements PromiseEntOrNull<EntsDataModel, Table>
 {
   constructor(
-    protected db: GenericDatabaseReader<EntsDataModel>,
+    protected ctx: EntQueryCtx<EntsDataModel>,
     protected entDefinitions: EntsDataModel,
     protected table: Table,
     protected retrieve: DocRetriever<
@@ -1171,7 +1172,7 @@ class PromiseEntOrNullImpl<
     const readPolicy = getReadRule(this.entDefinitions, this.table);
     if (readPolicy !== undefined) {
       const decision = await readPolicy(
-        entWrapper(doc, this.db, this.entDefinitions, this.table)
+        entWrapper(doc, this.ctx, this.entDefinitions, this.table)
       );
       if (this.throwIfNull && !decision) {
         throw new Error(
@@ -1212,7 +1213,7 @@ class PromiseEntOrNullImpl<
       .then((doc) =>
         doc === null
           ? null
-          : entWrapper(doc, this.db, this.entDefinitions, this.table)
+          : entWrapper(doc, this.ctx, this.entDefinitions, this.table)
       )
       .then(onfulfilled, onrejected);
   }
@@ -1236,7 +1237,7 @@ class PromiseEntOrNullImpl<
     if (edgeDefinition.cardinality === "multiple") {
       if (edgeDefinition.type === "ref") {
         return new PromiseEdgeOrNullImpl(
-          this.db,
+          this.ctx,
           this.entDefinitions,
           edgeDefinition.to,
           edgeDefinition.ref,
@@ -1245,7 +1246,7 @@ class PromiseEntOrNullImpl<
             if (id === null) {
               return null;
             }
-            const edgeDocs = await this.db
+            const edgeDocs = await this.ctx.db
               .query(edgeDefinition.table)
               .withIndex(edgeDefinition.field, (q) =>
                 indexRange(q.eq(edgeDefinition.field, id as any) as any)
@@ -1254,7 +1255,7 @@ class PromiseEntOrNullImpl<
             return (
               await Promise.all(
                 edgeDocs.map((edgeDoc) =>
-                  this.db.get(edgeDoc[edgeDefinition.ref] as any)
+                  this.ctx.db.get(edgeDoc[edgeDefinition.ref] as any)
                 )
               )
             ).filter(<TValue>(doc: TValue | null, i: number): doc is TValue => {
@@ -1276,7 +1277,7 @@ class PromiseEntOrNullImpl<
         ) as any;
       }
       return new PromiseQueryOrNullImpl(
-        this.db,
+        this.ctx,
         this.entDefinitions,
         edgeDefinition.to,
         async () => {
@@ -1284,7 +1285,7 @@ class PromiseEntOrNullImpl<
           if (id === null) {
             return null;
           }
-          return this.db
+          return this.ctx.db
             .query(edgeDefinition.to)
             .withIndex(edgeDefinition.ref, (q) =>
               q.eq(edgeDefinition.ref, id as any)
@@ -1294,7 +1295,7 @@ class PromiseEntOrNullImpl<
     }
 
     return new PromiseEntOrNullImpl(
-      this.db,
+      this.ctx,
       this.entDefinitions,
       edgeDefinition.to,
       async () => {
@@ -1304,7 +1305,7 @@ class PromiseEntOrNullImpl<
         }
 
         if (edgeDefinition.type === "ref") {
-          const otherDoc = await this.db
+          const otherDoc = await this.ctx.db
             .query(edgeDefinition.to)
             .withIndex(edgeDefinition.ref, (q) =>
               q.eq(edgeDefinition.ref, id as any)
@@ -1324,7 +1325,7 @@ class PromiseEntOrNullImpl<
         return {
           id: otherId,
           doc: async () => {
-            const otherDoc = await this.db.get(otherId);
+            const otherDoc = await this.ctx.db.get(otherId);
             if (otherDoc === null) {
               throw new Error(
                 `Dangling reference for edge "${edgeDefinition.name}" in ` +
@@ -1347,13 +1348,13 @@ export function entWrapper<
   Table extends TableNamesInDataModel<EntsDataModel>
 >(
   fields: DocumentByName<EntsDataModel, Table>,
-  db: GenericDatabaseReader<EntsDataModel>,
+  ctx: EntQueryCtx<EntsDataModel>,
   entDefinitions: EntsDataModel,
   table: Table
 ): Ent<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel> {
   const doc = { ...fields };
   const queryInterface = new PromiseEntWriterImpl(
-    db as any,
+    ctx as any,
     entDefinitions as any,
     table,
     async () => ({ id: doc._id as any, doc: async () => doc }),
@@ -1419,12 +1420,12 @@ export function entWrapper<
 }
 
 export function entsTableFactory<
-  Database extends GenericDatabaseReader<any>,
+  Ctx extends EntQueryCtx<any>,
   EntsDataModel extends GenericEntsDataModel
 >(
-  db: Database,
+  ctx: Ctx,
   entDefinitions: EntsDataModel
-): Database extends GenericDatabaseWriter<any>
+): Ctx extends EntMutationCtx<any>
   ? EntsTableWriter<EntsDataModel>
   : EntsTable<EntsDataModel> {
   return (
@@ -1433,28 +1434,28 @@ export function entsTableFactory<
     indexRange?: any
   ) => {
     // Consider being strict here if people struggle with setup:
-    // if (typeof db?.query !== "function") {
+    // if (typeof ctx.db?.query !== "function") {
     //   throw new Error(
-    //     `Expected context with \`db\`, got \`${JSON.stringify(db)}\``
+    //     `Expected context with \`db\`, got \`${JSON.stringify(ctx)}\``
     //   );
     // }
     if (typeof table !== "string") {
       throw new Error(`Expected table name, got \`${table as any}\``);
     }
     if (indexName !== undefined) {
-      return new PromiseTableImpl(db, entDefinitions, table).withIndex(
+      return new PromiseTableImpl(ctx as any, entDefinitions, table).withIndex(
         indexName,
         indexRange
       );
     }
-    if ((db as any).insert !== undefined) {
+    if ((ctx.db as any).insert !== undefined) {
       return new PromiseTableWriterImpl(
-        db as unknown as GenericDatabaseWriter<any>,
+        ctx as any,
         entDefinitions,
         table
       ) as any;
     }
-    return new PromiseTableImpl(db, entDefinitions, table);
+    return new PromiseTableImpl(ctx as any, entDefinitions, table);
   };
 }
 
@@ -1755,12 +1756,12 @@ class PromiseTableWriterImpl<
   private base: WriterImplBase<EntsDataModel, Table>;
 
   constructor(
-    protected db: GenericDatabaseWriter<EntsDataModel>,
+    protected ctx: EntMutationCtx<EntsDataModel>,
     entDefinitions: EntsDataModel,
     table: Table
   ) {
-    super(db, entDefinitions, table);
-    this.base = new WriterImplBase(db, entDefinitions, table);
+    super(ctx, entDefinitions, table);
+    this.base = new WriterImplBase(ctx, entDefinitions, table);
   }
 
   insert(
@@ -1772,14 +1773,14 @@ class PromiseTableWriterImpl<
     >
   ) {
     return new PromiseEntIdImpl(
-      this.db,
+      this.ctx,
       this.entDefinitions,
       this.table,
       async () => {
         await this.base.checkReadAndWriteRule("create", undefined, value);
         await this.base.checkUniqueness(value);
         const fields = this.base.fieldsOnly(value as any);
-        const docId = await this.db.insert(this.table, fields as any);
+        const docId = await this.ctx.db.insert(this.table, fields as any);
         const edges: EdgeChanges = {};
         Object.keys(value).forEach((key) => {
           const edgeDefinition = getEdgeDefinitions(
@@ -1897,7 +1898,7 @@ class PromiseEntWriterImpl<
   private base: WriterImplBase<EntsDataModel, Table>;
 
   constructor(
-    protected db: GenericDatabaseWriter<EntsDataModel>,
+    protected ctx: EntMutationCtx<EntsDataModel>,
     protected entDefinitions: EntsDataModel,
     protected table: Table,
     protected retrieve: DocRetriever<
@@ -1906,8 +1907,8 @@ class PromiseEntWriterImpl<
     >,
     protected throwIfNull: boolean
   ) {
-    super(db, entDefinitions, table, retrieve, throwIfNull);
-    this.base = new WriterImplBase(db, entDefinitions, table);
+    super(ctx, entDefinitions, table, retrieve, throwIfNull);
+    this.base = new WriterImplBase(ctx, entDefinitions, table);
   }
 
   patch(
@@ -1919,7 +1920,7 @@ class PromiseEntWriterImpl<
     >
   ) {
     return new PromiseEntIdImpl(
-      this.db,
+      this.ctx,
       this.entDefinitions,
       this.table,
       async () => {
@@ -1928,7 +1929,7 @@ class PromiseEntWriterImpl<
         await this.base.checkReadAndWriteRule("update", id, value);
         await this.base.checkUniqueness(value, id);
         const fields = this.base.fieldsOnly(value);
-        await this.db.patch(id, fields);
+        await this.ctx.db.patch(id, fields);
 
         const edges: EdgeChanges = {};
         await Promise.all(
@@ -1946,7 +1947,7 @@ class PromiseEntWriterImpl<
             }
             if (edgeDefinition.cardinality === "single") {
               throw new Error("Cannot set 1:1 edge from optional end.");
-              // const existing = await this.db
+              // const existing = await this.ctx.db
               //   .query(edgeDefinition.to)
               //   .withIndex(edgeDefinition.ref, (q) =>
               //     q.eq(edgeDefinition.ref, docId as any)
@@ -1966,7 +1967,7 @@ class PromiseEntWriterImpl<
                   await Promise.all(
                     (remove ?? []).map(async (edgeId) =>
                       (
-                        await this.db
+                        await this.ctx.db
                           .query(edgeDefinition.table)
                           .withIndex(edgeDefinition.field, (q) =>
                             (q.eq(edgeDefinition.field, id as any) as any).eq(
@@ -1977,7 +1978,7 @@ class PromiseEntWriterImpl<
                           .collect()
                       ).concat(
                         edgeDefinition.symmetric
-                          ? await this.db
+                          ? await this.ctx.db
                               .query(edgeDefinition.table)
                               .withIndex(edgeDefinition.ref, (q) =>
                                 (q.eq(edgeDefinition.ref, id as any) as any).eq(
@@ -2011,7 +2012,7 @@ class PromiseEntWriterImpl<
     >
   ) {
     return new PromiseEntIdImpl(
-      this.db,
+      this.ctx,
       this.entDefinitions,
       this.table,
       async () => {
@@ -2020,7 +2021,7 @@ class PromiseEntWriterImpl<
         await this.base.checkReadAndWriteRule("update", docId, value);
         await this.base.checkUniqueness(value, docId);
         const fields = this.base.fieldsOnly(value as any);
-        await this.db.replace(docId, fields as any);
+        await this.ctx.db.replace(docId, fields as any);
 
         const edges: EdgeChanges = {};
 
@@ -2032,7 +2033,7 @@ class PromiseEntWriterImpl<
             const idOrIds = value[key];
             if (edgeDefinition.cardinality === "single") {
               if (edgeDefinition.type === "ref") {
-                const oldDoc = (await this.db.get(docId))!;
+                const oldDoc = (await this.ctx.db.get(docId))!;
                 if (oldDoc[key] !== undefined && oldDoc[key] !== idOrIds) {
                   // This should be only allowed if the edge is optional
                   // on the field side.
@@ -2050,7 +2051,7 @@ class PromiseEntWriterImpl<
               if (edgeDefinition.type === "field") {
                 // TODO: Same issue around optionality as above
                 const existing = (
-                  await this.db
+                  await this.ctx.db
                     .query(edgeDefinition.to)
                     .withIndex(edgeDefinition.ref, (q) =>
                       q.eq(edgeDefinition.ref, docId as any)
@@ -2064,7 +2065,7 @@ class PromiseEntWriterImpl<
               } else {
                 const requested = new Set(idOrIds ?? []);
                 const remove = (
-                  await this.db
+                  await this.ctx.db
                     .query(edgeDefinition.table)
                     .withIndex(edgeDefinition.field, (q) =>
                       q.eq(edgeDefinition.field, docId as any)
@@ -2075,7 +2076,7 @@ class PromiseEntWriterImpl<
                   .concat(
                     edgeDefinition.symmetric
                       ? (
-                          await this.db
+                          await this.ctx.db
                             .query(edgeDefinition.table)
                             .withIndex(edgeDefinition.ref, (q) =>
                               q.eq(edgeDefinition.ref, docId as any)
@@ -2191,7 +2192,7 @@ class PromiseEntIdImpl<
   implements PromiseEntId<EntsDataModel, Table>
 {
   constructor(
-    private db: GenericDatabaseWriter<EntsDataModel>,
+    private ctx: EntMutationCtx<EntsDataModel>,
     private entDefinitions: EntsDataModel,
     private table: Table,
     private retrieve: () => Promise<GenericId<Table>>
@@ -2201,12 +2202,12 @@ class PromiseEntIdImpl<
 
   get() {
     return new PromiseEntOrNullImpl(
-      this.db,
+      this.ctx,
       this.entDefinitions,
       this.table,
       async () => {
         const id = await this.retrieve();
-        return { id, doc: async () => this.db.get(id) };
+        return { id, doc: async () => this.ctx.db.get(id) };
       },
       true
     ) as any;
@@ -2226,6 +2227,17 @@ class PromiseEntIdImpl<
   }
 }
 
+export interface EntQueryCtx<DataModel extends GenericDataModel> {
+  db: GenericDatabaseReader<DataModel>;
+}
+
+export interface EntMutationCtx<DataModel extends GenericDataModel>
+  extends EntQueryCtx<DataModel> {
+  db: GenericDatabaseWriter<DataModel>;
+
+  scheduler: Scheduler;
+}
+
 export type DocRetriever<ID, Doc> = () => Promise<{
   id: ID;
   doc: () => Promise<Doc>;
@@ -2239,10 +2251,10 @@ const nullRetriever = {
 // function idRetriever<
 //   DataModel extends GenericDataModel,
 //   Table extends TableNamesInDataModel<DataModel>
-// >(db: GenericDatabaseReader<DataModel>, id: GenericId<Table>) {
+// >(ctx: EntQueryCtx<DataModel>, id: GenericId<Table>) {
 //   return {
 //     id,
-//     doc: async () => db.get(id),
+//     doc: async () => ctx.db.get(id),
 //   };
 // }
 
@@ -2326,7 +2338,7 @@ export function addEntRules<EntsDataModel extends GenericEntsDataModel>(
 }
 
 async function filterByReadRule<Doc extends GenericDocument>(
-  db: GenericDatabaseReader<any>,
+  ctx: EntQueryCtx<any>,
   entDefinitions: GenericEntsDataModel,
   table: string,
   docs: Doc[] | null,
@@ -2342,7 +2354,7 @@ async function filterByReadRule<Doc extends GenericDocument>(
   const decisions = await Promise.all(
     docs.map(async (doc) => {
       const decision = await readPolicy(
-        entWrapper(doc, db, entDefinitions, table)
+        entWrapper(doc, ctx, entDefinitions, table)
       );
       if (throwIfNull && !decision) {
         throw new Error(
