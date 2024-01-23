@@ -143,42 +143,9 @@ export class WriterImplBase<
                 );
               }
             } else {
-              let removeEdges: GenericId<any>[] = [];
-              if (idOrIds.remove !== undefined) {
-                removeEdges = (
-                  await Promise.all(
-                    (idOrIds.remove as GenericId<any>[]).map(async (id) =>
-                      (
-                        await this.db
-                          .query(edgeDefinition.table)
-                          .withIndex(edgeDefinition.field, (q) =>
-                            (
-                              q.eq(edgeDefinition.field, docId as any) as any
-                            ).eq(edgeDefinition.ref, id)
-                          )
-                          .collect()
-                      ).concat(
-                        edgeDefinition.symmetric
-                          ? await this.db
-                              .query(edgeDefinition.table)
-                              .withIndex(edgeDefinition.ref, (q) =>
-                                (
-                                  q.eq(edgeDefinition.ref, docId as any) as any
-                                ).eq(edgeDefinition.field, id)
-                              )
-                              .collect()
-                          : []
-                      )
-                    )
-                  )
-                ).map((doc) => (doc as any)._id);
-              }
-              if (idOrIds.removeEdges !== undefined) {
-                removeEdges = idOrIds.removeEdges;
-              }
-              if (removeEdges.length > 0) {
+              if ((idOrIds.removeEdges ?? []).length > 0) {
                 await Promise.all(
-                  removeEdges.map(async (id) => {
+                  idOrIds.removeEdges!.map(async (id) => {
                     try {
                       await this.db.delete(id);
                     } catch (e) {

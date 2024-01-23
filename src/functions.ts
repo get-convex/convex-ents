@@ -1958,7 +1958,41 @@ class PromiseEntWriterImpl<
               //   remove: existing?._id as GenericId<any> | undefined,
               // };
             } else {
-              edges[key] = value[key] as any;
+              if (edgeDefinition.type === "field") {
+                edges[key] = value[key]!;
+              } else {
+                const { add, remove } = value[key]!;
+                const removeEdges = (
+                  await Promise.all(
+                    (remove ?? []).map(async (edgeId) =>
+                      (
+                        await this.db
+                          .query(edgeDefinition.table)
+                          .withIndex(edgeDefinition.field, (q) =>
+                            (q.eq(edgeDefinition.field, id as any) as any).eq(
+                              edgeDefinition.ref,
+                              edgeId
+                            )
+                          )
+                          .collect()
+                      ).concat(
+                        edgeDefinition.symmetric
+                          ? await this.db
+                              .query(edgeDefinition.table)
+                              .withIndex(edgeDefinition.ref, (q) =>
+                                (q.eq(edgeDefinition.ref, id as any) as any).eq(
+                                  edgeDefinition.field,
+                                  edgeId
+                                )
+                              )
+                              .collect()
+                          : []
+                      )
+                    )
+                  )
+                ).map((doc) => (doc as any)._id);
+                edges[key] = { add, removeEdges };
+              }
             }
           })
         );
