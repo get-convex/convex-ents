@@ -1,14 +1,14 @@
 import {
   FunctionReference,
   GenericMutationCtx,
+  IndexRangeBuilder,
   RegisteredMutation,
   internalMutationGeneric as internalMutation,
   makeFunctionReference,
 } from "convex/server";
-import { GenericId, v } from "convex/values";
-import { getDeletionConfig, getEdgeDefinitions } from "./functions";
+import { GenericId, Infer, convexToJson, v } from "convex/values";
+import { getEdgeDefinitions } from "./functions";
 import { GenericEntsDataModel } from "./schema";
-import { WriterImplBase } from "./writer";
 
 export type ScheduledDeleteFuncRef = FunctionReference<
   "mutation",
@@ -27,11 +27,9 @@ type Origin = {
   deletionTime: number;
 };
 
-const vApproach = v.union(
-  v.literal("schedule"),
-  v.literal("deleteOne"),
-  v.literal("paginate")
-);
+const vApproach = v.union(v.literal("cascade"), v.literal("paginate"));
+
+type Approach = Infer<typeof vApproach>;
 
 export function scheduledDeleteFactory<
   EntsDataModel extends GenericEntsDataModel
@@ -101,10 +99,8 @@ export function scheduledDeleteFactory<
         return;
       }
       await progressScheduledDeletion(
-        ctx,
-        entDefinitions,
-        selfRef,
-        origin,
+        { ctx, entDefinitions, selfRef, origin },
+        newCounter(),
         inProgress
           ? stack
           : [
@@ -134,7 +130,6 @@ function getEdgeArgs(entDefinitions: GenericEntsDataModel, table: string) {
         edgeDefinition.type === "field")
     ) {
       const table = edgeDefinition.to;
-      const targetDeletionConfig = getDeletionConfig(entDefinitions, table);
       const targetEdges = getEdgeDefinitions(entDefinitions, table);
       const hasCascadingEdges = Object.values(targetEdges).some(
         (edgeDefinition) =>
@@ -142,12 +137,7 @@ function getEdgeArgs(entDefinitions: GenericEntsDataModel, table: string) {
             edgeDefinition.type === "ref") ||
           edgeDefinition.cardinality === "multiple"
       );
-      const approach =
-        targetDeletionConfig !== undefined && hasCascadingEdges
-          ? "schedule"
-          : hasCascadingEdges
-          ? "deleteOne"
-          : "paginate";
+      const approach = hasCascadingEdges ? "cascade" : "paginate";
 
       const indexName = edgeDefinition.ref;
       return [{ table, indexName, approach } as const];
@@ -175,8 +165,6 @@ function getEdgeArgs(entDefinitions: GenericEntsDataModel, table: string) {
   });
 }
 
-type Approach = "schedule" | "deleteOne" | "paginate";
-
 type PaginationArgs = {
   approach: Approach;
   table: string;
@@ -196,13 +184,19 @@ type Stack = (
   | PaginationArgs
 )[];
 
+type CascadeCtx = {
+  ctx: GenericMutationCtx<any>;
+  entDefinitions: GenericEntsDataModel;
+  selfRef: ScheduledDeleteFuncRef;
+  origin: Origin;
+};
+
 async function progressScheduledDeletion(
-  ctx: GenericMutationCtx<any>,
-  entDefinitions: GenericEntsDataModel,
-  selfRef: ScheduledDeleteFuncRef,
-  origin: Origin,
+  cascade: CascadeCtx,
+  counter: Counter,
   stack: Stack
 ) {
+  const { ctx } = cascade;
   const last = stack[stack.length - 1];
 
   if ("id" in last) {
@@ -210,45 +204,51 @@ async function progressScheduledDeletion(
     if (edgeArgs === undefined) {
       await ctx.db.delete(last.id as GenericId<any>);
       if (stack.length > 1) {
-        await ctx.scheduler.runAfter(0, selfRef, {
-          origin,
-          stack: stack.slice(0, -1),
-          inProgress: true,
-        });
+        await continueOrSchedule(cascade, counter, stack.slice(0, -1));
       }
     } else {
       const updated = { ...last, edges: last.edges.slice(1) };
-      await paginate(
-        ctx,
-        entDefinitions,
-        selfRef,
-        origin,
+      await paginateOrCascade(
+        cascade,
+        counter,
         stack.slice(0, -1).concat(updated),
-        { cursor: null, fieldValue: last.id, ...edgeArgs }
+        {
+          cursor: null,
+          fieldValue: last.id,
+          ...edgeArgs,
+        }
       );
     }
   } else {
-    await paginate(ctx, entDefinitions, selfRef, origin, stack, last);
+    await paginateOrCascade(cascade, counter, stack, last);
   }
 }
 
-async function paginate(
-  ctx: GenericMutationCtx<any>,
-  entDefinitions: GenericEntsDataModel,
-  selfRef: ScheduledDeleteFuncRef,
-  origin: Origin,
+const MAXIMUM_DOCUMENTS_READ = 8192 / 4;
+const MAXIMUM_BYTES_READ = 2 ** 18;
+
+async function paginateOrCascade(
+  cascade: CascadeCtx,
+  counter: Counter,
   stack: Stack,
   { table, approach, indexName, fieldValue, cursor }: PaginationArgs
 ) {
-  const { page, continueCursor, isDone } = await ctx.db
-    .query(table)
-    .withIndex(indexName, (q) => q.eq(indexName, fieldValue))
-    .paginate({
+  const { ctx, entDefinitions } = cascade;
+  const { page, continueCursor, isDone, bytesRead } = await paginate(
+    ctx,
+    { table, indexName, fieldValue },
+    {
       cursor,
-      ...(approach === "paginate"
-        ? { numItems: 8192 / 4, maximumBytesRead: 2 ** 18 }
-        : { numItems: 1 }),
-    });
+      ...limitsBasedOnCounter(
+        counter,
+        approach === "paginate"
+          ? { numItems: MAXIMUM_DOCUMENTS_READ }
+          : { numItems: 1 }
+      ),
+    }
+  );
+
+  const updatedCounter = incrementCounter(counter, page.length, bytesRead);
   const updated = {
     approach,
     table,
@@ -257,34 +257,132 @@ async function paginate(
     fieldValue,
   };
   const relevantStack = cursor === null ? stack : stack.slice(0, -1);
-  if (approach === "schedule") {
+  const updatedStack =
+    isDone && (approach === "paginate" || page.length === 0)
+      ? relevantStack
+      : relevantStack.concat(
+          approach === "cascade"
+            ? [
+                updated,
+                {
+                  id: page[0]._id,
+                  table,
+                  edges: getEdgeArgs(entDefinitions, table),
+                },
+              ]
+            : [updated]
+        );
+  if (approach === "paginate") {
+    await Promise.all(page.map((doc) => ctx.db.delete(doc._id)));
+  }
+  await continueOrSchedule(cascade, updatedCounter, updatedStack);
+}
+
+async function continueOrSchedule(
+  cascade: CascadeCtx,
+  counter: Counter,
+  stack: Stack
+) {
+  if (shouldSchedule(counter)) {
+    const { ctx, selfRef, origin } = cascade;
     await ctx.scheduler.runAfter(0, selfRef, {
       origin,
-      stack: isDone
-        ? relevantStack
-        : relevantStack.concat([
-            updated,
-            {
-              id: page[0]._id,
-              table,
-              edges: getEdgeArgs(entDefinitions, table),
-            },
-          ]),
+      stack,
       inProgress: true,
     });
   } else {
-    if (approach === "deleteOne") {
-      await new WriterImplBase(ctx, entDefinitions, origin.table).deleteId(
-        page[0].id,
-        "hard"
-      );
-    } else {
-      await Promise.all(page.map((doc) => ctx.db.delete(doc._id)));
-    }
-    await ctx.scheduler.runAfter(0, selfRef, {
-      origin,
-      stack: isDone ? relevantStack : relevantStack.concat([updated]),
-      inProgress: true,
-    });
+    await progressScheduledDeletion(cascade, counter, stack);
   }
+}
+
+type Counter = {
+  numDocuments: number;
+  numBytesRead: number;
+};
+
+function newCounter() {
+  return {
+    numDocuments: 0,
+    numBytesRead: 0,
+  };
+}
+
+function incrementCounter(
+  counter: Counter,
+  numDocuments: number,
+  numBytesRead: number
+) {
+  return {
+    numDocuments: counter.numDocuments + numDocuments,
+    numBytesRead: counter.numBytesRead + numBytesRead,
+  };
+}
+
+function limitsBasedOnCounter(
+  counter: Counter,
+  { numItems }: { numItems: number }
+) {
+  return {
+    numItems: Math.max(1, numItems - counter.numDocuments),
+    maximumBytesRead: Math.max(1, MAXIMUM_BYTES_READ - counter.numBytesRead),
+  };
+}
+
+function shouldSchedule(counter: Counter) {
+  return (
+    counter.numDocuments >= MAXIMUM_DOCUMENTS_READ ||
+    counter.numBytesRead >= MAXIMUM_BYTES_READ
+  );
+}
+
+async function paginate(
+  ctx: GenericMutationCtx<any>,
+  {
+    table,
+    indexName,
+    fieldValue,
+  }: { table: string; indexName: string; fieldValue: any },
+  {
+    cursor,
+    numItems,
+    maximumBytesRead,
+  }: {
+    cursor: string | null;
+    numItems: number;
+    maximumBytesRead: number;
+  }
+) {
+  const query = ctx.db
+    .query(table)
+    .withIndex(indexName, (q) =>
+      (q.eq(indexName, fieldValue) as IndexRangeBuilder<any, any, any>).gt(
+        "_creationTime",
+        cursor
+      )
+    );
+
+  let bytesRead = 0;
+  const results = [];
+  let isDone = true;
+
+  for await (const doc of query) {
+    if (results.length >= numItems) {
+      isDone = false;
+      break;
+    }
+    const size = JSON.stringify(convexToJson(doc)).length * 8;
+    if (bytesRead + size > maximumBytesRead) {
+      isDone = false;
+      break;
+    }
+    bytesRead += size;
+    results.push(doc);
+  }
+  return {
+    page: results,
+    continueCursor:
+      results.length === 0 ? cursor : results[results.length - 1]._creationTime,
+    isDone,
+    bytesRead,
+  };
 }
