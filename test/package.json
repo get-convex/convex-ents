@@ -3,8 +3,9 @@
   "private": true,
   "version": "0.1.0",
   "scripts": {
-    "test": "npx convex run read:runTests && npx convex run write:runTests && npx convex run paginate:runTests",
-    "lint": "tsc && eslint ."
+    "test": "tsc && eslint . && npm run testOnly",
+    "testOnly": "npx convex run read:runTests && npx convex run write:runTests && npx convex run paginate:runTests && npm run testCascade",
+    "testCascade": "npx convex run cascade:setup && sleep 0.2 && npx convex run cascade:runTest"
   },
   "dependencies": {
     "@storybook/expect": "^28.1.3-5",

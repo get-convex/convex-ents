@@ -3,6 +3,7 @@ import {
   ExpressionOrValue,
   FieldTypeFromFieldPath,
   FilterBuilder,
+  FunctionReference,
   GenericDataModel,
   GenericDatabaseReader,
   GenericDatabaseWriter,
@@ -26,13 +27,20 @@ import {
   WithoutSystemFields,
 } from "convex/server";
 import { GenericId } from "convex/values";
-import { EdgeConfig, GenericEntsDataModel } from "./schema";
+import {
+  DeletionConfig,
+  EdgeConfig,
+  Expand,
+  GenericEntsDataModel,
+} from "./schema";
 import {
   EdgeChanges,
+  WithEdgeInserts,
   WithEdgePatches,
   WithEdges,
   WriterImplBase,
 } from "./writer";
+import { ScheduledDeleteFuncRef } from "./deletion";
 
 // TODO: Figure out how to make get() variadic
 // type FieldTypes<
@@ -64,7 +72,7 @@ export interface PromiseOrderedQueryOrNull<
       index: number,
       array: Ent<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel>[]
     ) => Promise<TOutput> | TOutput
-  ): Promise<TOutput[] | null>;
+  ): PromiseArrayOrNull<TOutput>;
 
   paginate(
     paginationOpts: PaginationOptions
@@ -210,10 +218,6 @@ export interface PromiseOrderedQueryBase<
     paginationOpts: PaginationOptions
   ): PromisePaginationResult<EntsDataModel, Table>;
 
-  first(): PromiseEntOrNull<EntsDataModel, Table>;
-
-  unique(): PromiseEntOrNull<EntsDataModel, Table>;
-
   docs(): Promise<DocumentByName<EntsDataModel, Table>[]>;
 }
 
@@ -230,11 +234,15 @@ export interface PromiseOrderedQuery<
       index: number,
       array: Ent<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel>[]
     ) => Promise<TOutput> | TOutput
-  ): Promise<TOutput[]>;
+  ): PromiseArray<TOutput>;
 
   take(n: number): PromiseEnts<EntsDataModel, Table>;
 
+  first(): PromiseEntOrNull<EntsDataModel, Table>;
+
   firstX(): PromiseEnt<EntsDataModel, Table>;
+
+  unique(): PromiseEntOrNull<EntsDataModel, Table>;
 
   uniqueX(): PromiseEnt<EntsDataModel, Table>;
 }
@@ -288,18 +296,20 @@ class PromiseQueryOrNullImpl<
     );
   }
 
-  async map<TOutput>(
+  map<TOutput>(
     callbackFn: (
       value: Ent<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel>,
       index: number,
       array: Ent<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel>[]
     ) => Promise<TOutput> | TOutput
   ) {
-    const array = await this;
-    if (array === null) {
-      return [];
-    }
-    return await Promise.all(array.map(callbackFn));
+    return new PromiseArrayImpl(async () => {
+      const array = await this;
+      if (array === null) {
+        return null as TOutput[] | null;
+      }
+      return await Promise.all(array.map(callbackFn));
+    });
   }
 
   order(
@@ -845,7 +855,7 @@ export interface PromiseEntsOrNull<
       index: number,
       array: Ent<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel>[]
     ) => Promise<TOutput> | TOutput
-  ): Promise<TOutput[] | null>;
+  ): PromiseArrayOrNull<TOutput>;
 
   docs(): Promise<DocumentByName<EntsDataModel, Table>[] | null>;
 }
@@ -883,7 +893,7 @@ export interface PromiseEnts<
       index: number,
       array: Ent<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel>[]
     ) => Promise<TOutput> | TOutput
-  ): Promise<TOutput[]>;
+  ): PromiseArray<TOutput>;
 
   docs(): Promise<DocumentByName<EntsDataModel, Table>[]>;
 }
@@ -909,18 +919,20 @@ class PromiseEntsOrNullImpl<
     super(() => {});
   }
 
-  async map<TOutput>(
+  map<TOutput>(
     callbackFn: (
       value: Ent<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel>,
       index: number,
       array: Ent<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel>[]
     ) => Promise<TOutput> | TOutput
   ) {
-    const array = await this;
-    if (array === null) {
-      return [];
-    }
-    return await Promise.all(array.map(callbackFn));
+    return new PromiseArrayImpl(async () => {
+      const array = await this;
+      if (array === null) {
+        return null as TOutput[] | null;
+      }
+      return await Promise.all(array.map(callbackFn));
+    });
   }
 
   first() {
@@ -1343,6 +1355,58 @@ class PromiseEntOrNullImpl<
   }
 }
 
+export interface PromiseArrayOrNull<T> extends Promise<T[] | null> {
+  filter<S extends T>(
+    predicate: (value: T, index: number, array: T[] | null) => value is S
+  ): Promise<S[] | null>;
+
+  filter(
+    predicate: (value: T, index: number, array: T[] | null) => unknown
+  ): Promise<T[] | null>;
+}
+
+export interface PromiseArray<T> extends Promise<T[]> {
+  filter<S extends T>(
+    predicate: (value: T, index: number, array: T[]) => value is S
+  ): Promise<S[]>;
+
+  filter(
+    predicate: (value: T, index: number, array: T[]) => unknown
+  ): Promise<T[]>;
+}
+
+class PromiseArrayImpl<T>
+  extends Promise<T[] | null>
+  implements PromiseArrayOrNull<T>
+{
+  constructor(protected retrieve: () => Promise<T[] | null>) {
+    super(() => {});
+  }
+
+  async filter<S extends T>(
+    predicate: (value: T, index: number, array: T[] | null) => value is S
+  ) {
+    const array = await this.retrieve();
+    if (array === null) {
+      return null;
+    }
+    return array.filter(predicate);
+  }
+
+  then<TResult1 = T[] | null, TResult2 = never>(
+    onfulfilled?:
+      | ((value: T[] | null) => TResult1 | PromiseLike<TResult1>)
+      | undefined
+      | null,
+    onrejected?:
+      | ((reason: any) => TResult2 | PromiseLike<TResult2>)
+      | undefined
+      | null
+  ): Promise<TResult1 | TResult2> {
+    return this.retrieve().then(onfulfilled, onrejected);
+  }
+}
+
 export function entWrapper<
   EntsDataModel extends GenericEntsDataModel,
   Table extends TableNamesInDataModel<EntsDataModel>
@@ -1424,10 +1488,14 @@ export function entsTableFactory<
   EntsDataModel extends GenericEntsDataModel
 >(
   ctx: Ctx,
-  entDefinitions: EntsDataModel
+  entDefinitions: EntsDataModel,
+  options?: {
+    scheduledDelete: ScheduledDeleteFuncRef;
+  }
 ): Ctx extends EntMutationCtx<any>
   ? EntsTableWriter<EntsDataModel>
   : EntsTable<EntsDataModel> {
+  const enrichedCtx = options !== undefined ? { ...ctx, ...options } : ctx;
   return (
     table: TableNamesInDataModel<EntsDataModel>,
     indexName?: string,
@@ -1443,19 +1511,20 @@ export function entsTableFactory<
       throw new Error(`Expected table name, got \`${table as any}\``);
     }
     if (indexName !== undefined) {
-      return new PromiseTableImpl(ctx as any, entDefinitions, table).withIndex(
-        indexName,
-        indexRange
-      );
+      return new PromiseTableImpl(
+        enrichedCtx as any,
+        entDefinitions,
+        table
+      ).withIndex(indexName, indexRange);
     }
     if ((ctx.db as any).insert !== undefined) {
       return new PromiseTableWriterImpl(
-        ctx as any,
+        enrichedCtx as any,
         entDefinitions,
         table
       ) as any;
     }
-    return new PromiseTableImpl(ctx as any, entDefinitions, table);
+    return new PromiseTableImpl(enrichedCtx as any, entDefinitions, table);
   };
 }
 
@@ -1491,7 +1560,7 @@ type EntsTableWriter<EntsDataModel extends GenericEntsDataModel> = {
         NamedIndex<NamedTableInfo<EntsDataModel, Table>, IndexName>
       >
     ) => IndexRange
-  ): PromiseTable<EntsDataModel, Table>;
+  ): PromiseTableWriter<Table, EntsDataModel>;
   <Table extends TableNamesInDataModel<EntsDataModel>>(
     table: Table
   ): PromiseTableWriter<Table, EntsDataModel>;
@@ -1586,11 +1655,15 @@ export interface PromiseOrderedQueryWriter<
         EntsDataModel
       >[]
     ) => Promise<TOutput> | TOutput
-  ): Promise<TOutput[]>;
+  ): PromiseArray<TOutput>;
 
   take(n: number): PromiseEntsWriter<EntsDataModel, Table>;
 
+  first(): PromiseEntWriterOrNull<EntsDataModel, Table>;
+
   firstX(): PromiseEntWriter<EntsDataModel, Table>;
+
+  unique(): PromiseEntWriterOrNull<EntsDataModel, Table>;
 
   uniqueX(): PromiseEntWriter<EntsDataModel, Table>;
 }
@@ -1724,10 +1797,12 @@ export interface PromiseTableWriter<
    */
   // TODO: Chain methods to get the written document?
   insert(
-    value: WithoutSystemFields<
-      WithEdges<
-        DocumentByName<EntsDataModel, Table>,
-        EntsDataModel[Table]["edges"]
+    value: Expand<
+      WithoutSystemFields<
+        WithEdgeInserts<
+          DocumentByName<EntsDataModel, Table>,
+          EntsDataModel[Table]["edges"]
+        >
       >
     >
   ): PromiseEntId<EntsDataModel, Table>;
@@ -1740,10 +1815,12 @@ export interface PromiseTableWriter<
    */
   // TODO: Chain methods to get the written documents?
   insertMany(
-    values: WithoutSystemFields<
-      WithEdges<
-        DocumentByName<EntsDataModel, Table>,
-        EntsDataModel[Table]["edges"]
+    values: Expand<
+      WithoutSystemFields<
+        WithEdgeInserts<
+          DocumentByName<EntsDataModel, Table>,
+          EntsDataModel[Table]["edges"]
+        >
       >
     >[]
   ): Promise<GenericId<Table>[]>;
@@ -1766,7 +1843,7 @@ class PromiseTableWriterImpl<
 
   insert(
     value: WithoutSystemFields<
-      WithEdges<
+      WithEdgeInserts<
         DocumentByName<EntsDataModel, Table>,
         EntsDataModel[Table]["edges"]
       >
@@ -1794,10 +1871,13 @@ class PromiseTableWriterImpl<
           ) {
             return;
           }
-          if (edgeDefinition.cardinality === "single") {
-            throw new Error("Cannot set 1:1 edge from optional end.");
-          }
-          edges[key] = { add: value[key] };
+
+          edges[key] = {
+            add:
+              edgeDefinition.cardinality === "single"
+                ? [value[key] as GenericId<any>]
+                : (value[key] as GenericId<any>[]),
+          };
         });
         await this.base.writeEdges(docId, edges);
         return docId;
@@ -1808,7 +1888,7 @@ class PromiseTableWriterImpl<
   // TODO: fluent API
   async insertMany(
     values: WithoutSystemFields<
-      WithEdges<
+      WithEdgeInserts<
         DocumentByName<EntsDataModel, Table>,
         EntsDataModel[Table]["edges"]
       >
@@ -1861,9 +1941,11 @@ export interface PromiseEntWriter<
    */
   patch(
     value: Partial<
-      WithEdgePatches<
-        DocumentByName<EntsDataModel, Table>,
-        EntsDataModel[Table]["edges"]
+      Expand<
+        WithEdgePatches<
+          DocumentByName<EntsDataModel, Table>,
+          EntsDataModel[Table]["edges"]
+        >
       >
     >
   ): Promise<PromiseEntId<EntsDataModel, Table>>;
@@ -1875,10 +1957,12 @@ export interface PromiseEntWriter<
    * and the database will preserve them in.
    */
   replace(
-    value: WithOptionalSystemFields<
-      WithEdges<
-        DocumentByName<EntsDataModel, Table>,
-        EntsDataModel[Table]["edges"]
+    value: Expand<
+      WithOptionalSystemFields<
+        WithEdges<
+          DocumentByName<EntsDataModel, Table>,
+          EntsDataModel[Table]["edges"]
+        >
       >
     >
   ): Promise<PromiseEntId<EntsDataModel, Table>>;
@@ -1943,10 +2027,15 @@ class PromiseEntWriterImpl<
               (edgeDefinition.cardinality === "single" &&
                 edgeDefinition.type === "field")
             ) {
+              // The built-in patch takes care of updating the field
               return;
             }
             if (edgeDefinition.cardinality === "single") {
-              throw new Error("Cannot set 1:1 edge from optional end.");
+              throw new Error(
+                `Cannot set 1:1 edge "${edgeDefinition.name}" on ent in table ` +
+                  `"${this.table}", update the ent in "${edgeDefinition.to}"  ` +
+                  `table instead.`
+              );
               // const existing = await this.ctx.db
               //   .query(edgeDefinition.to)
               //   .withIndex(edgeDefinition.ref, (q) =>
@@ -1960,7 +2049,11 @@ class PromiseEntWriterImpl<
               // };
             } else {
               if (edgeDefinition.type === "field") {
-                edges[key] = value[key]!;
+                throw new Error(
+                  `Cannot set 1:many edges "${edgeDefinition.name}" on ent in table ` +
+                    `"${this.table}", update the ents in "${edgeDefinition.to}"  ` +
+                    `table instead.`
+                );
               } else {
                 const { add, remove } = value[key]!;
                 const removeEdges = (
@@ -1991,8 +2084,11 @@ class PromiseEntWriterImpl<
                       )
                     )
                   )
-                ).map((doc) => (doc as any)._id);
-                edges[key] = { add, removeEdges };
+                ).map((edgeDoc) => (edgeDoc as any)._id);
+                edges[key] = {
+                  add,
+                  removeEdges,
+                };
               }
             }
           })
@@ -2035,11 +2131,8 @@ class PromiseEntWriterImpl<
               if (edgeDefinition.type === "ref") {
                 const oldDoc = (await this.ctx.db.get(docId))!;
                 if (oldDoc[key] !== undefined && oldDoc[key] !== idOrIds) {
-                  // This should be only allowed if the edge is optional
-                  // on the field side.
-                  // TODO: Write this info into the ref side of the edge in defineEntSchema.
-                  // TODO: Even better encode this in types so that replace
-                  // doesn't have this single edge in the signature.
+                  // This would be only allowed if the edge is optional
+                  // on the field side, which is not supported
                   throw new Error("Cannot set 1:1 edge from optional end.");
                   // edges[key] = {
                   //   add: idOrIds as GenericId<any>,
@@ -2049,22 +2142,24 @@ class PromiseEntWriterImpl<
               }
             } else {
               if (edgeDefinition.type === "field") {
-                // TODO: Same issue around optionality as above
-                const existing = (
-                  await this.ctx.db
-                    .query(edgeDefinition.to)
-                    .withIndex(edgeDefinition.ref, (q) =>
-                      q.eq(edgeDefinition.ref, docId as any)
-                    )
-                    .collect()
-                ).map((doc) => doc._id);
-                edges[key] = {
-                  add: idOrIds as GenericId<any>[],
-                  remove: existing as GenericId<any>[],
-                };
+                if (idOrIds !== undefined) {
+                  throw new Error("Cannot set 1:many edge from many end.");
+                  // const existing = (
+                  //   await this.ctx.db
+                  //     .query(edgeDefinition.to)
+                  //     .withIndex(edgeDefinition.ref, (q) =>
+                  //       q.eq(edgeDefinition.ref, docId as any)
+                  //     )
+                  //     .collect()
+                  // ).map((doc) => doc._id);
+                  // edges[key] = {
+                  //   add: idOrIds as GenericId<any>[],
+                  //   remove: { remove: true },
+                  // };
+                }
               } else {
                 const requested = new Set(idOrIds ?? []);
-                const remove = (
+                const removeEdges = (
                   await this.ctx.db
                     .query(edgeDefinition.table)
                     .withIndex(edgeDefinition.field, (q) =>
@@ -2094,10 +2189,10 @@ class PromiseEntWriterImpl<
                     }
                     return true;
                   })
-                  .map(([edgeId]) => edgeId);
+                  .map(([edgeId]) => edgeId as GenericId<any>);
                 edges[key] = {
-                  add: Array.from(requested) as GenericId<any>[],
-                  removeEdges: remove as GenericId<any>[],
+                  add: (idOrIds ?? []) as GenericId<any>[],
+                  removeEdges,
                 };
               }
             }
@@ -2112,7 +2207,7 @@ class PromiseEntWriterImpl<
   async delete() {
     const { id: docId } = await this.retrieve();
     const id = docId!;
-    return this.base.deleteId(id);
+    return this.base.deleteId(id, "default");
   }
 }
 
@@ -2387,8 +2482,17 @@ export function getEdgeDefinitions<
   EntsDataModel extends GenericEntsDataModel,
   Table extends TableNamesInDataModel<EntsDataModel>
 >(entDefinitions: EntsDataModel, table: Table) {
-  return entDefinitions[table]?.edges as Record<
+  return entDefinitions[table].edges as Record<
     keyof EntsDataModel[Table]["edges"],
     EdgeConfig
   >;
+}
+
+export function getDeletionConfig<
+  EntsDataModel extends GenericEntsDataModel,
+  Table extends TableNamesInDataModel<EntsDataModel>
+>(entDefinitions: EntsDataModel, table: Table) {
+  return (entDefinitions[table] as any).deletionConfig as
+    | DeletionConfig
+    | undefined;
 }

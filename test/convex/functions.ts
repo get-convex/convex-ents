@@ -3,7 +3,7 @@ import {
   customMutation,
   customQuery,
 } from "convex-helpers/server/customFunctions";
-import { entsTableFactory } from "../../src";
+import { entsTableFactory, scheduledDeleteFactory } from "../../src";
 import {
   MutationCtx,
   QueryCtx,
@@ -90,3 +90,5 @@ async function mutationCtx(baseCtx: MutationCtx) {
   (ctx as any).viewerX = viewerX;
   return { ...ctx, table, viewer, viewerX, viewerId };
 }
+
+export const scheduledDelete = scheduledDeleteFactory(entDefinitions);

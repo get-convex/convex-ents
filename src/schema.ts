@@ -122,6 +122,23 @@ export function defineEntSchema<
         // For now the the non-optional end is always unique
         (inverseEdge as any).unique = true;
       }
+      if (
+        (edge.cardinality === "single" && edge.type === "ref") ||
+        (edge.cardinality === "multiple" && edge.type === "field")
+      ) {
+        if (
+          edge.deletion !== undefined &&
+          deletionConfigFromEntDefinition(otherTable) === undefined
+        ) {
+          throw new Error(
+            `Cannot specify soft deletion behavior for edge ` +
+              `"${edge.name}" in table "${tableName}" ` +
+              `because the target table "${otherTableName}" does not have ` +
+              `a "soft" or "scheduled" deletion behavior ` +
+              `configured.`
+          );
+        }
+      }
       if (edge.cardinality === "multiple") {
         if (!isSelfDirected && inverseEdge === undefined) {
           throw new Error(
@@ -300,6 +317,10 @@ function edgeConfigsBeforeDefineSchema(table: EntDefinition) {
   return Object.values(
     (table as any).edgeConfigs as Record<string, EdgeConfigBeforeDefineSchema>
   );
+}
+
+function deletionConfigFromEntDefinition(table: EntDefinition) {
+  return (table as any).deletionConfig as DeletionConfig | undefined;
 }
 
 export function defineEnt<
@@ -545,7 +566,11 @@ export interface EntDefinition<
   >;
   edge<EdgeName extends string>(
     edge: EdgeName,
-    options: { optional: true; ref?: string }
+    options: {
+      optional: true;
+      ref?: string;
+      deletion?: "soft";
+    }
   ): EntDefinition<
     Document,
     FieldPaths,
@@ -563,7 +588,12 @@ export interface EntDefinition<
   >;
   edge<EdgeName extends string, const ToTable extends string>(
     edge: EdgeName,
-    options: { optional: true; to: ToTable; ref?: string }
+    options: {
+      optional: true;
+      to: ToTable;
+      ref?: string;
+      deletion?: "soft";
+    }
   ): EntDefinition<
     Document,
     FieldPaths,
@@ -590,6 +620,7 @@ export interface EntDefinition<
     edge: EdgesName,
     options: {
       ref: true | string;
+      deletion?: "soft";
     }
   ): EntDefinition<
     Document,
@@ -620,6 +651,7 @@ export interface EntDefinition<
     options: {
       to: TableName;
       ref: true | string;
+      deletion?: "soft";
     }
   ): EntDefinition<
     Document,
@@ -748,6 +780,49 @@ export interface EntDefinition<
       };
     }
   >;
+
+  /**
+   * Add the "soft"  deletion behavior to this ent.
+   *
+   * When the ent is "soft" deleted, its `deletionTime` field is set to the
+   * current time and it is not actually deleted.
+   *
+   * @param type `"soft"`
+   */
+  deletion(
+    type: "soft"
+  ): EntDefinition<
+    Document & { deletionTime?: number },
+    FieldPaths | "deletionTime",
+    Indexes,
+    SearchIndexes,
+    VectorIndexes,
+    Edges
+  >;
+  /**
+   * Add the "scheduled" deletion behavior to this ent.
+   *
+   * The ent is first "soft" deleted and its hard deletion is scheduled
+   * to run in a separate mutation.
+   *
+   * @param type `"scheduled"`
+   * @param options.delayMs If the `delayMs` option is specified,
+   *   the hard deletion is scheduled to happen after the specified
+   *   time duration.
+   */
+  deletion(
+    type: "scheduled",
+    options?: {
+      delayMs: number;
+    }
+  ): EntDefinition<
+    Document & { deletionTime?: number },
+    FieldPaths | "deletionTime",
+    Indexes,
+    SearchIndexes,
+    VectorIndexes,
+    Edges
+  >;
 }
 
 type NoInfer<T> = [T][T extends any ? 0 : never];
@@ -772,6 +847,7 @@ type EdgesOptions = {
   table?: string;
   field?: string;
   inverseField?: string;
+  deletion: "soft";
 };
 
 class EntDefinitionImpl {
@@ -792,6 +868,8 @@ class EntDefinitionImpl {
   private fieldConfigs: Record<string, FieldConfig> = {};
 
   private defaults: Record<string, any> = {};
+
+  private deletionConfig: DeletionConfig | undefined;
 
   constructor(documentSchema: Record<string, Validator<any, any, any>>) {
     this.documentSchema = documentSchema;
@@ -923,9 +1001,10 @@ class EntDefinitionImpl {
       );
     }
     const inverseName = options?.inverse;
+    const deletion = options?.deletion;
     this.edgeConfigs[name] =
       ref !== undefined
-        ? { name, to, cardinality, type: "field", ref }
+        ? { name, to, cardinality, type: "field", ref, deletion }
         : { name, to, cardinality, type: "ref", table, field, inverseField };
     if (inverseName !== undefined) {
       this.edgeConfigs[inverseName] = {
@@ -937,6 +1016,26 @@ class EntDefinitionImpl {
         table,
       };
     }
+    return this;
+  }
+
+  deletion(type: "soft" | "scheduled", options?: { delayMs: number }): this {
+    if (this.documentSchema.deletionTime !== undefined) {
+      // TODO: Put the check where we know the table name.
+      throw new Error(
+        `Cannot enable "${type}" deletion because "deletionTime" field ` +
+          `was already defined.`
+      );
+    }
+    if (this.deletionConfig !== undefined) {
+      // TODO: Put the check where we know the table name.
+      throw new Error(`Deletion behavior can only be specified once.`);
+    }
+    this.documentSchema = {
+      ...this.documentSchema,
+      deletionTime: v.optional(v.number()),
+    };
+    this.deletionConfig = { type, ...options };
     return this;
   }
 }
@@ -960,12 +1059,20 @@ export type EdgeConfig = {
           field: string;
           unique: boolean;
         }
-      | { type: "ref"; ref: string }
+      | {
+          type: "ref";
+          ref: string;
+          deletion?: "soft";
+        }
     ))
   | ({
       cardinality: "multiple";
     } & (
-      | { type: "field"; ref: string }
+      | {
+          type: "field";
+          ref: string;
+          deletion?: "soft";
+        }
       | {
           type: "ref";
           table: string;
@@ -988,12 +1095,20 @@ type EdgeConfigBeforeDefineSchema = {
           type: "field";
           field: string;
         }
-      | { type: "ref"; ref: null | string }
+      | {
+          type: "ref";
+          ref: null | string;
+          deletion?: "soft";
+        }
     ))
   | ({
       cardinality: "multiple";
     } & (
-      | { type: "field"; ref: true | string }
+      | {
+          type: "field";
+          ref: true | string;
+          deletion?: "soft";
+        }
       | {
           type: "ref";
           table?: string;
@@ -1056,6 +1171,15 @@ export type GenericEntModel = {
   edges: Record<string, GenericEdgeConfig>;
 };
 
+export type DeletionConfig =
+  | {
+      type: "soft";
+    }
+  | {
+      type: "scheduled";
+      delayMs?: number;
+    };
+
 export type EntDataModelFromSchema<
   SchemaDef extends SchemaDefinition<any, boolean>
 > = DataModelFromSchemaDefinition<SchemaDef> & {
@@ -1085,6 +1209,7 @@ export function getEntDefinitions<
         defaults: tables[tableName].defaults,
         edges: tables[tableName].edgeConfigs,
         fields: tables[tableName].fieldConfigs,
+        deletionConfig: tables[tableName].deletionConfig,
       },
     }),
     {}

@@ -14,6 +14,7 @@ import type {
   FilterApi,
   FunctionReference,
 } from "convex/server";
+import type * as cascade from "../cascade.js";
 import type * as functions from "../functions.js";
 import type * as paginate from "../paginate.js";
 import type * as read from "../read.js";
@@ -32,6 +33,7 @@ import type * as write from "../write.js";
  * ```
  */
 declare const fullApi: ApiFromModules<{
+  cascade: typeof cascade;
   functions: typeof functions;
   paginate: typeof paginate;
   read: typeof read;

@@ -1,4 +1,5 @@
 import { Steps } from "nextra/components";
+import { Aside } from "../components/Aside.tsx";
 
 # Setup Ents in your Convex project
 
@@ -46,8 +47,7 @@ For more details on declaring the schema see [Ent Schema](/schema).
 
 Add a `functions.ts` file with the following contents:
 
-<details>
-<summary>Click to show</summary>
+<Aside title="Click to show">
 
 ```ts filename="convex/functions.ts"
 import {
@@ -105,7 +105,7 @@ export const internalMutation = customMutation(
 );
 ```
 
-</details>
+</Aside>
 
 For more details see [Configuring Functions](/setup/config).
 
@@ -113,8 +113,7 @@ For more details see [Configuring Functions](/setup/config).
 
 Add a `types.ts` file with the following contents:
 
-<details>
-<summary>Click to show</summary>
+<Aside title="Click to show">
 
 ```ts filename="convex/types.ts"
 import { CustomCtx } from "convex-helpers/server/customFunctions";
@@ -136,7 +135,7 @@ export type EntWriter<TableName extends TableNames> = GenericEntWriter<
 >;
 ```
 
-</details>
+</Aside>
 
 ### Use custom functions to read and write ents
 

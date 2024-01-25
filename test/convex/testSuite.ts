@@ -13,12 +13,17 @@ export function testSuite() {
   }
 
   const TABLES = [
-    "users",
     "messages",
+    "users",
     "profiles",
     "tags",
     "posts",
+    "attachments",
     "secrets",
+    "messageDetails",
+    "teams",
+    "members",
+    "datas",
   ] as const;
 
   const clear = async (

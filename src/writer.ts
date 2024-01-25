@@ -2,16 +2,19 @@ import {
   DocumentByName,
   GenericDocument,
   TableNamesInDataModel,
+  makeFunctionReference,
 } from "convex/server";
 import { GenericId } from "convex/values";
 import {
   EntMutationCtx,
   entWrapper,
+  getDeletionConfig,
   getEdgeDefinitions,
   getReadRule,
   getWriteRule,
 } from "./functions";
 import { FieldConfig, GenericEdgeConfig, GenericEntsDataModel } from "./schema";
+import { ScheduledDeleteFuncRef } from "./deletion";
 
 export class WriterImplBase<
   EntsDataModel extends GenericEntsDataModel,
@@ -23,39 +26,48 @@ export class WriterImplBase<
     protected table: Table
   ) {}
 
-  async deleteId(id: GenericId<any>) {
+  async deleteId(id: GenericId<any>, behavior: "default" | "soft" | "hard") {
     await this.checkReadAndWriteRule("delete", id, undefined);
-    let memoized: GenericDocument | undefined = undefined;
-    const oldDoc = async () => {
-      if (memoized !== undefined) {
-        return memoized;
-      }
-      return (memoized = (await this.ctx.db.get(id))!);
-    };
+
+    const deletionConfig = getDeletionConfig(this.entDefinitions, this.table);
+
+    const isDeletingSoftly =
+      behavior !== "hard" &&
+      deletionConfig !== undefined &&
+      (deletionConfig.type === "soft" || deletionConfig.type === "scheduled");
+
+    if (behavior === "soft" && !isDeletingSoftly) {
+      throw new Error(
+        `Cannot soft delete document with ID "${id}" in ` +
+          `table "${this.table}" because it does not have an ` +
+          `"allowSoft", "soft" or "scheduled" deletion behavior configured.`
+      );
+    }
     const edges: EdgeChanges = {};
     await Promise.all(
       Object.values(getEdgeDefinitions(this.entDefinitions, this.table)).map(
         async (edgeDefinition) => {
           const key = edgeDefinition.name;
-          if (edgeDefinition.cardinality === "single") {
-            if (edgeDefinition.type === "ref") {
-              edges[key] = {
-                remove: (await oldDoc())[key] as GenericId<any> | undefined,
-              };
-            }
-          } else {
-            if (edgeDefinition.type === "field") {
-              const existing = (
+          if (
+            (edgeDefinition.cardinality === "single" &&
+              edgeDefinition.type === "ref") ||
+            (edgeDefinition.cardinality === "multiple" &&
+              edgeDefinition.type === "field")
+          ) {
+            if (!isDeletingSoftly || edgeDefinition.deletion === "soft") {
+              const remove = (
                 await this.ctx.db
                   .query(edgeDefinition.to)
                   .withIndex(edgeDefinition.ref, (q) =>
                     q.eq(edgeDefinition.ref, id as any)
                   )
                   .collect()
-              ).map((doc) => doc._id);
-              edges[key] = { remove: existing as GenericId<any>[] };
-            } else {
-              const existing = (
+              ).map((doc) => doc._id as GenericId<any>);
+              edges[key] = { remove };
+            }
+          } else if (edgeDefinition.cardinality === "multiple") {
+            if (!isDeletingSoftly) {
+              const removeEdges = (
                 await this.ctx.db
                   .query(edgeDefinition.table)
                   .withIndex(edgeDefinition.field, (q) =>
@@ -73,23 +85,62 @@ export class WriterImplBase<
                         .collect()
                     : []
                 )
-                .map((doc) => doc._id);
-              edges[key] = { removeEdges: existing as GenericId<any>[] };
+                .map((doc) => doc._id as GenericId<any>);
+              edges[key] = { removeEdges };
             }
           }
         }
       )
     );
-    await this.ctx.db.delete(id);
-    await this.writeEdges(id, edges);
+    const deletionTime = +new Date();
+    if (isDeletingSoftly) {
+      await this.ctx.db.patch(id, { deletionTime });
+    } else {
+      try {
+        await this.ctx.db.delete(id);
+      } catch (e) {
+        // TODO:
+        // For now we're gonna ignore errors here,
+        // because we assume that the only error
+        // is "document not found", which
+        // can be caused by concurrent deletions.
+        // In the future we could track which
+        // edges are being deleted by this mutation,
+        // and skip the call to delete altogether
+        // - or Convex could implement this.
+      }
+    }
+    await this.writeEdges(id, edges, isDeletingSoftly);
+    if (deletionConfig !== undefined && deletionConfig.type === "scheduled") {
+      const fnRef = ((this.ctx as any).scheduledDelete ??
+        makeFunctionReference(
+          "functions:scheduledDelete"
+        )) as ScheduledDeleteFuncRef;
+      await this.ctx.scheduler.runAfter(deletionConfig.delayMs ?? 0, fnRef, {
+        origin: {
+          id,
+          table: this.table,
+          deletionTime,
+        },
+        inProgress: false,
+        stack: [],
+      });
+    }
     return id;
   }
 
-  async deletedIdIn(id: GenericId<any>, table: string) {
-    await new WriterImplBase(this.ctx, this.entDefinitions, table).deleteId(id);
+  async deletedIdIn(id: GenericId<any>, table: string, cascadingSoft: boolean) {
+    await new WriterImplBase(this.ctx, this.entDefinitions, table).deleteId(
+      id,
+      cascadingSoft ? "soft" : "hard"
+    );
   }
 
-  async writeEdges(docId: GenericId<any>, changes: EdgeChanges) {
+  async writeEdges(
+    docId: GenericId<any>,
+    changes: EdgeChanges,
+    deleteSoftly?: boolean
+  ) {
     await Promise.all(
       Object.values(getEdgeDefinitions(this.entDefinitions, this.table)).map(
         async (edgeDefinition) => {
@@ -97,87 +148,79 @@ export class WriterImplBase<
           if (idOrIds === undefined) {
             return;
           }
-          if (edgeDefinition.cardinality === "single") {
-            if (edgeDefinition.type === "ref") {
-              if (idOrIds.remove !== undefined) {
-                // Cascading delete because 1:1 edges are not optional
-                // on the stored field end.
-                await this.deletedIdIn(
-                  idOrIds.remove as GenericId<any>,
-                  edgeDefinition.to
-                );
-              }
-              if (idOrIds.add !== undefined) {
-                await this.ctx.db.patch(
-                  idOrIds.add as GenericId<any>,
-                  { [edgeDefinition.ref]: docId } as any
-                );
-              }
+          if (
+            (edgeDefinition.cardinality === "single" &&
+              edgeDefinition.type === "ref") ||
+            (edgeDefinition.cardinality === "multiple" &&
+              edgeDefinition.type === "field")
+          ) {
+            if (idOrIds.remove !== undefined && idOrIds.remove.length > 0) {
+              // Cascading delete because 1:many edges are not optional
+              // on the stored field end.
+              await Promise.all(
+                idOrIds.remove.map((id) =>
+                  this.deletedIdIn(
+                    id,
+                    edgeDefinition.to,
+                    (deleteSoftly ?? false) &&
+                      edgeDefinition.deletion === "soft"
+                  )
+                )
+              );
+              // This would be behavior for optional edge:
+              // await Promise.all(
+              //   idsToDelete.map((id) =>
+              //     this.ctx.db.patch(id, {
+              //       [edgeDefinition.ref]: undefined,
+              //     } as any)
+              //   )
+              // );
             }
-          } else {
-            if (edgeDefinition.type === "field") {
-              if (idOrIds.remove !== undefined) {
-                // Cascading delete because 1:many edges are not optional
-                // on the stored field end.
-                await Promise.all(
-                  (idOrIds.remove as GenericId<any>[]).map((id) =>
-                    this.deletedIdIn(id, edgeDefinition.to)
-                  )
-                );
-                // This would be behavior for optional edge:
-                // await Promise.all(
-                //   (idOrIds.remove as GenericId<any>[]).map((id) =>
-                //     this.ctx.db.patch(id, {
-                //       [edgeDefinition.ref]: undefined,
-                //     } as any)
-                //   )
-                // );
-              }
-              if (idOrIds.add !== undefined) {
-                await Promise.all(
-                  (idOrIds.add as GenericId<any>[]).map(async (id) =>
-                    this.ctx.db.patch(id, {
-                      [edgeDefinition.ref]: docId,
-                    } as any)
-                  )
-                );
-              }
-            } else {
-              if ((idOrIds.removeEdges ?? []).length > 0) {
-                await Promise.all(
-                  idOrIds.removeEdges!.map(async (id) => {
-                    try {
-                      await this.ctx.db.delete(id);
-                    } catch (e) {
-                      // TODO:
-                      // For now we're gonna ignore errors here,
-                      // because we assume that the only error
-                      // is "document not found", which
-                      // can be caused by concurrent deletions.
-                      // In the future we could track which
-                      // edges are being deleted by this mutation,
-                      // and skip the call to delete altogether
-                    }
-                  })
-                );
-              }
+            if (idOrIds.add !== undefined && idOrIds.add.length > 0) {
+              await Promise.all(
+                idOrIds.add.map(async (id) =>
+                  this.ctx.db.patch(id, {
+                    [edgeDefinition.ref]: docId,
+                  } as any)
+                )
+              );
+            }
+          } else if (edgeDefinition.cardinality === "multiple") {
+            if ((idOrIds.removeEdges ?? []).length > 0) {
+              await Promise.all(
+                idOrIds.removeEdges!.map(async (id) => {
+                  try {
+                    await this.ctx.db.delete(id);
+                  } catch (e) {
+                    // TODO:
+                    // For now we're gonna ignore errors here,
+                    // because we assume that the only error
+                    // is "document not found", which
+                    // can be caused by concurrent deletions.
+                    // In the future we could track which
+                    // edges are being deleted by this mutation,
+                    // and skip the call to delete altogether
+                    // - or Convex could implement this.
+                  }
+                })
+              );
+            }
 
-              if (idOrIds.add !== undefined) {
-                await Promise.all(
-                  (idOrIds.add as GenericId<any>[]).map(async (id) => {
+            if (idOrIds.add !== undefined) {
+              await Promise.all(
+                idOrIds.add.map(async (id) => {
+                  await this.ctx.db.insert(edgeDefinition.table, {
+                    [edgeDefinition.field]: docId,
+                    [edgeDefinition.ref]: id,
+                  } as any);
+                  if (edgeDefinition.symmetric) {
                     await this.ctx.db.insert(edgeDefinition.table, {
-                      [edgeDefinition.field]: docId,
-                      [edgeDefinition.ref]: id,
+                      [edgeDefinition.field]: id,
+                      [edgeDefinition.ref]: docId,
                     } as any);
-                    if (edgeDefinition.symmetric) {
-                      await this.ctx.db.insert(edgeDefinition.table, {
-                        [edgeDefinition.field]: id,
-                        [edgeDefinition.ref]: docId,
-                      } as any);
-                    }
-                  })
-                );
-              }
+                  }
+                })
+              );
             }
           }
         }
@@ -343,22 +386,39 @@ export class WriterImplBase<
   }
 }
 
-export type WithEdges<
+export type WithEdgeInserts<
   Document extends GenericDocument,
   Edges extends Record<string, GenericEdgeConfig>
 > = Document & {
   [key in keyof Edges as Edges[key]["cardinality"] extends "single"
-    ? never
-    : key]?: GenericId<Edges[key]["to"]>[];
+    ? Edges[key]["type"] extends "field"
+      ? never
+      : key
+    : key]?: Edges[key]["cardinality"] extends "single"
+    ? GenericId<Edges[key]["to"]>
+    : GenericId<Edges[key]["to"]>[];
+};
+
+export type WithEdges<
+  Document extends GenericDocument,
+  Edges extends Record<string, GenericEdgeConfig>
+> = Document & {
+  [key in keyof Edges as Edges[key]["cardinality"] extends "multiple"
+    ? Edges[key]["type"] extends "ref"
+      ? key
+      : never
+    : never]?: GenericId<Edges[key]["to"]>[];
 };
 
 export type WithEdgePatches<
   Document extends GenericDocument,
   Edges extends Record<string, GenericEdgeConfig>
 > = Document & {
-  [key in keyof Edges as Edges[key]["cardinality"] extends "single"
-    ? never
-    : key]?: {
+  [key in keyof Edges as Edges[key]["cardinality"] extends "multiple"
+    ? Edges[key]["type"] extends "ref"
+      ? key
+      : never
+    : never]?: {
     add?: GenericId<Edges[key]["to"]>[];
     remove?: GenericId<Edges[key]["to"]>[];
   };
@@ -367,8 +427,8 @@ export type WithEdgePatches<
 export type EdgeChanges = Record<
   string,
   {
-    add?: GenericId<any>[] | GenericId<any>;
-    remove?: GenericId<any>[] | GenericId<any>;
+    add?: GenericId<any>[];
+    remove?: GenericId<any>[];
     removeEdges?: GenericId<any>[];
   }
 >;

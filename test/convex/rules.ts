@@ -9,8 +9,6 @@ export function getEntDefinitionsWithRules(
   return addEntRules(entDefinitions, {
     secrets: {
       read: async (secret) => {
-        console.log(ctx);
-
         return ctx.viewerId === secret.ownerId;
       },
       write: async ({ operation, ent: secret, value }) => {

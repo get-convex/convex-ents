@@ -1,4 +1,5 @@
 {
-  "rules": "Rules",
-  "types": "Types"
+  "types": "Types",
+  "deletes": "Cascading Deletes",
+  "rules": "Rules"
 }

@@ -1,6 +1,7 @@
 export { defineEnt, defineEntSchema, getEntDefinitions } from "./schema";
 export type { EntDefinition } from "./schema";
 export { entsTableFactory, addEntRules } from "./functions";
+export { scheduledDeleteFactory } from "./deletion";
 export type {
   GenericEnt,
   GenericEntWriter,

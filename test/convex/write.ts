@@ -52,11 +52,10 @@ test("uniqueness check", async (ctx) => {
 // the edge cannot be removed.
 test("insert 1:1 from ref side", async (ctx) => {
   async () => {
-    const someProfile = await ctx.table("profiles").first();
+    const someProfile = await ctx.table("profiles").firstX();
     await ctx.table("users").insert({
       name: "Gates",
       email: "bill@gates.com",
-      // @ts-expect-error This is not allowed
       profile: someProfile._id,
     });
   };
@@ -161,6 +160,64 @@ test("patch 1:1 from ref side", async (ctx) => {
     await ctx.table("users").getX(someUserId).patch({
       // @ts-expect-error This is not allowed
       profile: someProfile._id,
+    });
+  };
+});
+
+// Patch 1:many from ref side is not possible, because the required side of
+// the edge cannot be removed.
+test("patch 1:many from ref side", async (ctx) => {
+  const someUserId = await ctx
+    .table("users")
+    .insert({ name: "Jobs", email: "steve@jobs.com" });
+  const message = await ctx
+    .table("messages")
+    .insert({ text: "Hello world", userId: someUserId });
+
+  async () => {
+    await ctx.table("users").getX(someUserId).patch({
+      // @ts-expect-error This is not allowed
+      message: message._id,
+    });
+  };
+});
+
+// Replace 1:1 from ref side is not possible, because the required side of
+// the edge cannot be removed.
+test("replace 1:1 from ref side", async (ctx) => {
+  const someUserId = await ctx
+    .table("users")
+    .insert({ name: "Jobs", email: "steve@jobs.com" });
+  const someProfile = await ctx
+    .table("profiles")
+    .insert({ bio: "Hello world", userId: someUserId });
+
+  async () => {
+    await ctx.table("users").getX(someUserId).replace({
+      name: "foo",
+      email: "bar",
+      // @ts-expect-error This is not allowed
+      profile: someProfile._id,
+    });
+  };
+});
+
+// Replace 1:many from ref side is not possible, because the required side of
+// the edge cannot be removed.
+test("replace 1:many from ref side", async (ctx) => {
+  const someUserId = await ctx
+    .table("users")
+    .insert({ name: "Jobs", email: "steve@jobs.com" });
+  const message = await ctx
+    .table("messages")
+    .insert({ text: "Hello world", userId: someUserId });
+
+  async () => {
+    await ctx.table("users").getX(someUserId).replace({
+      name: "foo",
+      email: "bar",
+      // @ts-expect-error This is not allowed
+      message: message._id,
     });
   };
 });

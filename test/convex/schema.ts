@@ -95,6 +95,17 @@ const schema = defineEntSchema(
     messageDetails: defineEnt({
       value: v.string(),
     }).edge("message"),
+
+    teams: defineEnt({})
+      .edges("members", { ref: true, deletion: "soft" })
+      .deletion("scheduled"),
+
+    members: defineEnt({})
+      .edge("team")
+      .edges("datas", { ref: true })
+      .deletion("soft"),
+
+    datas: defineEnt({}).edge("member"),
   },
   { schemaValidation: true }
 );
