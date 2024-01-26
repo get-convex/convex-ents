@@ -357,7 +357,7 @@ async function paginate(
     .withIndex(indexName, (q) =>
       (q.eq(indexName, fieldValue) as IndexRangeBuilder<any, any, any>).gt(
         "_creationTime",
-        cursor
+        cursor === null ? cursor : +cursor
       )
     );
 
@@ -371,17 +371,24 @@ async function paginate(
       break;
     }
     const size = JSON.stringify(convexToJson(doc)).length * 8;
-    if (bytesRead + size > maximumBytesRead) {
+
+    results.push(doc);
+    bytesRead += size;
+
+    // Check this after we read the doc, since reading it already
+    // happened anyway, and to make sure we return at least one
+    // result.
+    if (bytesRead > maximumBytesRead) {
       isDone = false;
       break;
     }
-    bytesRead += size;
-    results.push(doc);
   }
   return {
     page: results,
     continueCursor:
-      results.length === 0 ? cursor : results[results.length - 1]._creationTime,
+      results.length === 0
+        ? cursor
+        : "" + results[results.length - 1]._creationTime,
     isDone,
     bytesRead,
   };
