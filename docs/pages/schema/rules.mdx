@@ -35,7 +35,7 @@ Add a `rules.ts` file with the following contents:
 ```ts filename="convex/rules.ts" {8-16}
 import { addEntRules } from "convex-ents";
 import { entDefinitions } from "./schema";
-import { Ent, QueryCtx } from "./types";
+import { QueryCtx } from "./types";
 
 export function getEntDefinitionsWithRules(
   ctx: QueryCtx
