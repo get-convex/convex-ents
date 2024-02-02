@@ -1753,7 +1753,7 @@ export interface PromiseTableWriter<
       DocumentByName<EntsDataModel, Table>,
       Indexes[Index][0]
     >
-  ): PromiseEnt<EntsDataModel, Table>;
+  ): PromiseEntWriter<EntsDataModel, Table>;
   /**
    * Fetch a document from the DB for a given ID, throw if it doesn't exist.
    */
