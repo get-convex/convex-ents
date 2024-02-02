@@ -95,7 +95,7 @@ A 1:1 or 1:many edge can be created by specifying the ID of the other ent on
 either when inserting:
 
 ```ts
-// First we need a user, which is can have an optional profile edge
+// First we need a user, which can have an optional profile edge
 const userId = await ctx.table("users").insert({ name: "Alice" });
 // Now we can create a profile with the 1:1 edge to the user
 const profileId = await ctx
@@ -139,7 +139,10 @@ list of message IDs.
 The `replace` method also expects a list of IDs:
 
 ```ts
-await message.replace({ text: "Changed message", tags: [tagID, otherTagID] });
+await ctx
+  .table("messages")
+  .getX(messageId)
+  .replace({ text: "Changed message", tags: [tagID, otherTagID] });
 ```
 
 Because `replace` essentially behaves like a `delete` + `insert` but preserves
@@ -150,6 +153,7 @@ The `patch` method on the other hand expects a description of the changes that
 should be made, a list of IDs to `add` and `remove` edges for:
 
 ```ts
+const message = await ctx.table("messages").getX(messageId);
 await message.patch({ tags: { add: [tagID] } });
 await message.patch({
   tags: { add: [tagID, otherTagID], remove: [tagToDeleteID] },
