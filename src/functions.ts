@@ -3,7 +3,6 @@ import {
   ExpressionOrValue,
   FieldTypeFromFieldPath,
   FilterBuilder,
-  FunctionReference,
   GenericDataModel,
   GenericDatabaseReader,
   GenericDatabaseWriter,
