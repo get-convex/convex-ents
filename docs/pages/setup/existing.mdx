@@ -1,0 +1,232 @@
+import { Steps } from "nextra/components";
+import { Aside } from "../../components/Aside.tsx";
+
+# Setup Ents in an existing Convex project
+
+Starting a new project from scratch? Follow [this guide](/setup) instead.
+
+<Steps>
+### Install the NPM library
+ 
+```sh
+npm install convex-ents convex-helpers
+```
+
+This also installs `convex-helpers`, used in step 3.
+
+### Modify your schema
+
+Update your schema file. These changes will have no effect on your existing code
+using `ctx.db`.
+
+- Replace `defineSchema` with `defineEntSchema`
+- Replace all `defineTable` with `defineEnt`
+- Add `entDefinitions` as shown
+
+Example changes:
+
+```diff filename="convex/schema.ts"
+- import { defineSchema, defineTable } from "convex/server";
++ import { defineEnt, defineEntSchema, getEntDefinitions } from "convex-ents";
+import { v } from "convex/values";
+
+- const schema = defineSchema({
++ const schema = defineEntSchema({
+-  messages: defineTable({
++  messages: defineEnt({
+    text: v.string(),
+  }),
+-  users: defineTable({
++  users: defineEnt({
+    name: v.string(),
+  }),
+});
+
+export default schema;
+
++ export const entDefinitions = getEntDefinitions(schema);
+```
+
+For more details on declaring the schema see [Ent Schema](/schema).
+
+### Setup custom functions
+
+Add a `functions.ts` file with the following contents:
+
+<Aside title="Click to show">
+
+```ts filename="convex/functions.ts"
+import {
+  customCtx,
+  customMutation,
+  customQuery,
+} from "convex-helpers/server/customFunctions";
+import {
+  query as baseQuery,
+  mutation as baseMutation,
+  internalQuery as baseInternalQuery,
+  internalMutation as baseInternalMutation,
+} from "./_generated/server";
+import { entsTableFactory } from "convex-ents";
+import { entDefinitions } from "./schema";
+
+export const query = customQuery(
+  baseQuery,
+  customCtx(async (ctx) => {
+    return {
+      table: entsTableFactory(ctx, entDefinitions),
+      db: ctx.db as unknown as GenericDatabaseReader<
+        Pick<DataModel, "messages" | "users">
+      >,
+    };
+  })
+);
+
+export const internalQuery = customQuery(
+  baseInternalQuery,
+  customCtx(async (ctx) => {
+    return {
+      table: entsTableFactory(ctx, entDefinitions),
+      db: ctx.db as unknown as GenericDatabaseReader<
+        Pick<DataModel, "messages" | "users">
+      >,
+    };
+  })
+);
+
+export const mutation = customMutation(
+  baseMutation,
+  customCtx(async (ctx) => {
+    return {
+      table: entsTableFactory(ctx, entDefinitions),
+      db: ctx.db as GenericDatabaseWriter<
+        Pick<DataModel, "messages" | "users">
+      >,
+    };
+  })
+);
+
+export const internalMutation = customMutation(
+  baseInternalMutation,
+  customCtx(async (ctx) => {
+    return {
+      table: entsTableFactory(ctx, entDefinitions),
+      db: ctx.db as GenericDatabaseWriter<
+        Pick<DataModel, "messages" | "users">
+      >,
+    };
+  })
+);
+```
+
+Replace the type `"messages" | "users"` with an enumeration of your existing
+tables.
+
+</Aside>
+
+### Add helper types
+
+Add a `types.ts` file with the following contents:
+
+<Aside title="Click to show">
+
+```ts filename="convex/types.ts"
+import { CustomCtx } from "convex-helpers/server/customFunctions";
+import { GenericEnt, GenericEntWriter } from "convex-ents";
+import { TableNames } from "./_generated/dataModel";
+import { mutation, query } from "./functions";
+import { entDefinitions } from "./schema";
+
+export type QueryCtx = CustomCtx<typeof query>;
+export type MutationCtx = CustomCtx<typeof mutation>;
+
+export type Ent<TableName extends TableNames> = GenericEnt<
+  typeof entDefinitions,
+  TableName
+>;
+export type EntWriter<TableName extends TableNames> = GenericEntWriter<
+  typeof entDefinitions,
+  TableName
+>;
+```
+
+</Aside>
+
+### Use custom functions to read and write ents
+
+You can now replace function constructors from `_generated` with the custom ones
+you just set up. This will have no impact on your existing functions:
+
+```diff filename="convex/messages.ts"
+import { v } from "convex/values";
+- import { mutation, query } from "./_generated/server";
++ import { mutation, query } from "./functions";
+
+export const list = query({
+  args: {},
+  handler: async (ctx) => {
+    return await ctx.db.query("messages");
+
++    // You can now use ctx.table now as well:
++    return await ctx.table("messages");
+  },
+});
+```
+
+Similarly replace `QueryCtx` and `MutationCtx` with imports from `./types`.
+
+You can now use `ctx.table` for new code and to replace existing code.
+
+For more details see [Reading Ents](/read) and [Writing Ents](/write).
+
+### Adopt Ents features
+
+Convex Ents maintain invariants, such as enforcing unique fields, leaving no
+dangling references, etc. To make sure these invariants are not violated, you
+should not acccess a table with any Ents specific definitions (unique fields,
+edges) via the built-in `ctx.db` API.
+
+To prevent `ctx.db` access to some of the tables in your schema, amend your
+`functions.ts` file. In this example we remove access to `"messages"` from
+`ctx.db`:
+
+```diff filename="convex/functions.ts"
+
+      // For query and internalQuery:
+      db: ctx.db as unknown as GenericDatabaseReader<
+-        Pick<DataModel, "messages" | "users">
++        Pick<DataModel, "users">
+      >,
+
+      // For mutation and internalMutation:
+      db: ctx.db as GenericDatabaseWriter<
+-        Pick<DataModel, "messages" | "users">
++        Pick<DataModel, "users">
+      >,
+
+```
+
+### (optional) Finish moving to `ctx.table`
+
+Once you're no longer using `ctx.db` in any of your code, you can remove it from
+your custom functions setup:
+
+```diff filename="convex/functions.ts"
+
+      // For query and internalQuery:
++      db: undefined,
+-      db: ctx.db as unknown as GenericDatabaseReader<
+-        Pick<DataModel, "users">
+-      >,
+
+      // For mutation and internalMutation:
++      db: undefined,
+-      db: ctx.db as GenericDatabaseWriter<
+-        Pick<DataModel, "users">
+-      >,
+
+```
+
+For more details see [Configuring Functions](/setup/config).
+
+</Steps>

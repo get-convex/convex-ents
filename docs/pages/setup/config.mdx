@@ -8,9 +8,9 @@ package.
 You can read a detailed post about customizing function constructors
 [on Stack](https://stack.convex.dev/custom-functions).
 
-## Recommended setup: Replace function constructors and hide `db`
+## Recommended setup: Replace function constructors and hide `ctx.db`
 
-We recommend having a dedicated file to configuring your custom function
+We recommend having a dedicated file to configure your custom function
 constructors. Add a `functions.ts` file with the following contents:
 
 ```ts filename="convex/functions.ts"
@@ -83,77 +83,15 @@ this approach because:
    - 1:1 edges being unique on each end of the edge
    - deleting ents deletes corresponding edges
 
-## Incremental adoption: naming function constructors
+## Incremental adoption: Restrict `ctx.db`
 
-If you already have code using the built-in `ctx.db` API, and you want to use
-the ents API only in a subset of your project, you can give the custom function
-constructors different names:
+If you already have code using the built-in `ctx.db` API, and you want to adopt
+`ctx.table` for new code, you can keep `ctx.db` available, and restrict it to a
+set of tables.
+
+In this example `"messages"` and `"users"` are accessible via `ctx.db`:
 
 ```ts filename="convex/functions.ts"
-import {
-  customCtx,
-  customMutation,
-  customQuery,
-} from "convex-helpers/server/customFunctions";
-import {
-  query,
-  mutation,
-  internalQuery,
-  internalMutation,
-} from "./_generated/server";
-import { entsTableFactory } from "convex-ents";
-import { entDefinitions } from "./schema";
-
-export const entQuery = customQuery(
-  baseQuery,
-  customCtx(async (ctx) => {
-    return {
-      table: entsTableFactory(ctx, entDefinitions),
-      db: undefined,
-    };
-  })
-);
-
-export const entInternalQuery = customQuery(
-  baseInternalQuery,
-  customCtx(async (ctx) => {
-    return {
-      table: entsTableFactory(ctx, entDefinitions),
-      db: undefined,
-    };
-  })
-);
-
-export const entMutation = customMutation(
-  baseMutation,
-  customCtx(async (ctx) => {
-    return {
-      table: entsTableFactory(ctx, entDefinitions),
-      db: undefined,
-    };
-  })
-);
-
-export const entInternalMutation = customMutation(
-  baseInternalMutation,
-  customCtx(async (ctx) => {
-    return {
-      table: entsTableFactory(ctx, entDefinitions),
-      db: undefined,
-    };
-  })
-);
-```
-
-With this code you can now import `entQuery`, `entInternalQuery`, `entMutation`
-and `entInternalMutation` from `./functions` in the `convex` folder.
-
-To make sure the invariants Convex Ents maintain are not violated, you should
-not acccess a table with any Ents specific definitions (unique fields, edges)
-via the built-in `ctx.db`. You can set up custom functions with `ctx.db`
-restricted to a set of tables:
-
-```ts filename="convex/legacyFunctions.ts"
 import {
   customCtx,
   customMutation,
@@ -165,15 +103,16 @@ import {
   internalQuery as baseInternalQuery,
   internalMutation as baseInternalMutation,
 } from "./_generated/server";
-import { GenericDatabaseReader, GenericDatabaseWriter } from "convex/server";
-import { DataModel } from "./_generated/dataModel";
+import { entsTableFactory } from "convex-ents";
+import { entDefinitions } from "./schema";
 
 export const query = customQuery(
   baseQuery,
   customCtx(async (ctx) => {
     return {
+      table: entsTableFactory(ctx, entDefinitions),
       db: ctx.db as unknown as GenericDatabaseReader<
-        Pick<DataModel, "oldTable", "anotherOldTable">
+        Pick<DataModel, "messages" | "users">
       >,
     };
   })
@@ -183,8 +122,9 @@ export const internalQuery = customQuery(
   baseInternalQuery,
   customCtx(async (ctx) => {
     return {
+      table: entsTableFactory(ctx, entDefinitions),
       db: ctx.db as unknown as GenericDatabaseReader<
-        Pick<DataModel, "oldTable", "anotherOldTable">
+        Pick<DataModel, "messages" | "users">
       >,
     };
   })
@@ -194,8 +134,9 @@ export const mutation = customMutation(
   baseMutation,
   customCtx(async (ctx) => {
     return {
+      table: entsTableFactory(ctx, entDefinitions),
       db: ctx.db as GenericDatabaseWriter<
-        Pick<DataModel, "oldTable", "anotherOldTable">
+        Pick<DataModel, "messages" | "users">
       >,
     };
   })
@@ -204,27 +145,20 @@ export const mutation = customMutation(
 export const internalMutation = customMutation(
   baseInternalMutation,
   customCtx(async (ctx) => {
-    const { viewer, entDefinitions } = await ctxProperties(ctx);
     return {
+      table: entsTableFactory(ctx, entDefinitions),
       db: ctx.db as GenericDatabaseWriter<
-        Pick<DataModel, "oldTable", "anotherOldTable">
+        Pick<DataModel, "messages" | "users">
       >,
     };
   })
 );
 ```
 
-With the file shown in place you can import `query` and `mutation` from
-`./legacyFunctions` inside the `convex` folder, and TypeScript will only allow
-the provided `ctx.db` object to read and write into the listed tables (in the
-example `"oldTable"` and `"anotherOldTable"`). But remember that this is purely
-a TypeScript enforcement, not a runtime one.
+Remember that this restriction of access via `ctx.db` is purely a TypeScript
+enforcement, not a runtime one.
 
-Feel free to name the `ctx.table` using functions `query`/`mutation` and the
-ones using `ctx.db` `legacyQuery`/`legacyMutation`: the adoption path is up to
-you.
-
-## Exposing built-in `db`
+## Exposing built-in `ctx.db` under different name
 
 The `ctx.table` API can do everything the built-in `ctx.db` API can do with one
 expection: It has to know which table you want to read or write into. So for
