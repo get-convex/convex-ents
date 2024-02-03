@@ -1,4 +1,15 @@
 import { Callout } from "nextra/components";
+import edge from "../public/edge.png";
+import edgeDark from "../public/edge-dark.png";
+import edges from "../public/edges.png";
+import edgesDark from "../public/edges-dark.png";
+import edgesRef from "../public/edges.png";
+import edgesRefDark from "../public/edges-ref-dark.png";
+import edgesSelfAsymmetric from "../public/edges-self-asymmetric.png";
+import edgesSelfAsymmetricDark from "../public/edges-self-asymmetric-dark.png";
+import edgesSelfSymmetric from "../public/edges-self-symmetric.png";
+import edgesSelfSymmetricDark from "../public/edges-self-symmetric-dark.png";
+import { Graphic } from "../components/Graphic";
 
 # Ent Schema
 
@@ -189,6 +200,8 @@ a 1:1 edge, defined for each ent using the `edge` (singular) method:
 
 {/* TODO: Support optional on both sides, one side needs to choose to store the field */}
 
+<Graphic src={edge} dark={edgeDark} alt="1:1 edges pictogram" />
+
 ```ts
 defineEntSchema({
   users: defineEnt({
@@ -261,6 +274,8 @@ defineEntSchema({
 });
 ```
 
+<Graphic src={edgesRef} dark={edgesRefDark} alt="1:many edge pictogram" />
+
 This is a 1:many edge because the `edges` (plural) method is used on the "users"
 ent. And since each user can have multiple associated messages, the foreign key
 must be stored in the "messages" table. Just like for 1:1 edges, the field name
@@ -315,6 +330,8 @@ defineEntSchema({
 });
 ```
 
+<Graphic src={edges} dark={edgesDark} alt="many:many edge pictogram" />
+
 In this case the table storing the edge is called `messages_to_tags`, based on
 the tables storing each end of the edge.
 
@@ -366,6 +383,12 @@ defineEntSchema({
 });
 ```
 
+<Graphic
+  src={edgesSelfAsymmetric}
+  dark={edgesSelfAsymmetricDark}
+  alt="many:many edge pictogram"
+/>
+
 Self-directed edges point to the same table on which they are defined. For the
 edge to be asymmetrical, it has to specify the `inverse` name. In this example,
 if this edge is between user A and user B, B is a "followee" of A (is being
@@ -387,6 +410,12 @@ defineEntSchema({
   }).edges("friends", { to: "users" }),
 });
 ```
+
+<Graphic
+  src={edgesSelfSymmetric}
+  dark={edgesSelfSymmetricDark}
+  alt="many:many edge pictogram"
+/>
 
 By not specifying the `inverse` name, you're declaring the edge as symmetrical.
 You can also specify the `table`, `field` and `inverseField` options to control
