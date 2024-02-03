@@ -1,5 +1,4 @@
 import Image from "next/image";
-import { useConfig } from "nextra-theme-docs";
 
 export function Graphic({
   src,
