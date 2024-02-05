@@ -247,6 +247,19 @@ produced more or less than 1 result:
 const counter = await ctx.table("counters").uniqueX();
 ```
 
+### Accessing system tables
+
+[System tables](https://docs.convex.dev/database/advanced/system-tables) can be
+read with the `ctx.table.system` method:
+
+```ts
+const filesMetadata = await ctx.table.system("_storage");
+const scheduledFunctions = await ctx.table.system("_scheduled_functions");
+```
+
+All the previously listed methods are also supported by `ctx.table.system`.
+Edges to and from system tables are currently not supported.
+
 ## Traversing edges
 
 Convex Ents allow easily traversing edges declared in the [schema](/schema).

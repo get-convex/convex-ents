@@ -460,6 +460,11 @@ test("rules - edge", async (ctx) => {
   expect(otherSecret).toEqual(null);
 });
 
+test("_storage", async (ctx) => {
+  const files = await ctx.table.system("_scheduled_functions");
+  expect(files).toHaveLength(0);
+});
+
 // TODO:
 // // For single field indexes, we should be able to eq or lt gt directly - but that doesn't
 // // work as you might have multiple indexes with the same first field - you have to

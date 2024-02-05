@@ -21,6 +21,7 @@ import {
   SearchFilter,
   SearchFilterBuilder,
   SearchIndexNames,
+  SystemDataModel,
   TableNamesInDataModel,
   WithOptionalSystemFields,
   WithoutSystemFields,
@@ -661,7 +662,11 @@ class PromiseTableImpl<
     entDefinitions: EntsDataModel,
     table: Table
   ) {
-    super(ctx, entDefinitions, table, async () => ctx.db.query(table));
+    super(ctx, entDefinitions, table, async () =>
+      isSystemTable(table)
+        ? (ctx.db.system.query(table as any) as any)
+        : ctx.db.query(table)
+    );
   }
 
   get(...args: any[]) {
@@ -694,7 +699,9 @@ class PromiseTableImpl<
             return {
               id,
               doc: async () => {
-                const doc = await this.ctx.db.get(id);
+                const doc = await (isSystemTable(this.table)
+                  ? this.ctx.db.system.get(id as any)
+                  : this.ctx.db.get(id));
                 if (throwIfNull && doc === null) {
                   throw new Error(
                     `Document not found with id \`${id}\` in table "${this.table}"`
@@ -738,7 +745,9 @@ class PromiseTableImpl<
             });
             return await Promise.all(
               ids.map(async (id) => {
-                const doc = await this.ctx.db.get(id);
+                const doc = await (isSystemTable(this.table)
+                  ? this.ctx.db.system.get(id as any)
+                  : this.ctx.db.get(id));
                 if (doc === null) {
                   throw new Error(
                     `Document not found with id \`${id}\` in table "${this.table}"`
@@ -1495,7 +1504,7 @@ export function entsTableFactory<
   ? EntsTableWriter<EntsDataModel>
   : EntsTable<EntsDataModel> {
   const enrichedCtx = options !== undefined ? { ...ctx, ...options } : ctx;
-  return (
+  const table = (
     table: TableNamesInDataModel<EntsDataModel>,
     indexName?: string,
     indexRange?: any
@@ -1525,9 +1534,11 @@ export function entsTableFactory<
     }
     return new PromiseTableImpl(enrichedCtx as any, entDefinitions, table);
   };
+  table.system = table;
+  return table;
 }
 
-type EntsTable<EntsDataModel extends GenericEntsDataModel> = {
+type EntsTableReader<EntsDataModel extends GenericEntsDataModel> = {
   <
     Table extends TableNamesInDataModel<EntsDataModel>,
     IndexName extends IndexNames<NamedTableInfo<EntsDataModel, Table>>
@@ -1546,7 +1557,18 @@ type EntsTable<EntsDataModel extends GenericEntsDataModel> = {
   ): PromiseTable<EntsDataModel, Table>;
 };
 
-type EntsTableWriter<EntsDataModel extends GenericEntsDataModel> = {
+export type EntsTable<EntsDataModel extends GenericEntsDataModel> =
+  EntsTableReader<EntsDataModel> & {
+    system: EntsTableReader<EntsSystemDataModel>;
+  };
+
+type EntsSystemDataModel = {
+  [key in keyof SystemDataModel]: SystemDataModel[key] & {
+    edges: Record<string, never>;
+  };
+};
+
+export type EntsTableWriter<EntsDataModel extends GenericEntsDataModel> = {
   <
     Table extends TableNamesInDataModel<EntsDataModel>,
     IndexName extends IndexNames<NamedTableInfo<EntsDataModel, Table>>
@@ -1563,6 +1585,8 @@ type EntsTableWriter<EntsDataModel extends GenericEntsDataModel> = {
   <Table extends TableNamesInDataModel<EntsDataModel>>(
     table: Table
   ): PromiseTableWriter<Table, EntsDataModel>;
+
+  system: EntsTableReader<EntsSystemDataModel>;
 };
 
 declare class EntInstance<
@@ -2494,4 +2518,8 @@ export function getDeletionConfig<
   return (entDefinitions[table] as any).deletionConfig as
     | DeletionConfig
     | undefined;
+}
+
+function isSystemTable(table: string) {
+  return table.startsWith("_");
 }

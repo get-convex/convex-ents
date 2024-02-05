@@ -167,7 +167,7 @@ export const list = query({
   handler: async (ctx) => {
     return await ctx.db.query("messages");
 
-+    // You can now use ctx.table now as well:
++    // You can now use ctx.table as well:
 +    return await ctx.table("messages");
   },
 });

@@ -85,6 +85,7 @@ export function scheduledDeleteFactory<
         throw new Error(`Invalid ID "${origin.id}" for table ${origin.table}`);
       }
       // Check that we still want to delete
+      // Note: Doesn't support scheduled deletion starting with system table
       const doc = await ctx.db.get(originId);
       if (doc.deletionTime !== origin.deletionTime) {
         if (inProgress) {
