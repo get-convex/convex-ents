@@ -139,7 +139,7 @@ export interface PromiseTable<
   ): PromiseEntOrNull<EntsDataModel, Table>;
   get(id: GenericId<Table>): PromiseEntOrNull<EntsDataModel, Table>;
   /**
-   * Fetch a document from the DB using given index, throw if it doesn't exist.
+   * Fetch a unique document from the DB using given index, throw if it doesn't exist.
    */
   getX<
     Indexes extends EntsDataModel[Table]["indexes"],
@@ -1740,7 +1740,7 @@ export interface PromiseTableWriter<
   ): PromiseEntWriterOrNull<EntsDataModel, Table>;
   get(id: GenericId<Table>): PromiseEntWriterOrNull<EntsDataModel, Table>;
   /**
-   * Fetch a document from the DB using given index, throw if it doesn't exist.
+   * Fetch a unique document from the DB using given index, throw if it doesn't exist.
    */
   getX<
     Indexes extends EntsDataModel[Table]["indexes"],
