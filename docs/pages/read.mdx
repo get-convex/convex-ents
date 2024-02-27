@@ -56,6 +56,23 @@ const task = await ctx.db
 
 </Aside>
 
+## Reading a single ent via a compound index
+
+```ts
+const task = await ctx.table("users").get("nameAndRank", "Steve", 10);
+```
+
+<Aside title="This is equivalent to the built-in:">
+
+```ts
+const task = await ctx.db
+  .query("users")
+  .withIndex("nameAndRank", (q) => q.eq("name", "Steve").eq("rank", 10))
+  .unique();
+```
+
+</Aside>
+
 ## Reading a single ent or throwing
 
 The `getX` method (pronounced "get or throw") throws an `Error` if the read
@@ -118,7 +135,7 @@ index name and filter callback to `ctx.table`:
 
 ```ts
 const posts = await ctx.table("posts", "numLikes", (q) =>
-  q.gt("numLikes", 100)
+  q.gt("numLikes", 100),
 );
 ```
 
@@ -329,7 +346,7 @@ const hasTag =
   (await ctx.db
     .query("messages_to_tags")
     .withIndex("messagesId", (q) =>
-      q.eq("messagesId", message._id).eq("tagsId", tagId)
+      q.eq("messagesId", message._id).eq("tagsId", tagId),
     )
     .first()) !== null;
 ```
@@ -369,9 +386,7 @@ functionality:">
 
 ```ts
 const usersWithMessagesAndProfile = await Promise.all(
-  (
-    await ctx.db.query("users").collect()
-  ).map(async (user) => ({
+  (await ctx.db.query("users").collect()).map(async (user) => ({
     name: user.name,
     posts: await ctx.db
       .query("messages")
@@ -384,12 +399,12 @@ const usersWithMessagesAndProfile = await Promise.all(
         .unique();
       if (profile === null) {
         throw new Error(
-          `Edge "profile" does not exist for document wit ID "${user._id}"`
+          `Edge "profile" does not exist for document wit ID "${user._id}"`,
         );
       }
       return profile;
     })(),
-  }))
+  })),
 );
 ```
 

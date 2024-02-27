@@ -527,7 +527,7 @@ export interface EntDefinition<
   ): EntDefinition<
     Document & ObjectFieldType<FieldName, T>,
     FieldPaths | FieldName,
-    Indexes & { [key in FieldName]: [FieldName] },
+    Indexes & { [key in FieldName]: [FieldName, "_creationTime"] },
     SearchIndexes,
     VectorIndexes,
     Edges
@@ -539,7 +539,7 @@ export interface EntDefinition<
   ): EntDefinition<
     Document & ObjectFieldType<FieldName, T>,
     FieldPaths | FieldName,
-    Indexes & { [key in FieldName]: [FieldName] },
+    Indexes & { [key in FieldName]: [FieldName, "_creationTime"] },
     SearchIndexes,
     VectorIndexes,
     Edges
@@ -562,7 +562,7 @@ export interface EntDefinition<
   ): EntDefinition<
     Document & { [key in `${EdgeName}Id`]: GenericId<`${EdgeName}s`> },
     FieldPaths | `${EdgeName}Id`,
-    Indexes & { [key in `${EdgeName}Id`]: [`${EdgeName}Id`] },
+    Indexes & { [key in `${EdgeName}Id`]: [`${EdgeName}Id`, "_creationTime"] },
     SearchIndexes,
     VectorIndexes,
     Edges & {
@@ -580,7 +580,9 @@ export interface EntDefinition<
   ): EntDefinition<
     Document & { [key in NoInfer<FieldName>]: GenericId<`${EdgeName}s`> },
     FieldPaths | NoInfer<FieldName>,
-    Indexes & { [key in NoInfer<FieldName>]: [NoInfer<FieldName>] },
+    Indexes & {
+      [key in NoInfer<FieldName>]: [NoInfer<FieldName>, "_creationTime"];
+    },
     SearchIndexes,
     VectorIndexes,
     Edges & {
@@ -602,7 +604,9 @@ export interface EntDefinition<
   ): EntDefinition<
     Document & { [key in NoInfer<FieldName>]: GenericId<ToTable> },
     FieldPaths | NoInfer<FieldName>,
-    Indexes & { [key in NoInfer<FieldName>]: [NoInfer<FieldName>] },
+    Indexes & {
+      [key in NoInfer<FieldName>]: [NoInfer<FieldName>, "_creationTime"];
+    },
     SearchIndexes,
     VectorIndexes,
     Edges & {

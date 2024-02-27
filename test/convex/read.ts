@@ -58,9 +58,16 @@ setup(async (ctx) => {
     });
 });
 
-test("index field", async (ctx) => {
+test("get using index", async (ctx) => {
   const userByHeight = await ctx.table("users").getX("height", 3);
   expect(userByHeight.name).toEqual("Stark");
+});
+
+test("get using compound index", async (ctx) => {
+  const video = await ctx.table("posts").getX("numLikesAndType", "video", 4);
+  assertEqual(video.text, "My great video");
+  assertEqual(video.numLikes, 4);
+  assertEqual(video.type, "video");
 });
 
 test("default fields", async (ctx) => {
@@ -463,13 +470,6 @@ test("_storage", async (ctx) => {
   const files = await ctx.table.system("_storage");
   expect(files).toHaveLength(0);
 });
-
-// TODO:
-// // For single field indexes, we should be able to eq or lt gt directly - but that doesn't
-// // work as you might have multiple indexes with the same first field - you have to
-// // choose the index in convex model, but as Ian suggested if you choose a single field index
-// // you can inline the eq condition, so
-// await ctx.table("messages").get("author", foo._id); // note not authorId even though that's the underlying index
 
 export { query, mutation };
 
