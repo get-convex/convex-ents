@@ -42,18 +42,6 @@ import {
 } from "./writer";
 import { ScheduledDeleteFuncRef } from "./deletion";
 
-// TODO: Figure out how to make get() variadic
-// type FieldTypes<
-//
-//   Table extends TableNamesInDataModel<EntsDataModel>,
-//   T extends string[]
-// > = {
-//   [K in keyof T]: FieldTypeFromFieldPath<
-//     DocumentByName<EntsDataModel, Table>,
-//     T[K]
-//   >;
-// };
-
 export interface PromiseOrderedQueryOrNull<
   EntsDataModel extends GenericEntsDataModel,
   Table extends TableNamesInDataModel<EntsDataModel>
@@ -147,11 +135,7 @@ export interface PromiseTable<
     Index extends keyof Indexes
   >(
     indexName: Index,
-    // TODO: Figure out how to make this variadic
-    value0: FieldTypeFromFieldPath<
-      DocumentByName<EntsDataModel, Table>,
-      Indexes[Index][0]
-    >
+    ...values: IndexFieldTypesForEq<EntsDataModel, Table, Indexes[Index]>
   ): PromiseEntOrNull<EntsDataModel, Table>;
   get(id: GenericId<Table>): PromiseEntOrNull<EntsDataModel, Table>;
   /**
@@ -162,11 +146,7 @@ export interface PromiseTable<
     Index extends keyof Indexes
   >(
     indexName: Index,
-    // TODO: Figure out how to make this variadic
-    value0: FieldTypeFromFieldPath<
-      DocumentByName<EntsDataModel, Table>,
-      Indexes[Index][0]
-    >
+    ...values: IndexFieldTypesForEq<EntsDataModel, Table, Indexes[Index]>
   ): PromiseEnt<EntsDataModel, Table>;
   /**
    * Fetch a document from the DB for a given ID, throw if it doesn't exist.
@@ -1756,11 +1736,7 @@ export interface PromiseTableWriter<
     Index extends keyof Indexes
   >(
     indexName: Index,
-    // TODO: Figure out how to make this variadic
-    value0: FieldTypeFromFieldPath<
-      DocumentByName<EntsDataModel, Table>,
-      Indexes[Index][0]
-    >
+    ...values: IndexFieldTypesForEq<EntsDataModel, Table, Indexes[Index]>
   ): PromiseEntWriterOrNull<EntsDataModel, Table>;
   get(id: GenericId<Table>): PromiseEntWriterOrNull<EntsDataModel, Table>;
   /**
@@ -1771,11 +1747,7 @@ export interface PromiseTableWriter<
     Index extends keyof Indexes
   >(
     indexName: Index,
-    // TODO: Figure out how to make this variadic
-    value0: FieldTypeFromFieldPath<
-      DocumentByName<EntsDataModel, Table>,
-      Indexes[Index][0]
-    >
+    ...values: IndexFieldTypesForEq<EntsDataModel, Table, Indexes[Index]>
   ): PromiseEntWriter<EntsDataModel, Table>;
   /**
    * Fetch a document from the DB for a given ID, throw if it doesn't exist.
@@ -2365,6 +2337,21 @@ const nullRetriever = {
   id: null,
   doc: async () => null,
 };
+
+type IndexFieldTypesForEq<
+  EntsDataModel extends GenericEntsDataModel,
+  Table extends TableNamesInDataModel<EntsDataModel>,
+  T extends string[]
+> = Pop<{
+  [K in keyof T]: FieldTypeFromFieldPath<
+    DocumentByName<EntsDataModel, Table>,
+    T[K]
+  >;
+}>;
+
+type Pop<T extends any[]> = T extends [...infer Rest, infer _Last]
+  ? Rest
+  : never;
 
 // function idRetriever<
 //   DataModel extends GenericDataModel,

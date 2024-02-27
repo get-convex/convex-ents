@@ -58,9 +58,16 @@ setup(async (ctx) => {
     });
 });
 
-test("index field", async (ctx) => {
+test("get using index", async (ctx) => {
   const userByHeight = await ctx.table("users").getX("height", 3);
   expect(userByHeight.name).toEqual("Stark");
+});
+
+test("get using compound index", async (ctx) => {
+  const video = await ctx.table("posts").getX("numLikesAndType", "video", 4);
+  assertEqual(video.text, "My great video");
+  assertEqual(video.numLikes, 4);
+  assertEqual(video.type, "video");
 });
 
 test("default fields", async (ctx) => {
