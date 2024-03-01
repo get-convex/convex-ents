@@ -165,17 +165,17 @@ the example of users authoring messages:
 defineEntSchema({
   users: defineEnt({
     name: v.string(),
-  }).edges("messages"),
+  }).edges("messages", { ref: true }),
   messages: defineEnt({
     text: v.string(),
-  }).edge("users"),
+  }).edge("user"),
 });
 ```
 
 In this example, the edge between "users" and "messages" is 1:many, each user
 can have many associated messages, but each message has only a single associated
-user. This is because the `edge` method was used on the "messages" ent. To
-declare a many:many edge, you could replace it with the `edges` method.
+user. This is because the `edge` method was used on the "messages" ent, and
+`{ref: true}` was passed to the `edges` method on the "users" ent.
 
 ### Understanding how edges are stored
 
@@ -215,12 +215,12 @@ defineEntSchema({
 
 In this case, each user can have 1 profile, and each profile must have 1
 associated user. This is a field edge stored on the "profiles" table as a
-foreign key. The column name is "userId" based on the "users" table name (itself
-inferred from the provided "user" string).
+foreign key. This is the shortest syntax for declaring edges: based on the edge
+name "user", the table on the other end is "users" (`s` is added) and the field
+storing the edge is called "userId" (`Id` is added).
 
-If you wanted to have another field edge from profiles to users, you would have
-to specify the field name. You can choose to specify the field name even if you
-have only one edge:
+You can control the name of the field. This becomes necessary if you want to
+have another field edge between the same pair of tables:
 
 ```ts
 defineEntSchema({
@@ -233,13 +233,13 @@ defineEntSchema({
 });
 ```
 
-You have to provide the field name on both ends of the edge (as `ref` and
-`field` respectively).
+You have to provide the field name on both ends of the edge (via the `ref` and
+`field` options respectively).
 
-Either way the name of the edge is tied to the tables' names: "profile" and
-"user" respectively for each direction of the edge (since this is not a
-symmetrical edge). You can also provide the edge names specifically, from either
-or both ends, and pass the table name in as the `to` option:
+You can also specify explicitly which table is at the other end of the edge via
+the `to` option. This way the edge name doesn't have match the table name (this
+is helpful when the simple pluralization doesn't work, like edge "category" and
+table "categories"):
 
 ```ts
 defineEntSchema({
@@ -277,15 +277,14 @@ defineEntSchema({
 <Graphic src={edgesRef} dark={edgesRefDark} alt="1:many edge pictogram" />
 
 This is a 1:many edge because the `edges` (plural) method is used on the "users"
-ent. And since each user can have multiple associated messages, the foreign key
-must be stored in the "messages" table. Just like for 1:1 edges, the field name
-is inferred to be "userId" based on the "users" table name. You have to pass
-`ref: true` to the `edges` method, to distinguish the edge from a many:many
-edge.
+ent and the `ref: true` option is specified. And since each user can have
+multiple associated messages, the foreign key must be stored in the "messages"
+table. Just like for 1:1 edges, based on the edge name "user", the table on the
+other end is "users" (`s` is added) and the field storing the edge is called
+"userId" (`Id` is added).
 
-If you wanted to have another field edge from messages to users, you would have
-to specify the field name. You can choose to specify the field name even if you
-have only one edge:
+You can control the name of the field. This becomes necessary if you want to
+have another field edge between the same pair of tables:
 
 ```ts
 defineEntSchema({
@@ -298,10 +297,10 @@ defineEntSchema({
 });
 ```
 
-Either way the name of the edge is tied to the tables' names: "messages" and
-"user" respectively for each direction of the edge (since this is not a
-symmetrical edge). You can also provide the edge names specifically, from either
-or both ends, and pass the table name in as the `to` option:
+You can also specify explicitly which table is at the other end of the edge via
+the `to` option. This way the edge names don't have match the table name (this
+is helpful when the simple pluralization doesn't work, like edge "category" and
+table "categories"):
 
 ```ts
 defineEntSchema({
@@ -335,9 +334,8 @@ defineEntSchema({
 In this case the table storing the edge is called `messages_to_tags`, based on
 the tables storing each end of the edge.
 
-Similarly to field (1:many) edges, if you want to have multiple edges connecting
-the same pair of tables, you have to provide the name of the table storing the
-edge. You can do this even if you have only one edge:
+You can control the name of the table storing the edges. This becomes necessary
+if you want to have multiple edges connecting the same pair of tables:
 
 ```ts
 defineEntSchema({
@@ -354,7 +352,10 @@ This table will have two ID fields, one for each end of the edge. Their names
 will be inferred from the table names of the connected ents. You can specify
 them explicitly using the `field` option.
 
-As with 1:many edges, you can give the edges names:
+You can also specify explicitly which table is at the other end of the edge via
+the `to` option. This way the edge names don't have match the table name (this
+is helpful when the simple pluralization doesn't work, like edge "category" and
+table "categories"):
 
 ```ts
 defineEntSchema({
@@ -389,10 +390,10 @@ defineEntSchema({
   alt="many:many edge pictogram"
 />
 
-Self-directed edges point to the same table on which they are defined. For the
-edge to be asymmetrical, it has to specify the `inverse` name. In this example,
-if this edge is between user A and user B, B is a "followee" of A (is being
-followed by A), and A is a "follower" of B.
+Self-directed edges point to the same table on which they are defined via the
+`to` option. For the edge to be asymmetrical, it has to specify the `inverse`
+name. In this example, if this edge is between user A and user B, B is a
+"followee" of A (is being followed by A), and A is a "follower" of B.
 
 The table storing the edges is named after the edges, and so are its fields. You
 can also specify the `table`, `field` and `inverseField` options to control how
