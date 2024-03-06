@@ -31,7 +31,7 @@ const schema = defineEntSchema({
 
   users: defineEnt({
     name: v.string(),
-  }).edges("messages"),
+  }).edges("messages", { ref: true }),
 
   tags: defineEnt({
     name: v.string(),
@@ -150,22 +150,22 @@ import { v } from "convex/values";
 import { mutation, query } from "./functions";
 
 export const list = query(async (ctx) => {
-  return await ctx.table("messages").map((message) => ({
+  return await ctx.table("messages").map(async (message) => ({
     text: message.text,
     author: (await message.edge("user")).name,
   }));
 });
 
 export const send = mutation({
-  args: { text: v.string(), authorId: v.id("users") },
-  handler: async (ctx, { text, authorId }) => {
-    await ctx.table("messages").insert({ text, authorId });
+  args: { text: v.string(), userId: v.id("users") },
+  handler: async (ctx, { text, userId }) => {
+    await ctx.table("messages").insert({ text, userId });
   },
 });
 
 export const tag = mutation({
   args: { messageId: v.id("messages"), tagId: v.id("tags") },
-  handler: async (ctx, { text, authorId }) => {
+  handler: async (ctx, { messageId, tagId }) => {
     await ctx
       .table("messages")
       .getX(messageId)
