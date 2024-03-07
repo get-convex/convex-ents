@@ -40,7 +40,7 @@ const task = (await ctx.db.get(taskId))!;
 ```ts
 const taskIds = await ctx
   .table("tasks")
-  .insertMany({ text: "Buy socks" }, { text: "Buy socks" });
+  .insertMany([{ text: "Buy socks" }, { text: "Buy socks" }]);
 ```
 
 ## Updating existing ents
