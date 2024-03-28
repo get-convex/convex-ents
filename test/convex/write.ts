@@ -60,8 +60,7 @@ test("insert 1:1 from ref side", async (ctx) => {
     });
   };
 });
-// Insert 1:many from ref side
-test("", async (ctx) => {
+test("insert 1:many from ref side", async (ctx) => {
   const someUserId = await ctx.table("users").insert({
     name: "Jobs",
     email: "steve@jobs.com",
@@ -110,6 +109,57 @@ test("insert and delete many:many", async (ctx) => {
     await (ctx.db as any).query("messages_to_tags").collect()
   ).toHaveLength(1);
   await ctx.table("messages").getX(newMessageId).delete();
+  expect(
+    await (ctx.db as any).query("messages_to_tags").collect()
+  ).toHaveLength(0);
+});
+
+test("patch to remove many:many", async (ctx) => {
+  const someUserId = await ctx.table("users").insert({
+    name: "Gates",
+    email: "bill@gates.com",
+  });
+  const newMessageId = await ctx.table("messages").insert({
+    text: "Hello world",
+    userId: someUserId,
+  });
+  const newTag = await ctx
+    .table("tags")
+    .insert({ name: "Blue", messages: [newMessageId] })
+    .get();
+
+  await newTag.patch({
+    messages: {
+      remove: [newMessageId],
+    },
+  });
+
+  // Test the edge deletion behavior
+  expect(
+    await (ctx.db as any).query("messages_to_tags").collect()
+  ).toHaveLength(0);
+});
+
+test("replace to remove many:many", async (ctx) => {
+  const someUserId = await ctx.table("users").insert({
+    name: "Gates",
+    email: "bill@gates.com",
+  });
+  const newMessageId = await ctx.table("messages").insert({
+    text: "Hello world",
+    userId: someUserId,
+  });
+  const newTag = await ctx
+    .table("tags")
+    .insert({ name: "Blue", messages: [newMessageId] })
+    .get();
+
+  await newTag.replace({
+    name: "Green",
+    messages: [],
+  });
+
+  // Test the edge deletion behavior
   expect(
     await (ctx.db as any).query("messages_to_tags").collect()
   ).toHaveLength(0);

@@ -2107,7 +2107,9 @@ class PromiseEntWriterImpl<
                       )
                     )
                   )
-                ).map((edgeDoc) => (edgeDoc as any)._id);
+                )
+                  .flat()
+                  .map((edgeDoc) => edgeDoc._id as GenericId<any>);
                 edges[key] = {
                   add,
                   removeEdges,
