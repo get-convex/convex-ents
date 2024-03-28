@@ -3,6 +3,7 @@
   "private": true,
   "version": "0.1.0",
   "scripts": {
+    "lint": "tsc && eslint .",
     "test": "tsc && eslint . && npx convex dev --once && npm run testOnly",
     "testOnly": "npx convex run read:runTests && npx convex run write:runTests && npx convex run paginate:runTests && npm run testCascade",
     "testCascade": "npx convex run cascade:setup && sleep 0.2 && npx convex run cascade:runTest"
