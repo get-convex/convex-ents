@@ -1481,7 +1481,7 @@ export function entWrapper<
     writable: false,
     configurable: false,
   });
-  Object.entries((entDefinitions as any)[table].defaults).map(
+  Object.entries((entDefinitions as any)[table]?.defaults ?? []).map(
     ([field, value]) => {
       if (doc[field] === undefined) {
         (doc as any)[field] = value;
