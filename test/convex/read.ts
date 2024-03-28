@@ -461,7 +461,7 @@ test("rules - edge", async (ctx) => {
 });
 
 test("_storage", async (ctx) => {
-  const files = await ctx.table.system("_scheduled_functions");
+  const files = await ctx.table.system("_storage");
   expect(files).toHaveLength(0);
 });
 
