@@ -209,15 +209,26 @@ export class WriterImplBase<
             if (idOrIds.add !== undefined) {
               await Promise.all(
                 idOrIds.add.map(async (id) => {
-                  await this.ctx.db.insert(edgeDefinition.table, {
-                    [edgeDefinition.field]: docId,
-                    [edgeDefinition.ref]: id,
-                  } as any);
-                  if (edgeDefinition.symmetric) {
+                  const existing = await this.ctx.db
+                    .query(edgeDefinition.table)
+                    .withIndex(edgeDefinition.field, (q) =>
+                      (q.eq(edgeDefinition.field, docId as any) as any).eq(
+                        edgeDefinition.ref,
+                        id
+                      )
+                    )
+                    .first();
+                  if (existing === null) {
                     await this.ctx.db.insert(edgeDefinition.table, {
-                      [edgeDefinition.field]: id,
-                      [edgeDefinition.ref]: docId,
+                      [edgeDefinition.field]: docId,
+                      [edgeDefinition.ref]: id,
                     } as any);
+                    if (edgeDefinition.symmetric) {
+                      await this.ctx.db.insert(edgeDefinition.table, {
+                        [edgeDefinition.field]: id,
+                        [edgeDefinition.ref]: docId,
+                      } as any);
+                    }
                   }
                 })
               );

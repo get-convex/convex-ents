@@ -165,6 +165,32 @@ test("replace to remove many:many", async (ctx) => {
   ).toHaveLength(0);
 });
 
+test("patch doesn't readd many:many edge", async (ctx) => {
+  const someUserId = await ctx.table("users").insert({
+    name: "Gates",
+    email: "bill@gates.com",
+  });
+  const newMessageId = await ctx.table("messages").insert({
+    text: "Hello world",
+    userId: someUserId,
+  });
+  const newTag = await ctx
+    .table("tags")
+    .insert({ name: "Blue", messages: [newMessageId] })
+    .get();
+
+  await newTag.patch({
+    messages: {
+      add: [newMessageId],
+    },
+  });
+
+  // Test the edge deletion behavior
+  expect(
+    await (ctx.db as any).query("messages_to_tags").collect()
+  ).toHaveLength(1);
+});
+
 test("symmetric many:many", async (ctx) => {
   const friendId = await ctx.table("users").insert({
     name: "Jobs",
