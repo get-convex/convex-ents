@@ -4,7 +4,7 @@ import { entDefinitions } from "./schema";
 import { QueryCtx } from "./types";
 
 export function getEntDefinitionsWithRules(
-  ctx: QueryCtx
+  ctx: QueryCtx,
 ): typeof entDefinitions {
   return addEntRules(entDefinitions, {
     secrets: {
@@ -25,7 +25,7 @@ export function getEntDefinitionsWithRules(
 }
 
 export async function getViewerId(
-  ctx: Omit<QueryCtx, "table" | "viewerId" | "viewer" | "viewerX">
+  ctx: Omit<QueryCtx, "table" | "viewerId" | "viewer" | "viewerX">,
 ): Promise<Id<"users"> | null> {
   // TODO: Implement me via `ctx.skipRules.table()`
   return (await ctx.skipRules.table("users").first())?._id ?? null;

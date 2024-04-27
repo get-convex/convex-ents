@@ -22,7 +22,7 @@ test("unique field check", async (ctx) => {
       email: "bill@gates.com",
     });
   }).rejects.toThrowError(
-    `In table "users" cannot create a duplicate document with field "email" of value \`bill@gates.com\``
+    `In table "users" cannot create a duplicate document with field "email" of value \`bill@gates.com\``,
   );
   await ctx.table("users").getX(newUserId).delete();
 });
@@ -42,7 +42,7 @@ test("uniqueness check", async (ctx) => {
       userId: newUserId,
     });
   }).rejects.toThrowError(
-    `In table "profiles" cannot create a duplicate 1:1 edge "user"`
+    `In table "profiles" cannot create a duplicate 1:1 edge "user"`,
   );
   await ctx.table("profiles").getX(newProfileId).delete();
   await ctx.table("users").getX(newUserId).delete();
@@ -106,11 +106,11 @@ test("insert and delete many:many", async (ctx) => {
 
   // Test the edge deletion behavior
   expect(
-    await (ctx.db as any).query("messages_to_tags").collect()
+    await (ctx.db as any).query("messages_to_tags").collect(),
   ).toHaveLength(1);
   await ctx.table("messages").getX(newMessageId).delete();
   expect(
-    await (ctx.db as any).query("messages_to_tags").collect()
+    await (ctx.db as any).query("messages_to_tags").collect(),
   ).toHaveLength(0);
 });
 
@@ -136,7 +136,7 @@ test("patch to remove many:many", async (ctx) => {
 
   // Test the edge deletion behavior
   expect(
-    await (ctx.db as any).query("messages_to_tags").collect()
+    await (ctx.db as any).query("messages_to_tags").collect(),
   ).toHaveLength(0);
 });
 
@@ -161,7 +161,7 @@ test("replace to remove many:many", async (ctx) => {
 
   // Test the edge deletion behavior
   expect(
-    await (ctx.db as any).query("messages_to_tags").collect()
+    await (ctx.db as any).query("messages_to_tags").collect(),
   ).toHaveLength(0);
 });
 
@@ -187,7 +187,7 @@ test("patch doesn't readd many:many edge", async (ctx) => {
 
   // Test the edge deletion behavior
   expect(
-    await (ctx.db as any).query("messages_to_tags").collect()
+    await (ctx.db as any).query("messages_to_tags").collect(),
   ).toHaveLength(1);
 });
 

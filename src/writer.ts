@@ -18,12 +18,12 @@ import { ScheduledDeleteFuncRef } from "./deletion";
 
 export class WriterImplBase<
   EntsDataModel extends GenericEntsDataModel,
-  Table extends TableNamesInDataModel<EntsDataModel>
+  Table extends TableNamesInDataModel<EntsDataModel>,
 > {
   constructor(
     protected ctx: EntMutationCtx<EntsDataModel>,
     protected entDefinitions: EntsDataModel,
-    protected table: Table
+    protected table: Table,
   ) {}
 
   async deleteId(id: GenericId<any>, behavior: "default" | "soft" | "hard") {
@@ -40,7 +40,7 @@ export class WriterImplBase<
       throw new Error(
         `Cannot soft delete document with ID "${id}" in ` +
           `table "${this.table}" because it does not have an ` +
-          `"allowSoft", "soft" or "scheduled" deletion behavior configured.`
+          `"allowSoft", "soft" or "scheduled" deletion behavior configured.`,
       );
     }
     const edges: EdgeChanges = {};
@@ -59,7 +59,7 @@ export class WriterImplBase<
                 await this.ctx.db
                   .query(edgeDefinition.to)
                   .withIndex(edgeDefinition.ref, (q) =>
-                    q.eq(edgeDefinition.ref, id as any)
+                    q.eq(edgeDefinition.ref, id as any),
                   )
                   .collect()
               ).map((doc) => doc._id as GenericId<any>);
@@ -71,7 +71,7 @@ export class WriterImplBase<
                 await this.ctx.db
                   .query(edgeDefinition.table)
                   .withIndex(edgeDefinition.field, (q) =>
-                    q.eq(edgeDefinition.field, id as any)
+                    q.eq(edgeDefinition.field, id as any),
                   )
                   .collect()
               )
@@ -80,17 +80,17 @@ export class WriterImplBase<
                     ? await this.ctx.db
                         .query(edgeDefinition.table)
                         .withIndex(edgeDefinition.ref, (q) =>
-                          q.eq(edgeDefinition.ref, id as any)
+                          q.eq(edgeDefinition.ref, id as any),
                         )
                         .collect()
-                    : []
+                    : [],
                 )
                 .map((doc) => doc._id as GenericId<any>);
               edges[key] = { removeEdges };
             }
           }
-        }
-      )
+        },
+      ),
     );
     const deletionTime = +new Date();
     if (isDeletingSoftly) {
@@ -114,7 +114,7 @@ export class WriterImplBase<
     if (deletionConfig !== undefined && deletionConfig.type === "scheduled") {
       const fnRef = ((this.ctx as any).scheduledDelete ??
         makeFunctionReference(
-          "functions:scheduledDelete"
+          "functions:scheduledDelete",
         )) as ScheduledDeleteFuncRef;
       await this.ctx.scheduler.runAfter(deletionConfig.delayMs ?? 0, fnRef, {
         origin: {
@@ -132,14 +132,14 @@ export class WriterImplBase<
   async deletedIdIn(id: GenericId<any>, table: string, cascadingSoft: boolean) {
     await new WriterImplBase(this.ctx, this.entDefinitions, table).deleteId(
       id,
-      cascadingSoft ? "soft" : "hard"
+      cascadingSoft ? "soft" : "hard",
     );
   }
 
   async writeEdges(
     docId: GenericId<any>,
     changes: EdgeChanges,
-    deleteSoftly?: boolean
+    deleteSoftly?: boolean,
   ) {
     await Promise.all(
       Object.values(getEdgeDefinitions(this.entDefinitions, this.table)).map(
@@ -163,9 +163,9 @@ export class WriterImplBase<
                     id,
                     edgeDefinition.to,
                     (deleteSoftly ?? false) &&
-                      edgeDefinition.deletion === "soft"
-                  )
-                )
+                      edgeDefinition.deletion === "soft",
+                  ),
+                ),
               );
               // This would be behavior for optional edge:
               // await Promise.all(
@@ -181,8 +181,8 @@ export class WriterImplBase<
                 idOrIds.add.map(async (id) =>
                   this.ctx.db.patch(id, {
                     [edgeDefinition.ref]: docId,
-                  } as any)
-                )
+                  } as any),
+                ),
               );
             }
           } else if (edgeDefinition.cardinality === "multiple") {
@@ -202,7 +202,7 @@ export class WriterImplBase<
                     // and skip the call to delete altogether
                     // - or Convex could implement this.
                   }
-                })
+                }),
               );
             }
 
@@ -214,8 +214,8 @@ export class WriterImplBase<
                     .withIndex(edgeDefinition.field, (q) =>
                       (q.eq(edgeDefinition.field, docId as any) as any).eq(
                         edgeDefinition.ref,
-                        id
-                      )
+                        id,
+                      ),
                     )
                     .first();
                   if (existing === null) {
@@ -230,12 +230,12 @@ export class WriterImplBase<
                       } as any);
                     }
                   }
-                })
+                }),
               );
             }
           }
-        }
-      )
+        },
+      ),
     );
   }
 
@@ -245,7 +245,7 @@ export class WriterImplBase<
         (this.entDefinitions[this.table] as any).fields as Record<
           string,
           FieldConfig
-        >
+        >,
       ).map(async (fieldDefinition) => {
         if (fieldDefinition.unique) {
           const key = fieldDefinition.name;
@@ -262,11 +262,11 @@ export class WriterImplBase<
                 fieldValue as string
               }\`, existing document with ID "${
                 existing._id as string
-              }" already has it.`
+              }" already has it.`,
             );
           }
         }
-      })
+      }),
     );
     await Promise.all(
       Object.values(getEdgeDefinitions(this.entDefinitions, this.table)).map(
@@ -296,12 +296,12 @@ export class WriterImplBase<
                   value[key] as string
                 }", existing document with ID "${
                   existing._id as string
-                }" already has it.`
+                }" already has it.`,
               );
             }
           }
-        }
-      )
+        },
+      ),
     );
   }
 
@@ -311,13 +311,13 @@ export class WriterImplBase<
         DocumentByName<EntsDataModel, Table>,
         EntsDataModel[Table]["edges"]
       >
-    >
+    >,
   ) {
     const fields: GenericDocument = {};
     Object.keys(value).forEach((key) => {
       const edgeDefinition = getEdgeDefinitions(
         this.entDefinitions,
-        this.table
+        this.table,
       )[key];
       if (
         edgeDefinition === undefined
@@ -335,7 +335,7 @@ export class WriterImplBase<
   async checkReadAndWriteRule(
     operation: "create" | "update" | "delete",
     id: GenericId<Table> | undefined,
-    value: Partial<GenericDocument> | undefined
+    value: Partial<GenericDocument> | undefined,
   ) {
     if (id !== undefined) {
       const readPolicy = getReadRule(this.entDefinitions, this.table);
@@ -343,13 +343,13 @@ export class WriterImplBase<
         const doc = await this.ctx.db.get(id);
         if (doc === null) {
           throw new Error(
-            `Cannot update document with ID "${id}" in table "${this.table} because it does not exist"`
+            `Cannot update document with ID "${id}" in table "${this.table} because it does not exist"`,
           );
         }
         const decision = await readPolicy(doc);
         if (!decision) {
           throw new Error(
-            `Cannot update document with ID "${id}" from table "${this.table}"`
+            `Cannot update document with ID "${id}" from table "${this.table}"`,
           );
         }
       }
@@ -365,7 +365,7 @@ export class WriterImplBase<
             (await this.ctx.db.get(id))!,
             this.ctx,
             this.entDefinitions,
-            this.table
+            this.table,
           );
     // Replace allows _id and _creationTime, but rules should not
     // rely on them.
@@ -379,18 +379,18 @@ export class WriterImplBase<
       if (id === undefined) {
         throw new Error(
           `Cannot insert into table "${this.table}": \`${JSON.stringify(
-            value
-          )}\``
+            value,
+          )}\``,
         );
       } else if (value === undefined) {
         throw new Error(
-          `Cannot delete from table "${this.table}" with ID "${id}"`
+          `Cannot delete from table "${this.table}" with ID "${id}"`,
         );
       } else {
         throw new Error(
           `Cannot update document with ID "${id}" in table "${
             this.table
-          }" with: \`${JSON.stringify(value)}\``
+          }" with: \`${JSON.stringify(value)}\``,
         );
       }
     }
@@ -399,7 +399,7 @@ export class WriterImplBase<
 
 export type WithEdgeInserts<
   Document extends GenericDocument,
-  Edges extends Record<string, GenericEdgeConfig>
+  Edges extends Record<string, GenericEdgeConfig>,
 > = Document & {
   [key in keyof Edges as Edges[key]["cardinality"] extends "single"
     ? Edges[key]["type"] extends "field"
@@ -412,7 +412,7 @@ export type WithEdgeInserts<
 
 export type WithEdges<
   Document extends GenericDocument,
-  Edges extends Record<string, GenericEdgeConfig>
+  Edges extends Record<string, GenericEdgeConfig>,
 > = Document & {
   [key in keyof Edges as Edges[key]["cardinality"] extends "multiple"
     ? Edges[key]["type"] extends "ref"
@@ -423,7 +423,7 @@ export type WithEdges<
 
 export type WithEdgePatches<
   Document extends GenericDocument,
-  Edges extends Record<string, GenericEdgeConfig>
+  Edges extends Record<string, GenericEdgeConfig>,
 > = Document & {
   [key in keyof Edges as Edges[key]["cardinality"] extends "multiple"
     ? Edges[key]["type"] extends "ref"

@@ -28,7 +28,7 @@ export function testSuite() {
 
   const clear = async (
     ctx: MutationCtx,
-    except?: Record<string, Id<any>[]>
+    except?: Record<string, Id<any>[]>,
   ) => {
     for (const table of TABLES) {
       const exceptIdSet = new Set((except ?? {})[table] || []);
@@ -102,7 +102,7 @@ export function testSuite() {
       }: {
         query?: FunctionReference<"query">;
         mutation: FunctionReference<"mutation">;
-      }
+      },
     ) => {
       await ctx.runMutation(mutation, { name: "setup" });
       if (query !== undefined) {

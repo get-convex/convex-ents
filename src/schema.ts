@@ -22,10 +22,10 @@ import {
 
 export function defineEntSchema<
   Schema extends Record<string, EntDefinition>,
-  StrictTableNameTypes extends boolean = true
+  StrictTableNameTypes extends boolean = true,
 >(
   schema: Schema,
-  options?: DefineSchemaOptions<StrictTableNameTypes>
+  options?: DefineSchemaOptions<StrictTableNameTypes>,
 ): SchemaDefinition<Schema, StrictTableNameTypes> {
   // Set the properties of edges which requires knowing their inverses,
   // and add edge tables.
@@ -50,14 +50,14 @@ export function defineEntSchema<
       if (otherTable === undefined) {
         throw new Error(
           `Edge "${edge.name}" in table "${tableName}" ` +
-            `points to an undefined table "${otherTableName}"`
+            `points to an undefined table "${otherTableName}"`,
         );
       }
 
       const isSelfDirected = edge.to === tableName;
 
       const inverseEdgeCandidates = edgeConfigsBeforeDefineSchema(
-        otherTable
+        otherTable,
       ).filter(canBeInverseEdge(tableName, edge, isSelfDirected));
       if (inverseEdgeCandidates.length > 1) {
         throw new Error(
@@ -65,7 +65,7 @@ export function defineEntSchema<
             `has too many potential inverse edges in table "${otherTableName}": ` +
             `${inverseEdgeCandidates
               .map((edge) => `"${edge.name}"`)
-              .join(", ")}`
+              .join(", ")}`,
         );
       }
       const inverseEdge: EdgeConfigBeforeDefineSchema | undefined =
@@ -78,7 +78,7 @@ export function defineEntSchema<
       ) {
         throw new Error(
           `Missing inverse edge in table "${otherTableName}" ` +
-            `for edge "${edge.name}" in table "${tableName}"`
+            `for edge "${edge.name}" in table "${tableName}"`,
         );
       }
 
@@ -88,7 +88,7 @@ export function defineEntSchema<
           throw new Error(
             `Missing inverse edge in table "${otherTableName}" ${
               edge.ref !== null ? `with field "${edge.ref}" ` : ""
-            }for edge "${edge.name}" in table "${tableName}"`
+            }for edge "${edge.name}" in table "${tableName}"`,
           );
         }
         if (
@@ -105,7 +105,7 @@ export function defineEntSchema<
           throw new Error(
             `Both edge "${edge.name}" in table "${inverseEdge.to}" and ` +
               `edge "${inverseEdge.name}" in table "${edge.to}" are marked ` +
-              `as optional, choose one to be required.`
+              `as optional, choose one to be required.`,
           );
         }
         if (
@@ -113,7 +113,7 @@ export function defineEntSchema<
           inverseEdge.type !== "field"
         ) {
           throw new Error(
-            `Unexpected inverse edge type ${edge.name}, ${inverseEdge?.name}`
+            `Unexpected inverse edge type ${edge.name}, ${inverseEdge?.name}`,
           );
         }
         if (edge.ref === null) {
@@ -135,7 +135,7 @@ export function defineEntSchema<
               `"${edge.name}" in table "${tableName}" ` +
               `because the target table "${otherTableName}" does not have ` +
               `a "soft" or "scheduled" deletion behavior ` +
-              `configured.`
+              `configured.`,
           );
         }
       }
@@ -143,7 +143,7 @@ export function defineEntSchema<
         if (!isSelfDirected && inverseEdge === undefined) {
           throw new Error(
             `Missing inverse edge in table "${otherTableName}" ` +
-              `for edge "${edge.name}" in table "${tableName}"`
+              `for edge "${edge.name}" in table "${tableName}"`,
           );
         }
 
@@ -152,14 +152,14 @@ export function defineEntSchema<
             throw new Error(
               `The edge "${inverseEdge.name}" in table "${otherTableName}" ` +
                 `cannot be optional, as it must store the 1:many edge as a field. ` +
-                `Check the its inverse edge "${edge.name}" in table "${tableName}".`
+                `Check the its inverse edge "${edge.name}" in table "${tableName}".`,
             );
           }
           if (edge.type === "ref") {
             throw new Error(
               `The edge "${inverseEdge.name}" in table "${otherTableName}" ` +
                 `cannot be singular, as the edge "${edge.name}" in table "${tableName}" did not ` +
-                `specify the \`ref\` option.`
+                `specify the \`ref\` option.`,
             );
           }
           (edge as any).type = "field";
@@ -171,14 +171,14 @@ export function defineEntSchema<
             throw new Error(
               `The edge "${edge.name}" in table "${tableName}" ` +
                 `specified \`ref\`, but its inverse edge "${inverseEdge.name}" ` +
-                `in table "${otherTableName}" is not the singular end of a 1:many edge.`
+                `in table "${otherTableName}" is not the singular end of a 1:many edge.`,
             );
           }
           if (inverseEdge?.type === "field") {
             throw new Error(
               `The edge "${inverseEdge.name}" in table "${otherTableName}" ` +
                 `specified \`ref\`, but its inverse edge "${edge.name}" ` +
-                `in table "${tableName}" is not the singular end of a 1:many edge.`
+                `in table "${tableName}" is not the singular end of a 1:many edge.`,
             );
           }
 
@@ -186,31 +186,31 @@ export function defineEntSchema<
             edge.type === "ref" && edge.table !== undefined
               ? edge.table
               : inverseEdge === undefined
-              ? `${tableName}_${edge.name}`
-              : inverseEdge.name !== tableName
-              ? `${tableName}_${inverseEdge.name}_to_${edge.name}`
-              : `${inverseEdge.name}_to_${edge.name}`;
+                ? `${tableName}_${edge.name}`
+                : inverseEdge.name !== tableName
+                  ? `${tableName}_${inverseEdge.name}_to_${edge.name}`
+                  : `${inverseEdge.name}_to_${edge.name}`;
 
           const forwardId =
             edge.type === "ref" && edge.field !== undefined
               ? edge.field
               : inverseEdge === undefined
-              ? "aId"
-              : tableName === otherTableName
-              ? inverseEdge.name + "Id"
-              : tableName + "Id";
+                ? "aId"
+                : tableName === otherTableName
+                  ? inverseEdge.name + "Id"
+                  : tableName + "Id";
           const inverseId =
             isSelfDirected &&
             edge.type === "ref" &&
             edge.inverseField !== undefined
               ? edge.inverseField
               : inverseEdge === undefined
-              ? "bId"
-              : inverseEdge.type === "ref" && inverseEdge.field !== undefined
-              ? inverseEdge.field
-              : tableName === otherTableName
-              ? edge.name + "Id"
-              : otherTableName + "Id";
+                ? "bId"
+                : inverseEdge.type === "ref" && inverseEdge.field !== undefined
+                  ? inverseEdge.field
+                  : tableName === otherTableName
+                    ? edge.name + "Id"
+                    : otherTableName + "Id";
           // Add the table
           (schema as any)[edgeTableName] = defineEnt({
             [forwardId]: v.id(tableName),
@@ -241,7 +241,7 @@ export function defineEntSchema<
 function canBeInverseEdge(
   tableName: string,
   edge: EdgeConfigBeforeDefineSchema,
-  isSelfDirected: boolean
+  isSelfDirected: boolean,
 ) {
   return (candidate: EdgeConfigBeforeDefineSchema) => {
     if (candidate.to !== tableName) {
@@ -315,7 +315,7 @@ function canBeInverseEdge(
 
 function edgeConfigsBeforeDefineSchema(table: EntDefinition) {
   return Object.values(
-    (table as any).edgeConfigs as Record<string, EdgeConfigBeforeDefineSchema>
+    (table as any).edgeConfigs as Record<string, EdgeConfigBeforeDefineSchema>,
   );
 }
 
@@ -324,9 +324,9 @@ function deletionConfigFromEntDefinition(table: EntDefinition) {
 }
 
 export function defineEnt<
-  DocumentSchema extends Record<string, Validator<any, any, any>>
+  DocumentSchema extends Record<string, Validator<any, any, any>>,
 >(
-  documentSchema: DocumentSchema
+  documentSchema: DocumentSchema,
 ): EntDefinition<
   ExtractDocument<ObjectValidator<DocumentSchema>>,
   ExtractFieldPaths<ObjectValidator<DocumentSchema>>
@@ -353,7 +353,7 @@ export interface EntDefinition<
   // eslint-disable-next-line @typescript-eslint/ban-types
   VectorIndexes extends GenericTableVectorIndexes = {},
   // eslint-disable-next-line @typescript-eslint/ban-types
-  Edges extends GenericEdges = {}
+  Edges extends GenericEdges = {},
 > extends TableDefinition<
     Document,
     FieldPaths,
@@ -374,10 +374,10 @@ export interface EntDefinition<
   index<
     IndexName extends string,
     FirstFieldPath extends FieldPaths,
-    RestFieldPaths extends FieldPaths[]
+    RestFieldPaths extends FieldPaths[],
   >(
     name: IndexName,
-    fields: [FirstFieldPath, ...RestFieldPaths]
+    fields: [FirstFieldPath, ...RestFieldPaths],
   ): EntDefinition<
     Document,
     FieldPaths,
@@ -402,10 +402,10 @@ export interface EntDefinition<
   searchIndex<
     IndexName extends string,
     SearchField extends FieldPaths,
-    FilterFields extends FieldPaths = never
+    FilterFields extends FieldPaths = never,
   >(
     name: IndexName,
-    indexConfig: Expand<SearchIndexConfig<SearchField, FilterFields>>
+    indexConfig: Expand<SearchIndexConfig<SearchField, FilterFields>>,
   ): EntDefinition<
     Document,
     FieldPaths,
@@ -436,10 +436,10 @@ export interface EntDefinition<
   vectorIndex<
     IndexName extends string,
     VectorField extends FieldPaths,
-    FilterFields extends FieldPaths = never
+    FilterFields extends FieldPaths = never,
   >(
     name: IndexName,
-    indexConfig: Expand<VectorIndexConfig<VectorField, FilterFields>>
+    indexConfig: Expand<VectorIndexConfig<VectorField, FilterFields>>,
   ): EntDefinition<
     Document,
     FieldPaths,
@@ -461,7 +461,7 @@ export interface EntDefinition<
 
   field<FieldName extends string, T extends Validator<any, any, any>>(
     field: FieldName,
-    validator: T
+    validator: T,
   ): EntDefinition<
     Document & ObjectFieldType<FieldName, T>,
     FieldPaths | FieldName,
@@ -473,7 +473,7 @@ export interface EntDefinition<
   field<FieldName extends string, T extends Validator<any, any, any>>(
     field: FieldName,
     validator: T,
-    options: { index: true }
+    options: { index: true },
   ): EntDefinition<
     Document & ObjectFieldType<FieldName, T>,
     FieldPaths | FieldName,
@@ -485,7 +485,7 @@ export interface EntDefinition<
   field<FieldName extends string, T extends Validator<any, any, any>>(
     field: FieldName,
     validator: T,
-    options: { unique: true }
+    options: { unique: true },
   ): EntDefinition<
     Document & ObjectFieldType<FieldName, T>,
     FieldPaths | FieldName,
@@ -497,7 +497,7 @@ export interface EntDefinition<
   field<FieldName extends string, T extends Validator<any, false, any>>(
     field: FieldName,
     validator: T,
-    options: { default: T["type"] }
+    options: { default: T["type"] },
   ): EntDefinition<
     Document & ObjectFieldType<FieldName, T>,
     FieldPaths | FieldName,
@@ -508,7 +508,7 @@ export interface EntDefinition<
   >;
 
   edge<EdgeName extends string>(
-    edge: EdgeName
+    edge: EdgeName,
   ): EntDefinition<
     Document & { [key in `${EdgeName}Id`]: GenericId<`${EdgeName}s`> },
     FieldPaths | `${EdgeName}Id`,
@@ -526,7 +526,7 @@ export interface EntDefinition<
   >;
   edge<EdgeName extends string, const FieldName extends string>(
     edge: EdgeName,
-    options: { field: FieldName }
+    options: { field: FieldName },
   ): EntDefinition<
     Document & { [key in NoInfer<FieldName>]: GenericId<`${EdgeName}s`> },
     FieldPaths | NoInfer<FieldName>,
@@ -545,10 +545,10 @@ export interface EntDefinition<
   edge<
     EdgeName extends string,
     const FieldName extends string,
-    const ToTable extends string
+    const ToTable extends string,
   >(
     edge: EdgeName,
-    options: { field: FieldName; to: ToTable }
+    options: { field: FieldName; to: ToTable },
   ): EntDefinition<
     Document & { [key in NoInfer<FieldName>]: GenericId<ToTable> },
     FieldPaths | NoInfer<FieldName>,
@@ -570,7 +570,7 @@ export interface EntDefinition<
       optional: true;
       ref?: string;
       deletion?: "soft";
-    }
+    },
   ): EntDefinition<
     Document,
     FieldPaths,
@@ -593,7 +593,7 @@ export interface EntDefinition<
       to: ToTable;
       ref?: string;
       deletion?: "soft";
-    }
+    },
   ): EntDefinition<
     Document,
     FieldPaths,
@@ -621,7 +621,7 @@ export interface EntDefinition<
     options: {
       ref: true | string;
       deletion?: "soft";
-    }
+    },
   ): EntDefinition<
     Document,
     FieldPaths,
@@ -652,7 +652,7 @@ export interface EntDefinition<
       to: TableName;
       ref: true | string;
       deletion?: "soft";
-    }
+    },
   ): EntDefinition<
     Document,
     FieldPaths,
@@ -681,7 +681,7 @@ export interface EntDefinition<
     options?: {
       table?: string;
       field?: string;
-    }
+    },
   ): EntDefinition<
     Document,
     FieldPaths,
@@ -717,7 +717,7 @@ export interface EntDefinition<
       table?: string;
       field?: string;
       inverseField?: string;
-    }
+    },
   ): EntDefinition<
     Document,
     FieldPaths,
@@ -748,7 +748,7 @@ export interface EntDefinition<
   edges<
     EdgesName extends string,
     TableName extends string,
-    InverseEdgesNames extends string
+    InverseEdgesNames extends string,
   >(
     edge: EdgesName,
     options: {
@@ -757,7 +757,7 @@ export interface EntDefinition<
       table?: string;
       field?: string;
       inverseField?: string;
-    }
+    },
   ): EntDefinition<
     Document,
     FieldPaths,
@@ -790,7 +790,7 @@ export interface EntDefinition<
    * @param type `"soft"`
    */
   deletion(
-    type: "soft"
+    type: "soft",
   ): EntDefinition<
     Document & { deletionTime?: number },
     FieldPaths | "deletionTime",
@@ -814,7 +814,7 @@ export interface EntDefinition<
     type: "scheduled",
     options?: {
       delayMs: number;
-    }
+    },
   ): EntDefinition<
     Document & { deletionTime?: number },
     FieldPaths | "deletionTime",
@@ -983,7 +983,7 @@ class EntDefinitionImpl {
       throw new Error(
         `Cannot specify both \`ref\` and \`table\` for the same edge, ` +
           `as the former is for 1:many edges and the latter ` +
-          `for many:many edges. Config: \`${JSON.stringify(options)}\``
+          `for many:many edges. Config: \`${JSON.stringify(options)}\``,
       );
     }
     const field = options?.field;
@@ -997,7 +997,7 @@ class EntDefinitionImpl {
       throw new Error(
         `Specify \`table\` if you're customizing the \`field\` or ` +
           `\`inverseField\` for a many:many edge. ` +
-          `Config: \`${JSON.stringify(options)}\``
+          `Config: \`${JSON.stringify(options)}\``,
       );
     }
     const inverseName = options?.inverse;
@@ -1024,7 +1024,7 @@ class EntDefinitionImpl {
       // TODO: Put the check where we know the table name.
       throw new Error(
         `Cannot enable "${type}" deletion because "deletionTime" field ` +
-          `was already defined.`
+          `was already defined.`,
       );
     }
     if (this.deletionConfig !== undefined) {
@@ -1042,7 +1042,7 @@ class EntDefinitionImpl {
 
 type ObjectFieldType<
   FieldName extends string,
-  T extends Validator<any, any, any>
+  T extends Validator<any, any, any>,
 > = T["isOptional"] extends true
   ? { [key in FieldName]?: T["type"] }
   : { [key in FieldName]: T["type"] };
@@ -1161,7 +1161,7 @@ type ObjectValidator<Validators extends PropertyValidators> = Validator<
 
 type JoinFieldPaths<
   Start extends string,
-  End extends string
+  End extends string,
 > = `${Start}.${End}`;
 
 export type GenericEntsDataModel = GenericDataModel &
@@ -1181,7 +1181,7 @@ export type DeletionConfig =
     };
 
 export type EntDataModelFromSchema<
-  SchemaDef extends SchemaDefinition<any, boolean>
+  SchemaDef extends SchemaDefinition<any, boolean>,
 > = DataModelFromSchemaDefinition<SchemaDef> & {
   [TableName in keyof SchemaDef["tables"] &
     string]: SchemaDef["tables"][TableName] extends EntDefinition<
@@ -1199,7 +1199,7 @@ export type EntDataModelFromSchema<
 };
 
 export function getEntDefinitions<
-  SchemaDef extends SchemaDefinition<any, boolean>
+  SchemaDef extends SchemaDefinition<any, boolean>,
 >(schema: SchemaDef): EntDataModelFromSchema<typeof schema> {
   const tables = schema.tables;
   return Object.keys(tables).reduce(
@@ -1212,6 +1212,6 @@ export function getEntDefinitions<
         deletionConfig: tables[tableName].deletionConfig,
       },
     }),
-    {}
+    {},
   ) as any;
 }

@@ -107,7 +107,7 @@ const schema = defineEntSchema(
 
     datas: defineEnt({}).edge("member"),
   },
-  { schemaValidation: true }
+  { schemaValidation: true },
 );
 
 export default schema;

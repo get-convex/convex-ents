@@ -116,7 +116,7 @@ test("1:1 edge from ref end, existing, custom name", async (ctx) => {
     .firstX()
     .edge("origin");
   const secondaryAttachment = await firstAttachmentsPost.edge(
-    "secondaryAttachment"
+    "secondaryAttachment",
   );
   expect(secondAttachment._id).toEqual(secondaryAttachment?._id);
 });
@@ -165,9 +165,8 @@ test("many:many self-directed edge", async (ctx) => {
   expect(firstsFollowees).toHaveLength(1);
   expect(firstsFollowees[0]!.name).toEqual("Musk");
 
-  const firstsFirstFolloweeFollowers = await firstsFollowees[0]!.edge(
-    "followers"
-  );
+  const firstsFirstFolloweeFollowers =
+    await firstsFollowees[0]!.edge("followers");
   expect(firstsFirstFolloweeFollowers).toHaveLength(1);
   expect(firstsFirstFolloweeFollowers[0]!.name).toEqual("Stark");
 });
@@ -238,7 +237,7 @@ test("getManyX", async (ctx) => {
 test("table using index", async (ctx) => {
   const firstVideoWithMoreThan3Likes = await ctx
     .table("posts", "numLikesAndType", (q) =>
-      q.eq("type", "video").gt("numLikes", 3)
+      q.eq("type", "video").gt("numLikes", 3),
     )
     .firstX();
   assertEqual(firstVideoWithMoreThan3Likes.text, "My great video");

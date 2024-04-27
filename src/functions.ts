@@ -56,26 +56,26 @@ import { ScheduledDeleteFuncRef } from "./deletion";
 
 export interface PromiseOrderedQueryOrNull<
   EntsDataModel extends GenericEntsDataModel,
-  Table extends TableNamesInDataModel<EntsDataModel>
+  Table extends TableNamesInDataModel<EntsDataModel>,
 > extends Promise<
     Ent<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel>[] | null
   > {
   filter(
     predicate: (
-      q: FilterBuilder<NamedTableInfo<EntsDataModel, Table>>
-    ) => ExpressionOrValue<boolean>
+      q: FilterBuilder<NamedTableInfo<EntsDataModel, Table>>,
+    ) => ExpressionOrValue<boolean>,
   ): this;
 
   map<TOutput>(
     callbackFn: (
       value: Ent<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel>,
       index: number,
-      array: Ent<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel>[]
-    ) => Promise<TOutput> | TOutput
+      array: Ent<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel>[],
+    ) => Promise<TOutput> | TOutput,
   ): PromiseArrayOrNull<TOutput>;
 
   paginate(
-    paginationOpts: PaginationOptions
+    paginationOpts: PaginationOptions,
   ): PromisePaginationResultOrNull<EntsDataModel, Table>;
 
   take(n: number): PromiseEntsOrNull<EntsDataModel, Table>;
@@ -89,40 +89,40 @@ export interface PromiseOrderedQueryOrNull<
 
 export interface PromiseQueryOrNull<
   EntsDataModel extends GenericEntsDataModel,
-  Table extends TableNamesInDataModel<EntsDataModel>
+  Table extends TableNamesInDataModel<EntsDataModel>,
 > extends PromiseOrderedQueryOrNull<EntsDataModel, Table> {
   // TODO: The index variant should not be allowed if
   // this query already used an index
   order(
     order: "asc" | "desc",
-    indexName?: IndexNames<NamedTableInfo<EntsDataModel, Table>>
+    indexName?: IndexNames<NamedTableInfo<EntsDataModel, Table>>,
   ): PromiseOrderedQueryOrNull<EntsDataModel, Table>;
 }
 
 export interface PromiseTableBase<
   EntsDataModel extends GenericEntsDataModel,
-  Table extends TableNamesInDataModel<EntsDataModel>
+  Table extends TableNamesInDataModel<EntsDataModel>,
 > {
   getMany<
     Indexes extends EntsDataModel[Table]["indexes"],
-    Index extends keyof Indexes
+    Index extends keyof Indexes,
   >(
     indexName: Index,
     values: FieldTypeFromFieldPath<
       DocumentByName<EntsDataModel, Table>,
       Indexes[Index][0]
-    >[]
+    >[],
   ): PromiseEntsOrNulls<EntsDataModel, Table>;
   getMany(ids: GenericId<Table>[]): PromiseEntsOrNulls<EntsDataModel, Table>;
   getManyX<
     Indexes extends EntsDataModel[Table]["indexes"],
-    Index extends keyof Indexes
+    Index extends keyof Indexes,
   >(
     indexName: Index,
     values: FieldTypeFromFieldPath<
       DocumentByName<EntsDataModel, Table>,
       Indexes[Index][0]
-    >[]
+    >[],
   ): PromiseEnts<EntsDataModel, Table>;
   getManyX(ids: GenericId<Table>[]): PromiseEnts<EntsDataModel, Table>;
   /**
@@ -139,19 +139,19 @@ export interface PromiseTableBase<
 
 export interface PromiseTable<
   EntsDataModel extends GenericEntsDataModel,
-  Table extends TableNamesInDataModel<EntsDataModel>
+  Table extends TableNamesInDataModel<EntsDataModel>,
 > extends PromiseQuery<EntsDataModel, Table>,
     PromiseTableBase<EntsDataModel, Table> {
   get<
     Indexes extends EntsDataModel[Table]["indexes"],
-    Index extends keyof Indexes
+    Index extends keyof Indexes,
   >(
     indexName: Index,
     // TODO: Figure out how to make this variadic
     value0: FieldTypeFromFieldPath<
       DocumentByName<EntsDataModel, Table>,
       Indexes[Index][0]
-    >
+    >,
   ): PromiseEntOrNull<EntsDataModel, Table>;
   get(id: GenericId<Table>): PromiseEntOrNull<EntsDataModel, Table>;
   /**
@@ -159,14 +159,14 @@ export interface PromiseTable<
    */
   getX<
     Indexes extends EntsDataModel[Table]["indexes"],
-    Index extends keyof Indexes
+    Index extends keyof Indexes,
   >(
     indexName: Index,
     // TODO: Figure out how to make this variadic
     value0: FieldTypeFromFieldPath<
       DocumentByName<EntsDataModel, Table>,
       Indexes[Index][0]
-    >
+    >,
   ): PromiseEnt<EntsDataModel, Table>;
   /**
    * Fetch a document from the DB for a given ID, throw if it doesn't exist.
@@ -192,30 +192,30 @@ export interface PromiseTable<
    * in relevancy order.
    */
   search<
-    IndexName extends SearchIndexNames<NamedTableInfo<EntsDataModel, Table>>
+    IndexName extends SearchIndexNames<NamedTableInfo<EntsDataModel, Table>>,
   >(
     indexName: IndexName,
     searchFilter: (
       q: SearchFilterBuilder<
         DocumentByName<EntsDataModel, Table>,
         NamedSearchIndex<NamedTableInfo<EntsDataModel, Table>, IndexName>
-      >
-    ) => SearchFilter
+      >,
+    ) => SearchFilter,
   ): PromiseOrderedQuery<EntsDataModel, Table>;
 }
 
 export interface PromiseOrderedQueryBase<
   EntsDataModel extends GenericEntsDataModel,
-  Table extends TableNamesInDataModel<EntsDataModel>
+  Table extends TableNamesInDataModel<EntsDataModel>,
 > {
   filter(
     predicate: (
-      q: FilterBuilder<NamedTableInfo<EntsDataModel, Table>>
-    ) => ExpressionOrValue<boolean>
+      q: FilterBuilder<NamedTableInfo<EntsDataModel, Table>>,
+    ) => ExpressionOrValue<boolean>,
   ): this;
 
   paginate(
-    paginationOpts: PaginationOptions
+    paginationOpts: PaginationOptions,
   ): PromisePaginationResult<EntsDataModel, Table>;
 
   docs(): Promise<DocumentByName<EntsDataModel, Table>[]>;
@@ -223,7 +223,7 @@ export interface PromiseOrderedQueryBase<
 
 export interface PromiseOrderedQuery<
   EntsDataModel extends GenericEntsDataModel,
-  Table extends TableNamesInDataModel<EntsDataModel>
+  Table extends TableNamesInDataModel<EntsDataModel>,
 > extends Promise<
       Ent<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel>[]
     >,
@@ -232,8 +232,8 @@ export interface PromiseOrderedQuery<
     callbackFn: (
       value: Ent<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel>,
       index: number,
-      array: Ent<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel>[]
-    ) => Promise<TOutput> | TOutput
+      array: Ent<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel>[],
+    ) => Promise<TOutput> | TOutput,
   ): PromiseArray<TOutput>;
 
   take(n: number): PromiseEnts<EntsDataModel, Table>;
@@ -249,17 +249,17 @@ export interface PromiseOrderedQuery<
 
 export interface PromiseQuery<
   EntsDataModel extends GenericEntsDataModel,
-  Table extends TableNamesInDataModel<EntsDataModel>
+  Table extends TableNamesInDataModel<EntsDataModel>,
 > extends PromiseOrderedQuery<EntsDataModel, Table> {
   order(
     order: "asc" | "desc",
-    indexName?: IndexNames<NamedTableInfo<EntsDataModel, Table>>
+    indexName?: IndexNames<NamedTableInfo<EntsDataModel, Table>>,
   ): PromiseOrderedQuery<EntsDataModel, Table>;
 }
 
 class PromiseQueryOrNullImpl<
     EntsDataModel extends GenericEntsDataModel,
-    Table extends TableNamesInDataModel<EntsDataModel>
+    Table extends TableNamesInDataModel<EntsDataModel>,
   >
   extends Promise<
     Ent<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel>[] | null
@@ -272,15 +272,15 @@ class PromiseQueryOrNullImpl<
     protected table: Table,
     protected retrieve: () => Promise<Query<
       NamedTableInfo<EntsDataModel, Table>
-    > | null>
+    > | null>,
   ) {
     super(() => {});
   }
 
   filter(
     predicate: (
-      q: FilterBuilder<NamedTableInfo<EntsDataModel, Table>>
-    ) => ExpressionOrValue<boolean>
+      q: FilterBuilder<NamedTableInfo<EntsDataModel, Table>>,
+    ) => ExpressionOrValue<boolean>,
   ): any {
     return new PromiseQueryOrNullImpl(
       this.ctx,
@@ -292,7 +292,7 @@ class PromiseQueryOrNullImpl<
           return null;
         }
         return query.filter(predicate);
-      }
+      },
     );
   }
 
@@ -300,8 +300,8 @@ class PromiseQueryOrNullImpl<
     callbackFn: (
       value: Ent<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel>,
       index: number,
-      array: Ent<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel>[]
-    ) => Promise<TOutput> | TOutput
+      array: Ent<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel>[],
+    ) => Promise<TOutput> | TOutput,
   ) {
     return new PromiseArrayImpl(async () => {
       const array = await this;
@@ -314,7 +314,7 @@ class PromiseQueryOrNullImpl<
 
   order(
     order: "asc" | "desc",
-    indexName?: IndexNames<NamedTableInfo<EntsDataModel, Table>>
+    indexName?: IndexNames<NamedTableInfo<EntsDataModel, Table>>,
   ): any {
     return new PromiseQueryOrNullImpl(
       this.ctx,
@@ -333,7 +333,7 @@ class PromiseQueryOrNullImpl<
             .order(order);
         }
         return query.order(order) as any;
-      }
+      },
     );
   }
 
@@ -343,7 +343,7 @@ class PromiseQueryOrNullImpl<
       this.entDefinitions,
       this.table,
       this.retrieve,
-      paginationOpts
+      paginationOpts,
     );
   }
 
@@ -355,7 +355,7 @@ class PromiseQueryOrNullImpl<
       async () => {
         return await this._take(n);
       },
-      false
+      false,
     );
   }
 
@@ -372,7 +372,7 @@ class PromiseQueryOrNullImpl<
         const [doc] = docs;
         return loadedRetriever(doc);
       },
-      false
+      false,
     );
   }
 
@@ -392,7 +392,7 @@ class PromiseQueryOrNullImpl<
         }
         return loadedRetriever(doc);
       },
-      false
+      false,
     );
   }
 
@@ -415,7 +415,7 @@ class PromiseQueryOrNullImpl<
         const [doc] = docs;
         return loadedRetriever(doc);
       },
-      false
+      false,
     );
   }
 
@@ -438,7 +438,7 @@ class PromiseQueryOrNullImpl<
         const [doc] = docs;
         return loadedRetriever(doc);
       },
-      true
+      true,
     );
   }
 
@@ -453,7 +453,7 @@ class PromiseQueryOrNullImpl<
       this.entDefinitions,
       this.table,
       docs,
-      false
+      false,
     );
   }
 
@@ -461,28 +461,28 @@ class PromiseQueryOrNullImpl<
     TResult1 =
       | Ent<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel>[]
       | null,
-    TResult2 = never
+    TResult2 = never,
   >(
     onfulfilled?:
       | ((
           value:
             | Ent<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel>[]
-            | null
+            | null,
         ) => TResult1 | PromiseLike<TResult1>)
       | undefined
       | null,
     onrejected?:
       | ((reason: any) => TResult2 | PromiseLike<TResult2>)
       | undefined
-      | null
+      | null,
   ): Promise<TResult1 | TResult2> {
     return this.docs()
       .then((documents) =>
         documents === null
           ? null
           : documents.map((doc) =>
-              entWrapper(doc, this.ctx, this.entDefinitions, this.table)
-            )
+              entWrapper(doc, this.ctx, this.entDefinitions, this.table),
+            ),
       )
       .then(onfulfilled, onrejected);
   }
@@ -516,8 +516,8 @@ class PromiseQueryOrNullImpl<
           this.entDefinitions,
           this.table,
           page,
-          false
-        ))!.slice(0, n - docs.length)
+          false,
+        ))!.slice(0, n - docs.length),
       );
       numItems = Math.min(64, numItems * 2);
     }
@@ -527,7 +527,7 @@ class PromiseQueryOrNullImpl<
 
 export interface PromisePaginationResultOrNull<
   EntsDataModel extends GenericEntsDataModel,
-  Table extends TableNamesInDataModel<EntsDataModel>
+  Table extends TableNamesInDataModel<EntsDataModel>,
 > extends Promise<PaginationResult<
     Ent<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel>
   > | null> {
@@ -539,14 +539,14 @@ export interface PromisePaginationResultOrNull<
     callbackFn: (
       value: Ent<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel>,
       index: number,
-      array: Ent<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel>[]
-    ) => Promise<TOutput> | TOutput
+      array: Ent<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel>[],
+    ) => Promise<TOutput> | TOutput,
   ): Promise<PaginationResult<TOutput> | null>;
 }
 
 export interface PromisePaginationResult<
   EntsDataModel extends GenericEntsDataModel,
-  Table extends TableNamesInDataModel<EntsDataModel>
+  Table extends TableNamesInDataModel<EntsDataModel>,
 > extends Promise<
     PaginationResult<
       Ent<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel>
@@ -558,14 +558,14 @@ export interface PromisePaginationResult<
     callbackFn: (
       value: Ent<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel>,
       index: number,
-      array: Ent<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel>[]
-    ) => Promise<TOutput> | TOutput
+      array: Ent<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel>[],
+    ) => Promise<TOutput> | TOutput,
   ): Promise<PaginationResult<TOutput>>;
 }
 
 class PromisePaginationResultOrNullImpl<
     EntsDataModel extends GenericEntsDataModel,
-    Table extends TableNamesInDataModel<EntsDataModel>
+    Table extends TableNamesInDataModel<EntsDataModel>,
   >
   extends Promise<PaginationResult<
     Ent<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel>
@@ -579,7 +579,7 @@ class PromisePaginationResultOrNullImpl<
     protected retrieve: () => Promise<Query<
       NamedTableInfo<EntsDataModel, Table>
     > | null>,
-    protected paginationOpts: PaginationOptions
+    protected paginationOpts: PaginationOptions,
   ) {
     super(() => {});
   }
@@ -588,8 +588,8 @@ class PromisePaginationResultOrNullImpl<
     callbackFn: (
       value: Ent<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel>,
       index: number,
-      array: Ent<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel>[]
-    ) => Promise<TOutput> | TOutput
+      array: Ent<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel>[],
+    ) => Promise<TOutput> | TOutput,
   ) {
     const result = await this;
     if (result === null) {
@@ -614,7 +614,7 @@ class PromisePaginationResultOrNullImpl<
         this.entDefinitions,
         this.table,
         result.page,
-        false
+        false,
       ))!,
     };
   }
@@ -623,20 +623,20 @@ class PromisePaginationResultOrNullImpl<
     TResult1 =
       | Ent<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel>[]
       | null,
-    TResult2 = never
+    TResult2 = never,
   >(
     onfulfilled?:
       | ((
           value: PaginationResult<
             Ent<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel>
-          > | null
+          > | null,
         ) => TResult1 | PromiseLike<TResult1>)
       | undefined
       | null,
     onrejected?:
       | ((reason: any) => TResult2 | PromiseLike<TResult2>)
       | undefined
-      | null
+      | null,
   ): Promise<TResult1 | TResult2> {
     return this.docs()
       .then((result) =>
@@ -645,9 +645,9 @@ class PromisePaginationResultOrNullImpl<
           : {
               ...result,
               page: result.page.map((doc) =>
-                entWrapper(doc, this.ctx, this.entDefinitions, this.table)
+                entWrapper(doc, this.ctx, this.entDefinitions, this.table),
               ),
-            }
+            },
       )
       .then(onfulfilled, onrejected);
   }
@@ -655,17 +655,17 @@ class PromisePaginationResultOrNullImpl<
 
 class PromiseTableImpl<
   EntsDataModel extends GenericEntsDataModel,
-  Table extends TableNamesInDataModel<EntsDataModel>
+  Table extends TableNamesInDataModel<EntsDataModel>,
 > extends PromiseQueryOrNullImpl<EntsDataModel, Table> {
   constructor(
     ctx: EntQueryCtx<EntsDataModel>,
     entDefinitions: EntsDataModel,
-    table: Table
+    table: Table,
   ) {
     super(ctx, entDefinitions, table, async () =>
       isSystemTable(table)
         ? (ctx.db.system.query(table as any) as any)
-        : ctx.db.query(table)
+        : ctx.db.query(table),
     );
   }
 
@@ -704,7 +704,7 @@ class PromiseTableImpl<
                   : this.ctx.db.get(id));
                 if (throwIfNull && doc === null) {
                   throw new Error(
-                    `Document not found with id \`${id}\` in table "${this.table}"`
+                    `Document not found with id \`${id}\` in table "${this.table}"`,
                   );
                 }
                 return doc;
@@ -719,12 +719,12 @@ class PromiseTableImpl<
               .unique();
             if (throwIfNull && doc === null) {
               throw new Error(
-                `Table "${this.table}" does not contain document with field "${indexName}" = \`${value}\``
+                `Table "${this.table}" does not contain document with field "${indexName}" = \`${value}\``,
               );
             }
             return loadedRetriever(doc);
           },
-      throwIfNull
+      throwIfNull,
     );
   }
 
@@ -739,7 +739,7 @@ class PromiseTableImpl<
             ids.forEach((id) => {
               if (this.ctx.db.normalizeId(this.table, id) === null) {
                 throw new Error(
-                  `Invalid id \`${id}\` for table "${this.table}"`
+                  `Invalid id \`${id}\` for table "${this.table}"`,
                 );
               }
             });
@@ -750,11 +750,11 @@ class PromiseTableImpl<
                   : this.ctx.db.get(id));
                 if (doc === null) {
                   throw new Error(
-                    `Document not found with id \`${id}\` in table "${this.table}"`
+                    `Document not found with id \`${id}\` in table "${this.table}"`,
                   );
                 }
                 return doc;
-              })
+              }),
             );
           }
         : async () => {
@@ -767,14 +767,14 @@ class PromiseTableImpl<
                   .unique();
                 if (throwIfNull && doc === null) {
                   throw new Error(
-                    `Table "${this.table}" does not contain document with field "${indexName}" = \`${value}\``
+                    `Table "${this.table}" does not contain document with field "${indexName}" = \`${value}\``,
                   );
                 }
                 return doc;
-              })
+              }),
             )) as any;
           },
-      throwIfNull
+      throwIfNull,
     );
   }
 
@@ -797,8 +797,8 @@ class PromiseTableImpl<
       q: IndexRangeBuilder<
         DocumentByName<EntsDataModel, Table>,
         NamedIndex<NamedTableInfo<EntsDataModel, Table>, typeof indexName>
-      >
-    ) => IndexRange
+      >,
+    ) => IndexRange,
   ) {
     return new PromiseQueryOrNullImpl(
       this.ctx,
@@ -809,20 +809,20 @@ class PromiseTableImpl<
         return (
           query as QueryInitializer<NamedTableInfo<EntsDataModel, Table>>
         ).withIndex(indexName, indexRange);
-      }
+      },
     );
   }
 
   search<
-    IndexName extends SearchIndexNames<NamedTableInfo<EntsDataModel, Table>>
+    IndexName extends SearchIndexNames<NamedTableInfo<EntsDataModel, Table>>,
   >(
     indexName: IndexName,
     searchFilter: (
       q: SearchFilterBuilder<
         DocumentByName<EntsDataModel, Table>,
         NamedSearchIndex<NamedTableInfo<EntsDataModel, Table>, IndexName>
-      >
-    ) => SearchFilter
+      >,
+    ) => SearchFilter,
   ) {
     return new PromiseQueryOrNullImpl(
       this.ctx,
@@ -833,7 +833,7 @@ class PromiseTableImpl<
         return (
           query as QueryInitializer<NamedTableInfo<EntsDataModel, Table>>
         ).withSearchIndex(indexName, searchFilter) as any;
-      }
+      },
     );
   }
 }
@@ -843,7 +843,7 @@ class PromiseTableImpl<
 // retrieved document in JavaScript, basically as if using `Promise.all()`.
 export interface PromiseEntsOrNull<
   EntsDataModel extends GenericEntsDataModel,
-  Table extends TableNamesInDataModel<EntsDataModel>
+  Table extends TableNamesInDataModel<EntsDataModel>,
 > extends Promise<
     Ent<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel>[] | null
   > {
@@ -861,8 +861,8 @@ export interface PromiseEntsOrNull<
     callbackFn: (
       value: Ent<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel>,
       index: number,
-      array: Ent<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel>[]
-    ) => Promise<TOutput> | TOutput
+      array: Ent<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel>[],
+    ) => Promise<TOutput> | TOutput,
   ): PromiseArrayOrNull<TOutput>;
 
   docs(): Promise<DocumentByName<EntsDataModel, Table>[] | null>;
@@ -874,7 +874,7 @@ export interface PromiseEntsOrNull<
 // `Promise.all()`.
 export interface PromiseEnts<
   EntsDataModel extends GenericEntsDataModel,
-  Table extends TableNamesInDataModel<EntsDataModel>
+  Table extends TableNamesInDataModel<EntsDataModel>,
 > extends Promise<
     Ent<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel>[]
   > {
@@ -899,8 +899,8 @@ export interface PromiseEnts<
     callbackFn: (
       value: Ent<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel>,
       index: number,
-      array: Ent<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel>[]
-    ) => Promise<TOutput> | TOutput
+      array: Ent<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel>[],
+    ) => Promise<TOutput> | TOutput,
   ): PromiseArray<TOutput>;
 
   docs(): Promise<DocumentByName<EntsDataModel, Table>[]>;
@@ -908,7 +908,7 @@ export interface PromiseEnts<
 
 class PromiseEntsOrNullImpl<
     EntsDataModel extends GenericEntsDataModel,
-    Table extends TableNamesInDataModel<EntsDataModel>
+    Table extends TableNamesInDataModel<EntsDataModel>,
   >
   extends Promise<
     Ent<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel>[] | null
@@ -922,7 +922,7 @@ class PromiseEntsOrNullImpl<
     private retrieve: () => Promise<
       DocumentByName<EntsDataModel, Table>[] | null
     >,
-    private throwIfNull: boolean
+    private throwIfNull: boolean,
   ) {
     super(() => {});
   }
@@ -931,8 +931,8 @@ class PromiseEntsOrNullImpl<
     callbackFn: (
       value: Ent<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel>,
       index: number,
-      array: Ent<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel>[]
-    ) => Promise<TOutput> | TOutput
+      array: Ent<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel>[],
+    ) => Promise<TOutput> | TOutput,
   ) {
     return new PromiseArrayImpl(async () => {
       const array = await this;
@@ -955,7 +955,7 @@ class PromiseEntsOrNullImpl<
         }
         return loadedRetriever(docs[0] ?? null);
       },
-      false
+      false,
     );
   }
 
@@ -975,7 +975,7 @@ class PromiseEntsOrNullImpl<
         }
         return loadedRetriever(doc);
       },
-      true
+      true,
     );
   }
 
@@ -994,7 +994,7 @@ class PromiseEntsOrNullImpl<
         }
         return loadedRetriever(docs[0] ?? null);
       },
-      false
+      false,
     );
   }
 
@@ -1016,7 +1016,7 @@ class PromiseEntsOrNullImpl<
         }
         return loadedRetriever(docs[0]);
       },
-      true
+      true,
     );
   }
 
@@ -1027,7 +1027,7 @@ class PromiseEntsOrNullImpl<
       this.entDefinitions,
       this.table,
       docs,
-      this.throwIfNull
+      this.throwIfNull,
     );
   }
 
@@ -1035,28 +1035,28 @@ class PromiseEntsOrNullImpl<
     TResult1 =
       | Ent<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel>[]
       | null,
-    TResult2 = never
+    TResult2 = never,
   >(
     onfulfilled?:
       | ((
           value:
             | Ent<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel>[]
-            | null
+            | null,
         ) => TResult1 | PromiseLike<TResult1>)
       | undefined
       | null,
     onrejected?:
       | ((reason: any) => TResult2 | PromiseLike<TResult2>)
       | undefined
-      | null
+      | null,
   ): Promise<TResult1 | TResult2> {
     return this.docs()
       .then((docs) =>
         docs === null
           ? null
           : docs.map((doc) =>
-              entWrapper(doc, this.ctx, this.entDefinitions, this.table)
-            )
+              entWrapper(doc, this.ctx, this.entDefinitions, this.table),
+            ),
       )
       .then(onfulfilled, onrejected);
   }
@@ -1068,14 +1068,14 @@ class PromiseEntsOrNullImpl<
 // `Promise.all()`.
 export interface PromiseEntsOrNulls<
   EntsDataModel extends GenericEntsDataModel,
-  Table extends TableNamesInDataModel<EntsDataModel>
+  Table extends TableNamesInDataModel<EntsDataModel>,
 > extends Promise<
     (Ent<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel> | null)[]
   > {}
 
 export interface PromiseEdgeEntsOrNull<
   EntsDataModel extends GenericEntsDataModel,
-  Table extends TableNamesInDataModel<EntsDataModel>
+  Table extends TableNamesInDataModel<EntsDataModel>,
 > extends PromiseEntsOrNull<EntsDataModel, Table> {
   /**
    * Returns whether there is an ent with given ID on the other side
@@ -1087,7 +1087,7 @@ export interface PromiseEdgeEntsOrNull<
 
 export interface PromiseEdgeEnts<
   EntsDataModel extends GenericEntsDataModel,
-  Table extends TableNamesInDataModel<EntsDataModel>
+  Table extends TableNamesInDataModel<EntsDataModel>,
 > extends PromiseEnts<EntsDataModel, Table> {
   /**
    * Returns whether there is an ent with given ID on the other side
@@ -1099,7 +1099,7 @@ export interface PromiseEdgeEnts<
 
 class PromiseEdgeOrNullImpl<
     EntsDataModel extends GenericEntsDataModel,
-    Table extends TableNamesInDataModel<EntsDataModel>
+    Table extends TableNamesInDataModel<EntsDataModel>,
   >
   extends PromiseEntsOrNullImpl<EntsDataModel, Table>
   implements PromiseEdgeEntsOrNull<EntsDataModel, Table>
@@ -1111,9 +1111,9 @@ class PromiseEdgeOrNullImpl<
     private field: string,
     private retrieveRange: (
       indexRange: (
-        q: IndexRangeBuilder<DocumentByName<EntsDataModel, Table>, any>
-      ) => any
-    ) => Promise<DocumentByName<EntsDataModel, Table>[] | null>
+        q: IndexRangeBuilder<DocumentByName<EntsDataModel, Table>, any>,
+      ) => any,
+    ) => Promise<DocumentByName<EntsDataModel, Table>[] | null>,
   ) {
     super(ctx, entDefinitions, table, () => retrieveRange((q) => q), false);
   }
@@ -1126,14 +1126,14 @@ class PromiseEdgeOrNullImpl<
 
 export interface PromiseEntOrNull<
   EntsDataModel extends GenericEntsDataModel,
-  Table extends TableNamesInDataModel<EntsDataModel>
+  Table extends TableNamesInDataModel<EntsDataModel>,
 > extends Promise<Ent<
     Table,
     DocumentByName<EntsDataModel, Table>,
     EntsDataModel
   > | null> {
   edge<Edge extends keyof EntsDataModel[Table]["edges"]>(
-    edge: Edge
+    edge: Edge,
   ): PromiseEdgeOrNull<EntsDataModel, Table, Edge>;
 
   doc(): Promise<DocumentByName<EntsDataModel, Table> | null>;
@@ -1141,16 +1141,16 @@ export interface PromiseEntOrNull<
 
 export interface PromiseEnt<
   EntsDataModel extends GenericEntsDataModel,
-  Table extends TableNamesInDataModel<EntsDataModel>
+  Table extends TableNamesInDataModel<EntsDataModel>,
 > extends Promise<
     Ent<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel>
   > {
   edge<Edge extends keyof EntsDataModel[Table]["edges"]>(
-    edge: Edge
+    edge: Edge,
   ): PromiseEdge<EntsDataModel, Table, Edge>;
 
   edgeX<Edge extends keyof EntsDataModel[Table]["edges"]>(
-    edge: Edge
+    edge: Edge,
   ): PromiseEdgeOrThrow<EntsDataModel, Table, Edge>;
 
   doc(): Promise<DocumentByName<EntsDataModel, Table>>;
@@ -1158,7 +1158,7 @@ export interface PromiseEnt<
 
 class PromiseEntOrNullImpl<
     EntsDataModel extends GenericEntsDataModel,
-    Table extends TableNamesInDataModel<EntsDataModel>
+    Table extends TableNamesInDataModel<EntsDataModel>,
   >
   extends Promise<Ent<
     Table,
@@ -1175,7 +1175,7 @@ class PromiseEntOrNullImpl<
       GenericId<Table> | null,
       DocumentByName<EntsDataModel, Table> | null
     >,
-    protected throwIfNull: boolean
+    protected throwIfNull: boolean,
   ) {
     super(() => {});
   }
@@ -1192,13 +1192,13 @@ class PromiseEntOrNullImpl<
     const readPolicy = getReadRule(this.entDefinitions, this.table);
     if (readPolicy !== undefined) {
       const decision = await readPolicy(
-        entWrapper(doc, this.ctx, this.entDefinitions, this.table)
+        entWrapper(doc, this.ctx, this.entDefinitions, this.table),
       );
       if (this.throwIfNull && !decision) {
         throw new Error(
           `Document cannot be read with id \`${doc._id as string}\` in table "${
             this.table
-          }"`
+          }"`,
         );
       }
       return decision ? doc : null;
@@ -1212,7 +1212,7 @@ class PromiseEntOrNullImpl<
       DocumentByName<EntsDataModel, Table>,
       EntsDataModel
     > | null,
-    TResult2 = never
+    TResult2 = never,
   >(
     onfulfilled?:
       | ((
@@ -1220,20 +1220,20 @@ class PromiseEntOrNullImpl<
             Table,
             DocumentByName<EntsDataModel, Table>,
             EntsDataModel
-          > | null
+          > | null,
         ) => TResult1 | PromiseLike<TResult1>)
       | undefined
       | null,
     onrejected?:
       | ((reason: any) => TResult2 | PromiseLike<TResult2>)
       | undefined
-      | null
+      | null,
   ): Promise<TResult1 | TResult2> {
     return this.doc()
       .then((doc) =>
         doc === null
           ? null
-          : entWrapper(doc, this.ctx, this.entDefinitions, this.table)
+          : entWrapper(doc, this.ctx, this.entDefinitions, this.table),
       )
       .then(onfulfilled, onrejected);
   }
@@ -1248,7 +1248,7 @@ class PromiseEntOrNullImpl<
 
   edgeImpl<Edge extends keyof EntsDataModel[Table]["edges"]>(
     edge: Edge,
-    throwIfNull = false
+    throwIfNull = false,
   ) {
     const edgeDefinition = getEdgeDefinitions(this.entDefinitions, this.table)[
       edge
@@ -1269,14 +1269,14 @@ class PromiseEntOrNullImpl<
             const edgeDocs = await this.ctx.db
               .query(edgeDefinition.table)
               .withIndex(edgeDefinition.field, (q) =>
-                indexRange(q.eq(edgeDefinition.field, id as any) as any)
+                indexRange(q.eq(edgeDefinition.field, id as any) as any),
               )
               .collect();
             return (
               await Promise.all(
                 edgeDocs.map((edgeDoc) =>
-                  this.ctx.db.get(edgeDoc[edgeDefinition.ref] as any)
-                )
+                  this.ctx.db.get(edgeDoc[edgeDefinition.ref] as any),
+                ),
               )
             ).filter(<TValue>(doc: TValue | null, i: number): doc is TValue => {
               if (doc === null) {
@@ -1288,12 +1288,12 @@ class PromiseEntOrNullImpl<
                     }"` +
                     ` in table "${edgeDefinition.to}" (edge document ID is "${
                       edgeDocs[i]._id as string
-                    }").`
+                    }").`,
                 );
               }
               return true;
             });
-          }
+          },
         ) as any;
       }
       return new PromiseQueryOrNullImpl(
@@ -1308,9 +1308,9 @@ class PromiseEntOrNullImpl<
           return this.ctx.db
             .query(edgeDefinition.to)
             .withIndex(edgeDefinition.ref, (q) =>
-              q.eq(edgeDefinition.ref, id as any)
+              q.eq(edgeDefinition.ref, id as any),
             );
-        }
+        },
       ) as any;
     }
 
@@ -1328,14 +1328,14 @@ class PromiseEntOrNullImpl<
           const otherDoc = await this.ctx.db
             .query(edgeDefinition.to)
             .withIndex(edgeDefinition.ref, (q) =>
-              q.eq(edgeDefinition.ref, id as any)
+              q.eq(edgeDefinition.ref, id as any),
             )
             .unique();
           if (throwIfNull && otherDoc === null) {
             throw new Error(
               `Edge "${
                 edgeDefinition.name
-              }" does not exist for document with ID "${id as string}"`
+              }" does not exist for document with ID "${id as string}"`,
             );
           }
           return loadedRetriever(otherDoc);
@@ -1351,35 +1351,35 @@ class PromiseEntOrNullImpl<
                 `Dangling reference for edge "${edgeDefinition.name}" in ` +
                   `table "${this.table}" for document with ID "${id}": ` +
                   `Could not find a document with ID "${otherId}"` +
-                  ` in table "${edgeDefinition.to}".`
+                  ` in table "${edgeDefinition.to}".`,
               );
             }
             return otherDoc;
           },
         };
       },
-      throwIfNull
+      throwIfNull,
     ) as any;
   }
 }
 
 export interface PromiseArrayOrNull<T> extends Promise<T[] | null> {
   filter<S extends T>(
-    predicate: (value: T, index: number, array: T[] | null) => value is S
+    predicate: (value: T, index: number, array: T[] | null) => value is S,
   ): Promise<S[] | null>;
 
   filter(
-    predicate: (value: T, index: number, array: T[] | null) => unknown
+    predicate: (value: T, index: number, array: T[] | null) => unknown,
   ): Promise<T[] | null>;
 }
 
 export interface PromiseArray<T> extends Promise<T[]> {
   filter<S extends T>(
-    predicate: (value: T, index: number, array: T[]) => value is S
+    predicate: (value: T, index: number, array: T[]) => value is S,
   ): Promise<S[]>;
 
   filter(
-    predicate: (value: T, index: number, array: T[]) => unknown
+    predicate: (value: T, index: number, array: T[]) => unknown,
   ): Promise<T[]>;
 }
 
@@ -1392,7 +1392,7 @@ class PromiseArrayImpl<T>
   }
 
   async filter<S extends T>(
-    predicate: (value: T, index: number, array: T[] | null) => value is S
+    predicate: (value: T, index: number, array: T[] | null) => value is S,
   ) {
     const array = await this.retrieve();
     if (array === null) {
@@ -1409,7 +1409,7 @@ class PromiseArrayImpl<T>
     onrejected?:
       | ((reason: any) => TResult2 | PromiseLike<TResult2>)
       | undefined
-      | null
+      | null,
   ): Promise<TResult1 | TResult2> {
     return this.retrieve().then(onfulfilled, onrejected);
   }
@@ -1417,12 +1417,12 @@ class PromiseArrayImpl<T>
 
 export function entWrapper<
   EntsDataModel extends GenericEntsDataModel,
-  Table extends TableNamesInDataModel<EntsDataModel>
+  Table extends TableNamesInDataModel<EntsDataModel>,
 >(
   fields: DocumentByName<EntsDataModel, Table>,
   ctx: EntQueryCtx<EntsDataModel>,
   entDefinitions: EntsDataModel,
-  table: Table
+  table: Table,
 ): Ent<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel> {
   const doc = { ...fields };
   const queryInterface = new PromiseEntWriterImpl(
@@ -1431,7 +1431,7 @@ export function entWrapper<
     table,
     async () => ({ id: doc._id as any, doc: async () => doc }),
     // this `true` doesn't matter, the queryInterface cannot be awaited
-    true
+    true,
   );
   Object.defineProperty(doc, "edge", {
     value: (edge: any) => {
@@ -1486,20 +1486,20 @@ export function entWrapper<
       if (doc[field] === undefined) {
         (doc as any)[field] = value;
       }
-    }
+    },
   );
   return doc as any;
 }
 
 export function entsTableFactory<
   Ctx extends EntQueryCtx<any>,
-  EntsDataModel extends GenericEntsDataModel
+  EntsDataModel extends GenericEntsDataModel,
 >(
   ctx: Ctx,
   entDefinitions: EntsDataModel,
   options?: {
     scheduledDelete: ScheduledDeleteFuncRef;
-  }
+  },
 ): Ctx extends EntMutationCtx<any>
   ? EntsTableWriter<EntsDataModel>
   : EntsTable<EntsDataModel> {
@@ -1507,7 +1507,7 @@ export function entsTableFactory<
   const table = (
     table: TableNamesInDataModel<EntsDataModel>,
     indexName?: string,
-    indexRange?: any
+    indexRange?: any,
   ) => {
     // Consider being strict here if people struggle with setup:
     // if (typeof ctx.db?.query !== "function") {
@@ -1522,14 +1522,14 @@ export function entsTableFactory<
       return new PromiseTableImpl(
         enrichedCtx as any,
         entDefinitions,
-        table
+        table,
       ).withIndex(indexName, indexRange);
     }
     if ((ctx.db as any).insert !== undefined) {
       return new PromiseTableWriterImpl(
         enrichedCtx as any,
         entDefinitions,
-        table
+        table,
       ) as any;
     }
     return new PromiseTableImpl(enrichedCtx as any, entDefinitions, table);
@@ -1541,7 +1541,7 @@ export function entsTableFactory<
 type EntsTableReader<EntsDataModel extends GenericEntsDataModel> = {
   <
     Table extends TableNamesInDataModel<EntsDataModel>,
-    IndexName extends IndexNames<NamedTableInfo<EntsDataModel, Table>>
+    IndexName extends IndexNames<NamedTableInfo<EntsDataModel, Table>>,
   >(
     table: Table,
     indexName: IndexName,
@@ -1549,11 +1549,11 @@ type EntsTableReader<EntsDataModel extends GenericEntsDataModel> = {
       q: IndexRangeBuilder<
         DocumentByName<EntsDataModel, Table>,
         NamedIndex<NamedTableInfo<EntsDataModel, Table>, IndexName>
-      >
-    ) => IndexRange
+      >,
+    ) => IndexRange,
   ): PromiseQuery<EntsDataModel, Table>;
   <Table extends TableNamesInDataModel<EntsDataModel>>(
-    table: Table
+    table: Table,
   ): PromiseTable<EntsDataModel, Table>;
 };
 
@@ -1571,7 +1571,7 @@ type EntsSystemDataModel = {
 export type EntsTableWriter<EntsDataModel extends GenericEntsDataModel> = {
   <
     Table extends TableNamesInDataModel<EntsDataModel>,
-    IndexName extends IndexNames<NamedTableInfo<EntsDataModel, Table>>
+    IndexName extends IndexNames<NamedTableInfo<EntsDataModel, Table>>,
   >(
     table: Table,
     indexName: IndexName,
@@ -1579,11 +1579,11 @@ export type EntsTableWriter<EntsDataModel extends GenericEntsDataModel> = {
       q: IndexRangeBuilder<
         DocumentByName<EntsDataModel, Table>,
         NamedIndex<NamedTableInfo<EntsDataModel, Table>, IndexName>
-      >
-    ) => IndexRange
+      >,
+    ) => IndexRange,
   ): PromiseTableWriter<Table, EntsDataModel>;
   <Table extends TableNamesInDataModel<EntsDataModel>>(
-    table: Table
+    table: Table,
   ): PromiseTableWriter<Table, EntsDataModel>;
 
   system: EntsTableReader<EntsSystemDataModel>;
@@ -1591,13 +1591,13 @@ export type EntsTableWriter<EntsDataModel extends GenericEntsDataModel> = {
 
 declare class EntInstance<
   EntsDataModel extends GenericEntsDataModel,
-  Table extends TableNamesInDataModel<EntsDataModel>
+  Table extends TableNamesInDataModel<EntsDataModel>,
 > {
   edge<Edge extends keyof EntsDataModel[Table]["edges"]>(
-    edge: Edge
+    edge: Edge,
   ): PromiseEdge<EntsDataModel, Table, Edge>;
   edgeX<Edge extends keyof EntsDataModel[Table]["edges"]>(
-    edge: Edge
+    edge: Edge,
   ): PromiseEdgeOrThrow<EntsDataModel, Table, Edge>;
   doc(): DocumentByName<EntsDataModel, Table>;
 }
@@ -1605,42 +1605,42 @@ declare class EntInstance<
 export type Ent<
   Table extends TableNamesInDataModel<EntsDataModel>,
   Doc extends DocumentByName<EntsDataModel, Table>,
-  EntsDataModel extends GenericEntsDataModel
+  EntsDataModel extends GenericEntsDataModel,
 > = Doc & EntInstance<EntsDataModel, Table>;
 
 export type GenericEnt<
   EntsDataModel extends GenericEntsDataModel,
-  Table extends TableNamesInDataModel<EntsDataModel>
+  Table extends TableNamesInDataModel<EntsDataModel>,
 > = Ent<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel>;
 
 export type PromiseEdge<
   EntsDataModel extends GenericEntsDataModel,
   Table extends TableNamesInDataModel<EntsDataModel>,
-  Edge extends keyof EntsDataModel[Table]["edges"]
+  Edge extends keyof EntsDataModel[Table]["edges"],
 > = EntsDataModel[Table]["edges"][Edge]["cardinality"] extends "multiple"
   ? EntsDataModel[Table]["edges"][Edge]["type"] extends "ref"
     ? PromiseEdgeEnts<EntsDataModel, EntsDataModel[Table]["edges"][Edge]["to"]>
     : PromiseQuery<EntsDataModel, EntsDataModel[Table]["edges"][Edge]["to"]>
   : EntsDataModel[Table]["edges"][Edge]["type"] extends "ref"
-  ? PromiseEntOrNull<EntsDataModel, EntsDataModel[Table]["edges"][Edge]["to"]>
-  : PromiseEnt<EntsDataModel, EntsDataModel[Table]["edges"][Edge]["to"]>;
+    ? PromiseEntOrNull<EntsDataModel, EntsDataModel[Table]["edges"][Edge]["to"]>
+    : PromiseEnt<EntsDataModel, EntsDataModel[Table]["edges"][Edge]["to"]>;
 
 export type PromiseEdgeOrThrow<
   EntsDataModel extends GenericEntsDataModel,
   Table extends TableNamesInDataModel<EntsDataModel>,
-  Edge extends keyof EntsDataModel[Table]["edges"]
+  Edge extends keyof EntsDataModel[Table]["edges"],
 > = EntsDataModel[Table]["edges"][Edge]["cardinality"] extends "multiple"
   ? EntsDataModel[Table]["edges"][Edge]["type"] extends "ref"
     ? PromiseEdgeEnts<EntsDataModel, EntsDataModel[Table]["edges"][Edge]["to"]>
     : PromiseQuery<EntsDataModel, EntsDataModel[Table]["edges"][Edge]["to"]>
   : EntsDataModel[Table]["edges"][Edge]["type"] extends "ref"
-  ? PromiseEnt<EntsDataModel, EntsDataModel[Table]["edges"][Edge]["to"]>
-  : PromiseEnt<EntsDataModel, EntsDataModel[Table]["edges"][Edge]["to"]>;
+    ? PromiseEnt<EntsDataModel, EntsDataModel[Table]["edges"][Edge]["to"]>
+    : PromiseEnt<EntsDataModel, EntsDataModel[Table]["edges"][Edge]["to"]>;
 
 type PromiseEdgeOrNull<
   EntsDataModel extends GenericEntsDataModel,
   Table extends TableNamesInDataModel<EntsDataModel>,
-  Edge extends keyof EntsDataModel[Table]["edges"]
+  Edge extends keyof EntsDataModel[Table]["edges"],
 > = EntsDataModel[Table]["edges"][Edge]["cardinality"] extends "multiple"
   ? EntsDataModel[Table]["edges"][Edge]["type"] extends "ref"
     ? PromiseEdgeEntsOrNull<
@@ -1655,13 +1655,13 @@ type PromiseEdgeOrNull<
 
 export interface PromiseOrderedQueryWriter<
   EntsDataModel extends GenericEntsDataModel,
-  Table extends TableNamesInDataModel<EntsDataModel>
+  Table extends TableNamesInDataModel<EntsDataModel>,
 > extends Promise<
       EntWriter<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel>[]
     >,
     PromiseOrderedQueryBase<EntsDataModel, Table> {
   paginate(
-    paginationOpts: PaginationOptions
+    paginationOpts: PaginationOptions,
   ): PromisePaginationResultWriter<EntsDataModel, Table>;
 
   map<TOutput>(
@@ -1676,8 +1676,8 @@ export interface PromiseOrderedQueryWriter<
         Table,
         DocumentByName<EntsDataModel, Table>,
         EntsDataModel
-      >[]
-    ) => Promise<TOutput> | TOutput
+      >[],
+    ) => Promise<TOutput> | TOutput,
   ): PromiseArray<TOutput>;
 
   take(n: number): PromiseEntsWriter<EntsDataModel, Table>;
@@ -1693,11 +1693,11 @@ export interface PromiseOrderedQueryWriter<
 
 export interface PromiseQueryWriter<
   EntsDataModel extends GenericEntsDataModel,
-  Table extends TableNamesInDataModel<EntsDataModel>
+  Table extends TableNamesInDataModel<EntsDataModel>,
 > extends PromiseOrderedQueryWriter<EntsDataModel, Table> {
   order(
     order: "asc" | "desc",
-    indexName?: IndexNames<NamedTableInfo<EntsDataModel, Table>>
+    indexName?: IndexNames<NamedTableInfo<EntsDataModel, Table>>,
   ): PromiseOrderedQueryWriter<EntsDataModel, Table>;
 }
 
@@ -1707,7 +1707,7 @@ export interface PromiseQueryWriter<
 // `Promise.all()`.
 export interface PromiseEntsWriter<
   EntsDataModel extends GenericEntsDataModel,
-  Table extends TableNamesInDataModel<EntsDataModel>
+  Table extends TableNamesInDataModel<EntsDataModel>,
 > extends PromiseEnts<EntsDataModel, Table> {
   // This just returns the first retrieved document, or throws if there
   // are no documents. It does not optimize the previous steps in the query.
@@ -1721,7 +1721,7 @@ export interface PromiseEntsWriter<
 
 export interface PromisePaginationResultWriter<
   EntsDataModel extends GenericEntsDataModel,
-  Table extends TableNamesInDataModel<EntsDataModel>
+  Table extends TableNamesInDataModel<EntsDataModel>,
 > extends Promise<
     PaginationResult<
       EntWriter<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel>
@@ -1741,26 +1741,26 @@ export interface PromisePaginationResultWriter<
         Table,
         DocumentByName<EntsDataModel, Table>,
         EntsDataModel
-      >[]
-    ) => Promise<TOutput> | TOutput
+      >[],
+    ) => Promise<TOutput> | TOutput,
   ): Promise<PaginationResult<TOutput>>;
 }
 
 export interface PromiseTableWriter<
   Table extends TableNamesInDataModel<EntsDataModel>,
-  EntsDataModel extends GenericEntsDataModel
+  EntsDataModel extends GenericEntsDataModel,
 > extends PromiseQueryWriter<EntsDataModel, Table>,
     PromiseTableBase<EntsDataModel, Table> {
   get<
     Indexes extends EntsDataModel[Table]["indexes"],
-    Index extends keyof Indexes
+    Index extends keyof Indexes,
   >(
     indexName: Index,
     // TODO: Figure out how to make this variadic
     value0: FieldTypeFromFieldPath<
       DocumentByName<EntsDataModel, Table>,
       Indexes[Index][0]
-    >
+    >,
   ): PromiseEntWriterOrNull<EntsDataModel, Table>;
   get(id: GenericId<Table>): PromiseEntWriterOrNull<EntsDataModel, Table>;
   /**
@@ -1768,14 +1768,14 @@ export interface PromiseTableWriter<
    */
   getX<
     Indexes extends EntsDataModel[Table]["indexes"],
-    Index extends keyof Indexes
+    Index extends keyof Indexes,
   >(
     indexName: Index,
     // TODO: Figure out how to make this variadic
     value0: FieldTypeFromFieldPath<
       DocumentByName<EntsDataModel, Table>,
       Indexes[Index][0]
-    >
+    >,
   ): PromiseEntWriter<EntsDataModel, Table>;
   /**
    * Fetch a document from the DB for a given ID, throw if it doesn't exist.
@@ -1801,15 +1801,15 @@ export interface PromiseTableWriter<
    * in relevancy order.
    */
   search<
-    IndexName extends SearchIndexNames<NamedTableInfo<EntsDataModel, Table>>
+    IndexName extends SearchIndexNames<NamedTableInfo<EntsDataModel, Table>>,
   >(
     indexName: IndexName,
     searchFilter: (
       q: SearchFilterBuilder<
         DocumentByName<EntsDataModel, Table>,
         NamedSearchIndex<NamedTableInfo<EntsDataModel, Table>, IndexName>
-      >
-    ) => SearchFilter
+      >,
+    ) => SearchFilter,
   ): PromiseOrderedQueryWriter<EntsDataModel, Table>;
   /**
    * Insert a new document into a table.
@@ -1827,7 +1827,7 @@ export interface PromiseTableWriter<
           EntsDataModel[Table]["edges"]
         >
       >
-    >
+    >,
   ): PromiseEntId<EntsDataModel, Table>;
   /**
    * Insert new documents into a table.
@@ -1845,20 +1845,20 @@ export interface PromiseTableWriter<
           EntsDataModel[Table]["edges"]
         >
       >
-    >[]
+    >[],
   ): Promise<GenericId<Table>[]>;
 }
 
 class PromiseTableWriterImpl<
   EntsDataModel extends GenericEntsDataModel,
-  Table extends TableNamesInDataModel<EntsDataModel>
+  Table extends TableNamesInDataModel<EntsDataModel>,
 > extends PromiseTableImpl<EntsDataModel, Table> {
   private base: WriterImplBase<EntsDataModel, Table>;
 
   constructor(
     protected ctx: EntMutationCtx<EntsDataModel>,
     entDefinitions: EntsDataModel,
-    table: Table
+    table: Table,
   ) {
     super(ctx, entDefinitions, table);
     this.base = new WriterImplBase(ctx, entDefinitions, table);
@@ -1870,7 +1870,7 @@ class PromiseTableWriterImpl<
         DocumentByName<EntsDataModel, Table>,
         EntsDataModel[Table]["edges"]
       >
-    >
+    >,
   ) {
     return new PromiseEntIdImpl(
       this.ctx,
@@ -1885,7 +1885,7 @@ class PromiseTableWriterImpl<
         Object.keys(value).forEach((key) => {
           const edgeDefinition = getEdgeDefinitions(
             this.entDefinitions,
-            this.table
+            this.table,
           )[key];
           if (
             edgeDefinition === undefined ||
@@ -1904,7 +1904,7 @@ class PromiseTableWriterImpl<
         });
         await this.base.writeEdges(docId, edges);
         return docId;
-      }
+      },
     );
   }
 
@@ -1915,7 +1915,7 @@ class PromiseTableWriterImpl<
         DocumentByName<EntsDataModel, Table>,
         EntsDataModel[Table]["edges"]
       >
-    >[]
+    >[],
   ) {
     return await Promise.all(values.map((value) => this.insert(value)));
   }
@@ -1923,14 +1923,14 @@ class PromiseTableWriterImpl<
 
 export interface PromiseEntWriterOrNull<
   EntsDataModel extends GenericEntsDataModel,
-  Table extends TableNamesInDataModel<EntsDataModel>
+  Table extends TableNamesInDataModel<EntsDataModel>,
 > extends Promise<EntWriter<
     Table,
     DocumentByName<EntsDataModel, Table>,
     EntsDataModel
   > | null> {
   edge<Edge extends keyof EntsDataModel[Table]["edges"]>(
-    edge: Edge
+    edge: Edge,
   ): PromiseEdgeOrNull<EntsDataModel, Table, Edge>;
 
   doc(): Promise<DocumentByName<EntsDataModel, Table> | null>;
@@ -1938,16 +1938,16 @@ export interface PromiseEntWriterOrNull<
 
 export interface PromiseEntWriter<
   EntsDataModel extends GenericEntsDataModel,
-  Table extends TableNamesInDataModel<EntsDataModel>
+  Table extends TableNamesInDataModel<EntsDataModel>,
 > extends Promise<
     EntWriter<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel>
   > {
   edge<Edge extends keyof EntsDataModel[Table]["edges"]>(
-    edge: Edge
+    edge: Edge,
   ): PromiseEdge<EntsDataModel, Table, Edge>;
 
   edgeX<Edge extends keyof EntsDataModel[Table]["edges"]>(
-    edge: Edge
+    edge: Edge,
   ): PromiseEdgeOrThrow<EntsDataModel, Table, Edge>;
 
   doc(): Promise<DocumentByName<EntsDataModel, Table>>;
@@ -1970,7 +1970,7 @@ export interface PromiseEntWriter<
           EntsDataModel[Table]["edges"]
         >
       >
-    >
+    >,
   ): Promise<PromiseEntId<EntsDataModel, Table>>;
 
   /**
@@ -1987,7 +1987,7 @@ export interface PromiseEntWriter<
           EntsDataModel[Table]["edges"]
         >
       >
-    >
+    >,
   ): Promise<PromiseEntId<EntsDataModel, Table>>;
 
   /**
@@ -2000,7 +2000,7 @@ export interface PromiseEntWriter<
 
 class PromiseEntWriterImpl<
   EntsDataModel extends GenericEntsDataModel,
-  Table extends TableNamesInDataModel<EntsDataModel>
+  Table extends TableNamesInDataModel<EntsDataModel>,
 > extends PromiseEntOrNullImpl<EntsDataModel, Table> {
   private base: WriterImplBase<EntsDataModel, Table>;
 
@@ -2012,7 +2012,7 @@ class PromiseEntWriterImpl<
       GenericId<Table> | null,
       DocumentByName<EntsDataModel, Table> | null
     >,
-    protected throwIfNull: boolean
+    protected throwIfNull: boolean,
   ) {
     super(ctx, entDefinitions, table, retrieve, throwIfNull);
     this.base = new WriterImplBase(ctx, entDefinitions, table);
@@ -2024,7 +2024,7 @@ class PromiseEntWriterImpl<
         DocumentByName<EntsDataModel, Table>,
         EntsDataModel[Table]["edges"]
       >
-    >
+    >,
   ) {
     return new PromiseEntIdImpl(
       this.ctx,
@@ -2043,7 +2043,7 @@ class PromiseEntWriterImpl<
           Object.keys(value).map(async (key) => {
             const edgeDefinition = getEdgeDefinitions(
               this.entDefinitions,
-              this.table
+              this.table,
             )[key];
             if (
               edgeDefinition === undefined ||
@@ -2057,7 +2057,7 @@ class PromiseEntWriterImpl<
               throw new Error(
                 `Cannot set 1:1 edge "${edgeDefinition.name}" on ent in table ` +
                   `"${this.table}", update the ent in "${edgeDefinition.to}"  ` +
-                  `table instead.`
+                  `table instead.`,
               );
               // const existing = await this.ctx.db
               //   .query(edgeDefinition.to)
@@ -2075,7 +2075,7 @@ class PromiseEntWriterImpl<
                 throw new Error(
                   `Cannot set 1:many edges "${edgeDefinition.name}" on ent in table ` +
                     `"${this.table}", update the ents in "${edgeDefinition.to}"  ` +
-                    `table instead.`
+                    `table instead.`,
                 );
               } else {
                 const { add, remove } = value[key]!;
@@ -2088,8 +2088,8 @@ class PromiseEntWriterImpl<
                           .withIndex(edgeDefinition.field, (q) =>
                             (q.eq(edgeDefinition.field, id as any) as any).eq(
                               edgeDefinition.ref,
-                              edgeId
-                            )
+                              edgeId,
+                            ),
                           )
                           .collect()
                       ).concat(
@@ -2099,13 +2099,13 @@ class PromiseEntWriterImpl<
                               .withIndex(edgeDefinition.ref, (q) =>
                                 (q.eq(edgeDefinition.ref, id as any) as any).eq(
                                   edgeDefinition.field,
-                                  edgeId
-                                )
+                                  edgeId,
+                                ),
                               )
                               .collect()
-                          : []
-                      )
-                    )
+                          : [],
+                      ),
+                    ),
                   )
                 )
                   .flat()
@@ -2116,11 +2116,11 @@ class PromiseEntWriterImpl<
                 };
               }
             }
-          })
+          }),
         );
         await this.base.writeEdges(id, edges);
         return id;
-      }
+      },
     );
   }
 
@@ -2130,7 +2130,7 @@ class PromiseEntWriterImpl<
         DocumentByName<EntsDataModel, Table>,
         EntsDataModel[Table]["edges"]
       >
-    >
+    >,
   ) {
     return new PromiseEntIdImpl(
       this.ctx,
@@ -2148,7 +2148,7 @@ class PromiseEntWriterImpl<
 
         await Promise.all(
           Object.values(
-            getEdgeDefinitions(this.entDefinitions, this.table)
+            getEdgeDefinitions(this.entDefinitions, this.table),
           ).map(async (edgeDefinition) => {
             const key = edgeDefinition.name;
             const idOrIds = value[key];
@@ -2188,7 +2188,7 @@ class PromiseEntWriterImpl<
                   await this.ctx.db
                     .query(edgeDefinition.table)
                     .withIndex(edgeDefinition.field, (q) =>
-                      q.eq(edgeDefinition.field, docId as any)
+                      q.eq(edgeDefinition.field, docId as any),
                     )
                     .collect()
                 )
@@ -2199,13 +2199,14 @@ class PromiseEntWriterImpl<
                           await this.ctx.db
                             .query(edgeDefinition.table)
                             .withIndex(edgeDefinition.ref, (q) =>
-                              q.eq(edgeDefinition.ref, docId as any)
+                              q.eq(edgeDefinition.ref, docId as any),
                             )
                             .collect()
                         ).map(
-                          (doc) => [doc._id, doc[edgeDefinition.field]] as const
+                          (doc) =>
+                            [doc._id, doc[edgeDefinition.field]] as const,
                         )
-                      : []
+                      : [],
                   )
                   .filter(([_edgeId, otherId]) => {
                     if (requested.has(otherId as any)) {
@@ -2221,11 +2222,11 @@ class PromiseEntWriterImpl<
                 };
               }
             }
-          })
+          }),
         );
         await this.base.writeEdges(docId, edges);
         return docId;
-      }
+      },
     );
   }
 
@@ -2238,7 +2239,7 @@ class PromiseEntWriterImpl<
 
 declare class EntWriterInstance<
   EntsDataModel extends GenericEntsDataModel,
-  Table extends TableNamesInDataModel<EntsDataModel>
+  Table extends TableNamesInDataModel<EntsDataModel>,
 > extends EntInstance<EntsDataModel, Table> {
   /**
    * Patch this existing document, shallow merging it with the given partial
@@ -2256,7 +2257,7 @@ declare class EntWriterInstance<
         DocumentByName<EntsDataModel, Table>,
         EntsDataModel[Table]["edges"]
       >
-    >
+    >,
   ): PromiseEntId<EntsDataModel, Table>;
 
   /**
@@ -2271,7 +2272,7 @@ declare class EntWriterInstance<
         DocumentByName<EntsDataModel, Table>,
         EntsDataModel[Table]["edges"]
       >
-    >
+    >,
   ): PromiseEntId<EntsDataModel, Table>;
 
   /**
@@ -2289,24 +2290,24 @@ declare class EntWriterInstance<
 type EntWriter<
   Table extends TableNamesInDataModel<EntsDataModel>,
   Doc extends DocumentByName<EntsDataModel, Table>,
-  EntsDataModel extends GenericEntsDataModel
+  EntsDataModel extends GenericEntsDataModel,
 > = Doc & EntWriterInstance<EntsDataModel, Table>;
 
 export type GenericEntWriter<
   EntsDataModel extends GenericEntsDataModel,
-  Table extends TableNamesInDataModel<EntsDataModel>
+  Table extends TableNamesInDataModel<EntsDataModel>,
 > = EntWriter<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel>;
 
 export interface PromiseEntId<
   EntsDataModel extends GenericEntsDataModel,
-  Table extends TableNamesInDataModel<EntsDataModel>
+  Table extends TableNamesInDataModel<EntsDataModel>,
 > extends Promise<GenericId<Table>> {
   get(): PromiseEntWriter<EntsDataModel, Table>;
 }
 
 class PromiseEntIdImpl<
     EntsDataModel extends GenericEntsDataModel,
-    Table extends TableNamesInDataModel<EntsDataModel>
+    Table extends TableNamesInDataModel<EntsDataModel>,
   >
   extends Promise<GenericId<Table>>
   implements PromiseEntId<EntsDataModel, Table>
@@ -2315,7 +2316,7 @@ class PromiseEntIdImpl<
     private ctx: EntMutationCtx<EntsDataModel>,
     private entDefinitions: EntsDataModel,
     private table: Table,
-    private retrieve: () => Promise<GenericId<Table>>
+    private retrieve: () => Promise<GenericId<Table>>,
   ) {
     super(() => {});
   }
@@ -2329,7 +2330,7 @@ class PromiseEntIdImpl<
         const id = await this.retrieve();
         return { id, doc: async () => this.ctx.db.get(id) };
       },
-      true
+      true,
     ) as any;
   }
 
@@ -2341,7 +2342,7 @@ class PromiseEntIdImpl<
     onrejected?:
       | ((reason: any) => TResult2 | PromiseLike<TResult2>)
       | undefined
-      | null
+      | null,
   ): Promise<TResult1 | TResult2> {
     return this.retrieve().then(onfulfilled, onrejected);
   }
@@ -2380,7 +2381,7 @@ const nullRetriever = {
 
 function loadedRetriever<
   DataModel extends GenericDataModel,
-  Table extends TableNamesInDataModel<DataModel>
+  Table extends TableNamesInDataModel<DataModel>,
 >(doc: DocumentByName<DataModel, Table> | null) {
   return {
     id: (doc?._id ?? null) as GenericId<Table> | null,
@@ -2408,7 +2409,7 @@ type RuleConfig = {
           operation: "delete";
           ent: Ent<any, GenericDocument, any>;
           value: undefined;
-        }
+        },
   ) => Promise<boolean>;
 };
 
@@ -2418,7 +2419,11 @@ export function addEntRules<EntsDataModel extends GenericEntsDataModel>(
     [Table in keyof EntsDataModel]?: Table extends TableNamesInDataModel<EntsDataModel>
       ? {
           read?: (
-            ent: Ent<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel>
+            ent: Ent<
+              Table,
+              DocumentByName<EntsDataModel, Table>,
+              EntsDataModel
+            >,
           ) => Promise<boolean>;
           write?: (
             args:
@@ -2448,11 +2453,11 @@ export function addEntRules<EntsDataModel extends GenericEntsDataModel>(
                     EntsDataModel
                   >;
                   value: undefined;
-                }
+                },
           ) => Promise<boolean>;
         }
       : never;
-  }
+  },
 ): EntsDataModel {
   return { ...entDefinitions, rules };
 }
@@ -2462,7 +2467,7 @@ async function filterByReadRule<Doc extends GenericDocument>(
   entDefinitions: GenericEntsDataModel,
   table: string,
   docs: Doc[] | null,
-  throwIfNull: boolean
+  throwIfNull: boolean,
 ) {
   if (docs === null) {
     return null;
@@ -2474,38 +2479,38 @@ async function filterByReadRule<Doc extends GenericDocument>(
   const decisions = await Promise.all(
     docs.map(async (doc) => {
       const decision = await readPolicy(
-        entWrapper(doc, ctx, entDefinitions, table)
+        entWrapper(doc, ctx, entDefinitions, table),
       );
       if (throwIfNull && !decision) {
         throw new Error(
           `Document cannot be read with id \`${
             doc._id as string
-          }\` in table "${table}"`
+          }\` in table "${table}"`,
         );
       }
       return decision;
-    })
+    }),
   );
   return docs.filter((_, i) => decisions[i]);
 }
 
 export function getReadRule(
   entDefinitions: GenericEntsDataModel,
-  table: string
+  table: string,
 ) {
   return (entDefinitions.rules as Rules)?.[table]?.read;
 }
 
 export function getWriteRule(
   entDefinitions: GenericEntsDataModel,
-  table: string
+  table: string,
 ) {
   return (entDefinitions.rules as Rules)?.[table]?.write;
 }
 
 export function getEdgeDefinitions<
   EntsDataModel extends GenericEntsDataModel,
-  Table extends TableNamesInDataModel<EntsDataModel>
+  Table extends TableNamesInDataModel<EntsDataModel>,
 >(entDefinitions: EntsDataModel, table: Table) {
   return entDefinitions[table].edges as Record<
     keyof EntsDataModel[Table]["edges"],
@@ -2515,7 +2520,7 @@ export function getEdgeDefinitions<
 
 export function getDeletionConfig<
   EntsDataModel extends GenericEntsDataModel,
-  Table extends TableNamesInDataModel<EntsDataModel>
+  Table extends TableNamesInDataModel<EntsDataModel>,
 >(entDefinitions: EntsDataModel, table: Table) {
   return (entDefinitions[table] as any).deletionConfig as
     | DeletionConfig

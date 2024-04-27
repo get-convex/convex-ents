@@ -32,12 +32,12 @@ const vApproach = v.union(v.literal("cascade"), v.literal("paginate"));
 type Approach = Infer<typeof vApproach>;
 
 export function scheduledDeleteFactory<
-  EntsDataModel extends GenericEntsDataModel
+  EntsDataModel extends GenericEntsDataModel,
 >(
   entDefinitions: EntsDataModel,
   options?: {
     scheduledDelete: ScheduledDeleteFuncRef;
-  }
+  },
 ): RegisteredMutation<
   "internal",
   { origin: Origin; stack: Stack; inProgress: boolean },
@@ -46,7 +46,7 @@ export function scheduledDeleteFactory<
   const selfRef =
     options?.scheduledDelete ??
     (makeFunctionReference(
-      "functions:scheduledDelete"
+      "functions:scheduledDelete",
     ) as unknown as ScheduledDeleteFuncRef);
   return internalMutation({
     args: {
@@ -65,7 +65,7 @@ export function scheduledDeleteFactory<
                 approach: vApproach,
                 table: v.string(),
                 indexName: v.string(),
-              })
+              }),
             ),
           }),
           v.object({
@@ -74,8 +74,8 @@ export function scheduledDeleteFactory<
             table: v.string(),
             indexName: v.string(),
             fieldValue: v.any(),
-          })
-        )
+          }),
+        ),
       ),
       inProgress: v.boolean(),
     },
@@ -90,11 +90,11 @@ export function scheduledDeleteFactory<
       if (doc.deletionTime !== origin.deletionTime) {
         if (inProgress) {
           console.error(
-            `[Ents] Already in-progress scheduled deletion for "${origin.id}" was cancelled!`
+            `[Ents] Already in-progress scheduled deletion for "${origin.id}" was cancelled!`,
           );
         } else {
           console.log(
-            `[Ents] Scheduled deletion for "${origin.id}" was cancelled`
+            `[Ents] Scheduled deletion for "${origin.id}" was cancelled`,
           );
         }
         return;
@@ -110,7 +110,7 @@ export function scheduledDeleteFactory<
                 table: origin.table,
                 edges: getEdgeArgs(entDefinitions, origin.table),
               },
-            ]
+            ],
       );
     },
   });
@@ -136,7 +136,7 @@ function getEdgeArgs(entDefinitions: GenericEntsDataModel, table: string) {
         (edgeDefinition) =>
           (edgeDefinition.cardinality === "single" &&
             edgeDefinition.type === "ref") ||
-          edgeDefinition.cardinality === "multiple"
+          edgeDefinition.cardinality === "multiple",
       );
       const approach = hasCascadingEdges ? "cascade" : "paginate";
 
@@ -195,7 +195,7 @@ type CascadeCtx = {
 async function progressScheduledDeletion(
   cascade: CascadeCtx,
   counter: Counter,
-  stack: Stack
+  stack: Stack,
 ) {
   const { ctx } = cascade;
   const last = stack[stack.length - 1];
@@ -217,7 +217,7 @@ async function progressScheduledDeletion(
           cursor: null,
           fieldValue: last.id,
           ...edgeArgs,
-        }
+        },
       );
     }
   } else {
@@ -232,7 +232,7 @@ async function paginateOrCascade(
   cascade: CascadeCtx,
   counter: Counter,
   stack: Stack,
-  { table, approach, indexName, fieldValue, cursor }: PaginationArgs
+  { table, approach, indexName, fieldValue, cursor }: PaginationArgs,
 ) {
   const { ctx, entDefinitions } = cascade;
   const { page, continueCursor, isDone, bytesRead } = await paginate(
@@ -244,9 +244,9 @@ async function paginateOrCascade(
         counter,
         approach === "paginate"
           ? { numItems: MAXIMUM_DOCUMENTS_READ }
-          : { numItems: 1 }
+          : { numItems: 1 },
       ),
-    }
+    },
   );
 
   const updatedCounter = incrementCounter(counter, page.length, bytesRead);
@@ -271,7 +271,7 @@ async function paginateOrCascade(
                   edges: getEdgeArgs(entDefinitions, table),
                 },
               ]
-            : [updated]
+            : [updated],
         );
   if (approach === "paginate") {
     await Promise.all(page.map((doc) => ctx.db.delete(doc._id)));
@@ -282,7 +282,7 @@ async function paginateOrCascade(
 async function continueOrSchedule(
   cascade: CascadeCtx,
   counter: Counter,
-  stack: Stack
+  stack: Stack,
 ) {
   if (shouldSchedule(counter)) {
     const { ctx, selfRef, origin } = cascade;
@@ -311,7 +311,7 @@ function newCounter() {
 function incrementCounter(
   counter: Counter,
   numDocuments: number,
-  numBytesRead: number
+  numBytesRead: number,
 ) {
   return {
     numDocuments: counter.numDocuments + numDocuments,
@@ -321,7 +321,7 @@ function incrementCounter(
 
 function limitsBasedOnCounter(
   counter: Counter,
-  { numItems }: { numItems: number }
+  { numItems }: { numItems: number },
 ) {
   return {
     numItems: Math.max(1, numItems - counter.numDocuments),
@@ -351,15 +351,15 @@ async function paginate(
     cursor: string | null;
     numItems: number;
     maximumBytesRead: number;
-  }
+  },
 ) {
   const query = ctx.db
     .query(table)
     .withIndex(indexName, (q) =>
       (q.eq(indexName, fieldValue) as IndexRangeBuilder<any, any, any>).gt(
         "_creationTime",
-        cursor === null ? cursor : +cursor
-      )
+        cursor === null ? cursor : +cursor,
+      ),
     );
 
   let bytesRead = 0;

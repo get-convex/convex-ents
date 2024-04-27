@@ -19,28 +19,28 @@ export const query = customQuery(
   baseQuery,
   customCtx(async (baseCtx) => {
     return await queryCtx(baseCtx);
-  })
+  }),
 );
 
 export const internalQuery = customQuery(
   baseInternalQuery,
   customCtx(async (baseCtx) => {
     return await queryCtx(baseCtx);
-  })
+  }),
 );
 
 export const mutation = customMutation(
   baseMutation,
   customCtx(async (baseCtx) => {
     return await mutationCtx(baseCtx);
-  })
+  }),
 );
 
 export const internalMutation = customMutation(
   baseInternalMutation,
   customCtx(async (baseCtx) => {
     return await mutationCtx(baseCtx);
-  })
+  }),
 );
 
 async function queryCtx(baseCtx: QueryCtx) {
