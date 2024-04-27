@@ -67,7 +67,7 @@ async function queryCtx(baseCtx: QueryCtx) {
   return { ...ctx, table, viewer, viewerX, viewerId };
 }
 
-async function mutationCtx(baseCtx: MutationCtx) {
+export async function mutationCtx(baseCtx: MutationCtx) {
   const ctx = {
     db: baseCtx.db as unknown as undefined,
     skipRules: { table: entsTableFactory(baseCtx, entDefinitions) },

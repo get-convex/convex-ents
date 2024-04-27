@@ -4,6 +4,7 @@
   "schema": "Ent Schema",
   "read": "Reading Ents",
   "write": "Writing Ents",
+  "testing": "Testing Ents",
   "---": {
     "type": "separator"
   },
