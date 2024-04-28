@@ -23,9 +23,10 @@ directly with `convexTest`.
 You will also want to use Ents within `t.run` for setting up and inspecting data
 in the database.
 
-You can solve both by adding the following file:
+You can solve both by adding the following file. The name `setup.testing.ts`
+ensures it is ignored by both Vitest and Convex:
 
-```ts filename="convex/testSetup.ts"
+```ts filename="convex/setup.testing.ts"
 import { convexTest as baseConvexTest } from "convex-test";
 import {
   GenericDataModel,
@@ -64,7 +65,7 @@ Customize `runCtx` to match your `customMutation` setup.
 
 In your `convex` folder add a file ending in `.test.ts`.
 
-Use `convexTest` from your `testSetup.ts` file instead of the one from
+Use `convexTest` from your `setup.testing.ts` file instead of the one from
 `convex-test`.
 
 This example shows how you can use `runCtx` to access `ctx.table` inside `t.run`
@@ -73,7 +74,7 @@ to perform a test setup.
 ```ts filename="convex/messages.test.ts"
 import { expect, test } from "vitest";
 import { api } from "./_generated/api";
-import { convexTest, runCtx } from "./testSetup";
+import { convexTest, runCtx } from "./setup.testing";
 import schema from "./schema";
 
 test("sending messages", async () => {
