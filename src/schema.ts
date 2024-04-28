@@ -334,6 +334,35 @@ export function defineEnt<
   return new EntDefinitionImpl(documentSchema) as any;
 }
 
+export function defineEntFromTable<
+  Document extends GenericDocument = GenericDocument,
+  FieldPaths extends string = string,
+  // eslint-disable-next-line @typescript-eslint/ban-types
+  Indexes extends GenericTableIndexes = {},
+  // eslint-disable-next-line @typescript-eslint/ban-types
+  SearchIndexes extends GenericTableSearchIndexes = {},
+  // eslint-disable-next-line @typescript-eslint/ban-types
+  VectorIndexes extends GenericTableVectorIndexes = {},
+>(
+  definition: TableDefinition<
+    Document,
+    FieldPaths,
+    Indexes,
+    SearchIndexes,
+    VectorIndexes
+  >,
+): EntDefinition<Document, FieldPaths, Indexes, SearchIndexes, VectorIndexes> {
+  // @ts-expect-error Private field
+  const entDefinition = defineEnt(definition.documentType);
+  // @ts-expect-error Private fields
+  entDefinition.indexes = definition.indexes;
+  // @ts-expect-error Private fields
+  entDefinition.searchIndexes = definition.searchIndexes;
+  // @ts-expect-error Private fields
+  entDefinition.vectorIndexes = definition.vectorIndexes;
+  return entDefinition;
+}
+
 type GenericEdges = Record<string, GenericEdgeConfig>;
 
 export type GenericEdgeConfig = {

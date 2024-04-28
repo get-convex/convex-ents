@@ -1,8 +1,11 @@
+import { migrationsTable } from "convex-helpers/server/migrations";
 import { v } from "convex/values";
 import { defineEnt, defineEntSchema, getEntDefinitions } from "../../src";
+import { defineEntFromTable } from "../../src/schema";
 
 const schema = defineEntSchema(
   {
+    migrations: defineEntFromTable(migrationsTable),
     messages: defineEnt({
       text: v.string(),
     })
