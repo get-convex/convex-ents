@@ -5,6 +5,7 @@
   "read": "Reading Ents",
   "write": "Writing Ents",
   "testing": "Testing Ents",
+  "migrations": "Migrating Ents",
   "---": {
     "type": "separator"
   },

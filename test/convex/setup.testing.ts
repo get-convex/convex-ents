@@ -1,11 +1,7 @@
 import { convexTest as baseConvexTest } from "convex-test";
-import {
-  GenericDataModel,
-  GenericMutationCtx,
-  SchemaDefinition,
-  StorageActionWriter,
-} from "convex/server";
+import { SchemaDefinition, StorageActionWriter } from "convex/server";
 import { EntDefinition } from "../../src";
+import { MutationCtx } from "./_generated/server";
 import { mutationCtx } from "./functions";
 
 // Work around a TypeScript subtyping issue with Ents schemas
@@ -17,10 +13,8 @@ export function convexTest<Schema extends GenericEntSchema>(
 }
 
 // Use inside t.run() to use Ents
-export async function runCtx<DataModel extends GenericDataModel>(
-  ctx: GenericMutationCtx<DataModel> & {
-    storage: StorageActionWriter;
-  },
+export async function runCtx(
+  ctx: MutationCtx & { storage: StorageActionWriter },
 ) {
   return { ...ctx, ...(await mutationCtx(ctx)) };
 }
