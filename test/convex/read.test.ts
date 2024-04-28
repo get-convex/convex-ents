@@ -1,5 +1,5 @@
 import { expect, test } from "vitest";
-import { convexTest, runCtx } from "./testSetup";
+import { convexTest, runCtx } from "./setup.testing";
 import schema from "./schema";
 
 test("index field", async () => {
