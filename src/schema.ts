@@ -353,7 +353,28 @@ export function defineEntFromTable<
   >,
 ): EntDefinition<Document, FieldPaths, Indexes, SearchIndexes, VectorIndexes> {
   // @ts-expect-error Private field
-  const entDefinition = defineEnt(definition.documentType);
+  const validator: Validator<any> = definition.documentType;
+
+  const validatorJson: {
+    type: string;
+    value: Record<string, { fieldType: string; optional: boolean }>;
+  } =
+    // @ts-expect-error Private field
+    validator.json;
+
+  if (validatorJson.type !== "object") {
+    throw new Error(
+      "Only tables with object definition are supported in Ents, not unions",
+    );
+  }
+  const tableSchema = Object.fromEntries(
+    Object.entries(validatorJson.value).map(([k, v]) => [
+      k,
+      // @ts-expect-error Private constructor
+      new Validator(v.fieldType, v.optional),
+    ]),
+  );
+  const entDefinition = defineEnt(tableSchema);
   // @ts-expect-error Private fields
   entDefinition.indexes = definition.indexes;
   // @ts-expect-error Private fields

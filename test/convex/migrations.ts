@@ -2,14 +2,14 @@ import { makeMigration } from "convex-helpers/server/migrations";
 import { internalMutation } from "./_generated/server";
 import { mutationCtx } from "./functions";
 
-const migration = makeMigration(internalMutation, {
+export const migration = makeMigration(internalMutation, {
   migrationTable: "migrations",
 });
 
 export const usersCapitalizeName = migration({
   table: "users",
   migrateOne: async (_, user) => ({
-    name: user.name[0].toUpperCase() + user.name[0].slice(1),
+    name: user.name[0].toUpperCase() + user.name.slice(1),
   }),
   batchSize: 10,
 });
