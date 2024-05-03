@@ -692,14 +692,25 @@ class PromiseTableImpl<
             } as any; // any because PromiseEntWriterImpl expects non-nullable
           }
         : async () => {
-            const [indexName, value] = args;
+            const [indexName, ...values] = args;
+            const fieldNames = getIndexFields(
+              this.entDefinitions,
+              this.table,
+              indexName,
+            );
             const doc = await this.ctx.db
               .query(this.table)
-              .withIndex(indexName, (q) => q.eq(indexName, value))
+              .withIndex(indexName, (q) =>
+                values.reduce((q, value, i) => q.eq(fieldNames[i], value), q),
+              )
               .unique();
             if (throwIfNull && doc === null) {
               throw new Error(
-                `Table "${this.table}" does not contain document with field "${indexName}" = \`${value}\``,
+                `Table "${this.table}" does not contain document with field${values.reduce(
+                  (message, value, i) =>
+                    `${message} "${fieldNames[i]}" = \`${value}\``,
+                  "",
+                )}`,
               );
             }
             return loadedRetriever(doc);
@@ -2479,6 +2490,16 @@ async function filterByReadRule<Doc extends GenericDocument>(
     }),
   );
   return docs.filter((_, i) => decisions[i]);
+}
+
+function getIndexFields(
+  entDefinitions: GenericEntsDataModel,
+  table: string,
+  index: string,
+) {
+  return (entDefinitions[table].indexes as unknown as Record<string, string[]>)[
+    index
+  ];
 }
 
 export function getReadRule(

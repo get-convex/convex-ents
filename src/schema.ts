@@ -1256,16 +1256,28 @@ export function getEntDefinitions<
   SchemaDef extends SchemaDefinition<any, boolean>,
 >(schema: SchemaDef): EntDataModelFromSchema<typeof schema> {
   const tables = schema.tables;
-  return Object.keys(tables).reduce(
-    (acc, tableName) => ({
-      ...acc,
-      [tableName]: {
-        defaults: tables[tableName].defaults,
-        edges: tables[tableName].edgeConfigs,
-        fields: tables[tableName].fieldConfigs,
-        deletionConfig: tables[tableName].deletionConfig,
-      },
-    }),
-    {},
+  return Object.entries(tables).reduce(
+    (acc, [tableName, table]: [any, any]) => {
+      acc[tableName] = {
+        indexes: (
+          table.indexes as {
+            indexDescriptor: string;
+            fields: string[];
+          }[]
+        ).reduce(
+          (acc, { indexDescriptor, fields }) => {
+            acc[indexDescriptor] = fields;
+            return acc;
+          },
+          {} as Record<string, string[]>,
+        ),
+        defaults: table.defaults,
+        edges: table.edgeConfigs,
+        fields: table.fieldConfigs,
+        deletionConfig: table.deletionConfig,
+      };
+      return acc;
+    },
+    {} as Record<string, any>,
   ) as any;
 }
