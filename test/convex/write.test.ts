@@ -474,6 +474,38 @@ test("edge write in pagination", async ({ ctx }) => {
   expect((await ctx.table("users").getX(user._id)).name).toEqual("Bill");
 });
 
+test("write from indexed get", async ({ ctx }) => {
+  await ctx.table("users").insert({
+    name: "Gates",
+    email: "bill@gates.com",
+    height: 3,
+  });
+  const user = (await ctx.table("users").get("height", 3))!;
+  const updatedUser = await user.patch({ height: 4 }).get();
+
+  expect(updatedUser.height).toEqual(4);
+});
+
+test("write after many:many edge traversal", async ({ ctx }) => {
+  const user = await ctx
+    .table("users")
+    .insert({
+      name: "Gates",
+      email: "bill@gates.com",
+    })
+    .get();
+  const newMessageId = await ctx.table("messages").insert({
+    text: "Hello world",
+    userId: user._id,
+  });
+  await ctx.table("tags").insert({ name: "Blue", messages: [newMessageId] });
+
+  const tags = await user.edge("messages").first().edge("tags");
+  const updatedTag = await tags?.[0].patch({ name: "Green" }).get();
+
+  expect(updatedTag!.name).toEqual("Green");
+});
+
 test("cascading deletes", async ({ ctx }) => {
   const userId = await ctx
     .table("users")

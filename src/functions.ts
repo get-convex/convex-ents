@@ -75,6 +75,39 @@ export interface PromiseOrderedQueryOrNull<
   docs(): Promise<DocumentByName<EntsDataModel, Table>[] | null>;
 }
 
+export interface PromiseOrderedQueryWriterOrNull<
+  EntsDataModel extends GenericEntsDataModel,
+  Table extends TableNamesInDataModel<EntsDataModel>,
+> extends Promise<
+    Ent<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel>[] | null
+  > {
+  filter(
+    predicate: (
+      q: FilterBuilder<NamedTableInfo<EntsDataModel, Table>>,
+    ) => ExpressionOrValue<boolean>,
+  ): this;
+
+  map<TOutput>(
+    callbackFn: (
+      value: Ent<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel>,
+      index: number,
+      array: Ent<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel>[],
+    ) => Promise<TOutput> | TOutput,
+  ): PromiseArrayOrNull<TOutput>;
+
+  paginate(
+    paginationOpts: PaginationOptions,
+  ): PromisePaginationResultOrNull<EntsDataModel, Table>;
+
+  take(n: number): PromiseEntsWriterOrNull<EntsDataModel, Table>;
+
+  first(): PromiseEntWriterOrNull<EntsDataModel, Table>;
+
+  unique(): PromiseEntWriterOrNull<EntsDataModel, Table>;
+
+  docs(): Promise<DocumentByName<EntsDataModel, Table>[] | null>;
+}
+
 export interface PromiseQueryOrNull<
   EntsDataModel extends GenericEntsDataModel,
   Table extends TableNamesInDataModel<EntsDataModel>,
@@ -85,6 +118,18 @@ export interface PromiseQueryOrNull<
     order: "asc" | "desc",
     indexName?: IndexNames<NamedTableInfo<EntsDataModel, Table>>,
   ): PromiseOrderedQueryOrNull<EntsDataModel, Table>;
+}
+
+export interface PromiseQueryWriterOrNull<
+  EntsDataModel extends GenericEntsDataModel,
+  Table extends TableNamesInDataModel<EntsDataModel>,
+> extends PromiseOrderedQueryWriterOrNull<EntsDataModel, Table> {
+  // TODO: The index variant should not be allowed if
+  // this query already used an index
+  order(
+    order: "asc" | "desc",
+    indexName?: IndexNames<NamedTableInfo<EntsDataModel, Table>>,
+  ): PromiseOrderedQueryWriterOrNull<EntsDataModel, Table>;
 }
 
 export interface PromiseTableBase<
@@ -864,17 +909,9 @@ export interface PromiseEntsWriterOrNull<
   > {
   map<TOutput>(
     callbackFn: (
-      value: EntWriter<
-        Table,
-        DocumentByName<EntsDataModel, Table>,
-        EntsDataModel
-      >,
+      value: Ent<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel>,
       index: number,
-      array: EntWriter<
-        Table,
-        DocumentByName<EntsDataModel, Table>,
-        EntsDataModel
-      >[],
+      array: Ent<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel>[],
     ) => Promise<TOutput> | TOutput,
   ): PromiseArrayOrNull<TOutput>;
 
@@ -1732,6 +1769,25 @@ export type PromiseEdgeWriterOrThrow<
         EntsDataModel[Table]["edges"][Edge]["to"]
       >;
 
+export type PromiseEdgeWriterOrNull<
+  EntsDataModel extends GenericEntsDataModel,
+  Table extends TableNamesInDataModel<EntsDataModel>,
+  Edge extends keyof EntsDataModel[Table]["edges"],
+> = EntsDataModel[Table]["edges"][Edge]["cardinality"] extends "multiple"
+  ? EntsDataModel[Table]["edges"][Edge]["type"] extends "ref"
+    ? PromiseEdgeEntsWriterOrNull<
+        EntsDataModel,
+        EntsDataModel[Table]["edges"][Edge]["to"]
+      >
+    : PromiseQueryWriterOrNull<
+        EntsDataModel,
+        EntsDataModel[Table]["edges"][Edge]["to"]
+      >
+  : PromiseEntWriterOrNull<
+      EntsDataModel,
+      EntsDataModel[Table]["edges"][Edge]["to"]
+    >;
+
 export interface PromiseOrderedQueryWriter<
   EntsDataModel extends GenericEntsDataModel,
   Table extends TableNamesInDataModel<EntsDataModel>,
@@ -1761,11 +1817,11 @@ export interface PromiseOrderedQueryWriter<
 
   take(n: number): PromiseEntsWriter<EntsDataModel, Table>;
 
-  first(): PromiseEntOrNull<EntsDataModel, Table>;
+  first(): PromiseEntWriterOrNull<EntsDataModel, Table>;
 
   firstX(): PromiseEntWriter<EntsDataModel, Table>;
 
-  unique(): PromiseEntOrNull<EntsDataModel, Table>;
+  unique(): PromiseEntWriterOrNull<EntsDataModel, Table>;
 
   uniqueX(): PromiseEntWriter<EntsDataModel, Table>;
 }
@@ -1836,8 +1892,8 @@ export interface PromiseTableWriter<
   >(
     indexName: Index,
     ...values: IndexFieldTypesForEq<EntsDataModel, Table, Indexes[Index]>
-  ): PromiseEntOrNull<EntsDataModel, Table>;
-  get(id: GenericId<Table>): PromiseEntOrNull<EntsDataModel, Table>;
+  ): PromiseEntWriterOrNull<EntsDataModel, Table>;
+  get(id: GenericId<Table>): PromiseEntWriterOrNull<EntsDataModel, Table>;
   /**
    * Fetch a unique document from the DB using given index, throw if it doesn't exist.
    */
@@ -1990,6 +2046,21 @@ class PromiseTableWriterImpl<
   ) {
     return await Promise.all(values.map((value) => this.insert(value)));
   }
+}
+
+export interface PromiseEntWriterOrNull<
+  EntsDataModel extends GenericEntsDataModel,
+  Table extends TableNamesInDataModel<EntsDataModel>,
+> extends Promise<EntWriter<
+    Table,
+    DocumentByName<EntsDataModel, Table>,
+    EntsDataModel
+  > | null> {
+  edge<Edge extends keyof EntsDataModel[Table]["edges"]>(
+    edge: Edge,
+  ): PromiseEdgeWriterOrNull<EntsDataModel, Table, Edge>;
+
+  doc(): Promise<DocumentByName<EntsDataModel, Table> | null>;
 }
 
 export interface PromiseEntWriter<
