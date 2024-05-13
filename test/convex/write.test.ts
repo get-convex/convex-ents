@@ -131,6 +131,16 @@ test("patch to remove many:many", async ({ ctx }) => {
     .insert({ name: "Blue", messages: [newMessageId] })
     .get();
 
+  expect(
+    await (ctx.db as any).query("messages_to_tags").collect(),
+  ).toHaveLength(1);
+  expect(
+    await ctx.table("tags").getX(newTag._id).edge("messages"),
+  ).toHaveLength(1);
+  expect(
+    await ctx.table("messages").getX(newMessageId).edge("tags"),
+  ).toHaveLength(1);
+
   await newTag.patch({
     messages: {
       remove: [newMessageId],
@@ -140,6 +150,12 @@ test("patch to remove many:many", async ({ ctx }) => {
   // Test the edge deletion behavior
   expect(
     await (ctx.db as any).query("messages_to_tags").collect(),
+  ).toHaveLength(0);
+  expect(
+    await ctx.table("tags").getX(newTag._id).edge("messages"),
+  ).toHaveLength(0);
+  expect(
+    await ctx.table("messages").getX(newMessageId).edge("tags"),
   ).toHaveLength(0);
 });
 
