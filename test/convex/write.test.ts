@@ -1,6 +1,6 @@
-import { expect, test as baseTest } from "vitest";
-import { convexTest, runCtx } from "./setup.testing";
+import { test as baseTest, expect } from "vitest";
 import schema from "./schema";
+import { convexTest, runCtx } from "./setup.testing";
 import { MutationCtx } from "./types";
 
 const test = baseTest.extend<{ ctx: MutationCtx }>({
@@ -349,6 +349,113 @@ test("many:many edges configuration", async ({ ctx }) => {
   expect((await attachment1.edge("replacing")).map((ent) => ent._id)).toEqual([
     attachmentId2,
   ]);
+});
+
+test("write after write", async ({ ctx }) => {
+  const user = await ctx
+    .table("users")
+    .insert({
+      name: "Gates",
+      email: "bill@gates.com",
+    })
+    .get();
+  const updatedUser = await user.patch({ name: "Bill" }).get();
+  expect(updatedUser.name).toEqual("Bill");
+});
+
+test("1:1 edge write from required end", async ({ ctx }) => {
+  const userId = await ctx.table("users").insert({
+    name: "Gates",
+    email: "bill@gates.com",
+  });
+  const profileId = await ctx
+    .table("profiles")
+    .insert({ bio: "Hello world", userId });
+  await ctx
+    .table("profiles")
+    .getX(profileId)
+    .edge("user")
+    .patch({ name: "Bill" });
+  expect((await ctx.table("users").getX(userId)).name).toEqual("Bill");
+});
+
+test("1:1 edge write from optional end", async ({ ctx }) => {
+  const userId = await ctx.table("users").insert({
+    name: "Gates",
+    email: "bill@gates.com",
+  });
+  const profileId = await ctx
+    .table("profiles")
+    .insert({ bio: "Hello world", userId });
+  await ctx
+    .table("users")
+    .getX(userId)
+    .edgeX("profile")
+    .patch({ bio: "Big boss" });
+  expect((await ctx.table("profiles").getX(profileId)).bio).toEqual("Big boss");
+});
+
+test("1:1 edge write loaded", async ({ ctx }) => {
+  const userId = await ctx.table("users").insert({
+    name: "Gates",
+    email: "bill@gates.com",
+  });
+  const profile = await ctx
+    .table("profiles")
+    .insert({ bio: "Hello world", userId })
+    .get();
+  await profile.edge("user").patch({ name: "Bill" });
+  expect((await ctx.table("users").getX(userId)).name).toEqual("Bill");
+});
+
+test("1:many edge write", async ({ ctx }) => {
+  const userId = await ctx.table("users").insert({
+    name: "Gates",
+    email: "bill@gates.com",
+  });
+  const messageId = await ctx
+    .table("messages")
+    .insert({ text: "Hello world", userId });
+
+  await ctx
+    .table("messages")
+    .getX(messageId)
+    .edge("user")
+    .patch({ name: "Bill" });
+  expect((await ctx.table("users").getX(userId)).name).toEqual("Bill");
+});
+
+test("1:many edge write loaded", async ({ ctx }) => {
+  const userId = await ctx.table("users").insert({
+    name: "Gates",
+    email: "bill@gates.com",
+  });
+  const message = await ctx
+    .table("messages")
+    .insert({ text: "Hello world", userId })
+    .get();
+
+  await message.edge("user").patch({ name: "Bill" });
+  expect((await ctx.table("users").getX(userId)).name).toEqual("Bill");
+});
+
+test("edge write in pagination", async ({ ctx }) => {
+  const user = await ctx
+    .table("users")
+    .insert({
+      name: "Gates",
+      email: "bill@gates.com",
+    })
+    .get();
+  await ctx.table("messages").insert({ text: "Hello world", userId: user._id });
+
+  await user
+    .edge("messages")
+    .paginate({ cursor: null, numItems: 5 })
+    .map(async (message) => {
+      await message.edge("user").patch({ name: "Bill" });
+    });
+  expect((await ctx.table("users").getX(user._id)).name).toEqual("Bill");
 });
 
 test("cascading deletes", async ({ ctx }) => {

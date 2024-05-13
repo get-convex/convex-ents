@@ -18,6 +18,7 @@
     "@typescript-eslint/eslint-plugin": "^6.16.0",
     "convex-test": "^0.0.15-alpha.3",
     "eslint": "8.49.0",
+    "typescript": "^5.4.5",
     "vitest": "^1.5.2"
   }
 }
