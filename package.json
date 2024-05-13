@@ -23,8 +23,9 @@
     "build": "npx tsup src --dts --sourcemap --clean",
     "docs": "cd docs && npm run dev",
     "lint": "tsc && eslint . && cd test && npm run lint",
-    "prepublishOnly": "npm run build",
-    "test": "cd test && npm run test"
+    "prepublishOnly": "npm run build && npm run test:once",
+    "test": "cd test && npm run test",
+    "test:once": "cd test && npm run test:once"
   },
   "peerDependencies": {
     "convex": "^1.11.2"
