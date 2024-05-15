@@ -163,3 +163,33 @@ await message.patch({
 Any edges in the `add` list that didn't exist are created, and any edges in the
 `remove` list that did exist are deleted. Edges to ents with ID not listed in
 either list are not affected by `patch`.
+
+## Updating ents connected by edges
+
+The `patch`, `replace` and `delete` methods can be chained after `edge` calls to
+update the ent on the other end of an edge:
+
+```ts
+await ctx
+  .table("users")
+  .getX(userId)
+  .edgeX("profile")
+  .patch({ bio: "I'm the first user" });
+```
+
+<Aside title="This is equivalent to the built-in:">
+
+```ts
+const profile = await ctx.db
+  .query("profiles")
+  .withIndex("userId", (q) => q.eq("userId", userId))
+  .unique();
+if (profile === null) {
+  throw new Error(
+    `Edge "profile" does not exist for document wit ID "${userId}"`,
+  );
+}
+await ctx.db.patch(profile._id, { bio: "I'm the first user" });
+```
+
+</Aside>
