@@ -1,6 +1,6 @@
 import { convexTest as baseConvexTest } from "convex-test";
 import { SchemaDefinition, StorageActionWriter } from "convex/server";
-import { EntDefinition } from "../../src";
+import { EntDefinition } from "convex-ents";
 import { MutationCtx } from "./_generated/server";
 import { mutationCtx } from "./functions";
 

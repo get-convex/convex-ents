@@ -420,7 +420,6 @@ test("1:1 edge write loaded", async ({ ctx }) => {
     .table("profiles")
     .insert({ bio: "Hello world", userId })
     .get();
-  // @ts-expect-error Not supported due to TS timeouts, see #8
   await profile.edge("user").patch({ name: "Bill" });
   expect((await ctx.table("users").getX(userId)).name).toEqual("Bill");
 });
@@ -452,7 +451,6 @@ test("1:many edge write loaded", async ({ ctx }) => {
     .insert({ text: "Hello world", userId })
     .get();
 
-  // @ts-expect-error Not supported due to TS timeouts, see #8
   await message.edge("user").patch({ name: "Bill" });
   expect((await ctx.table("users").getX(userId)).name).toEqual("Bill");
 });
@@ -471,7 +469,6 @@ test("edge write in pagination", async ({ ctx }) => {
     .edge("messages")
     .paginate({ cursor: null, numItems: 5 })
     .map(async (message) => {
-      // @ts-expect-error Not supported due to TS timeouts, see #8
       await message.edge("user").patch({ name: "Bill" });
     });
   expect((await ctx.table("users").getX(user._id)).name).toEqual("Bill");
@@ -504,10 +501,9 @@ test("write after many:many edge traversal", async ({ ctx }) => {
   await ctx.table("tags").insert({ name: "Blue", messages: [newMessageId] });
 
   const tags = await user.edge("messages").first().edge("tags");
-  // @ts-expect-error Not supported due to TS timeouts, see #8
   const updatedTag = await tags?.[0].patch({ name: "Green" }).get();
 
-  expect(updatedTag.name).toEqual("Green");
+  expect(updatedTag!.name).toEqual("Green");
 });
 
 test("cascading deletes", async ({ ctx }) => {

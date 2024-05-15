@@ -5,7 +5,7 @@ import {
   defineEntFromTable,
   defineEntSchema,
   getEntDefinitions,
-} from "../../src";
+} from "convex-ents";
 
 const schema = defineEntSchema(
   {

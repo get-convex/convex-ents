@@ -2375,7 +2375,15 @@ class PromiseEntWriterImpl<
 declare class EntWriterInstance<
   EntsDataModel extends GenericEntsDataModel,
   Table extends TableNamesInDataModel<EntsDataModel>,
-> extends EntInstance<EntsDataModel, Table> {
+> {
+  edge<Edge extends keyof EntsDataModel[Table]["edges"]>(
+    edge: Edge,
+  ): PromiseEdgeWriter<EntsDataModel, Table, Edge>;
+  edgeX<Edge extends keyof EntsDataModel[Table]["edges"]>(
+    edge: Edge,
+  ): PromiseEdgeWriterOrThrow<EntsDataModel, Table, Edge>;
+  doc(): DocumentByName<EntsDataModel, Table>;
+
   /**
    * Patch this existing document, shallow merging it with the given partial
    * document.

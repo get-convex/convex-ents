@@ -3,7 +3,7 @@ import {
   customMutation,
   customQuery,
 } from "convex-helpers/server/customFunctions";
-import { entsTableFactory, scheduledDeleteFactory } from "../../src";
+import { entsTableFactory, scheduledDeleteFactory } from "convex-ents";
 import {
   MutationCtx,
   QueryCtx,
