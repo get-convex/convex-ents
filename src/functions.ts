@@ -31,6 +31,7 @@ import {
   DeletionConfig,
   EdgeConfig,
   Expand,
+  GenericEdgeConfig,
   GenericEntsDataModel,
 } from "./schema";
 import {
@@ -75,6 +76,39 @@ export interface PromiseOrderedQueryOrNull<
   docs(): Promise<DocumentByName<EntsDataModel, Table>[] | null>;
 }
 
+export interface PromiseOrderedQueryWriterOrNull<
+  EntsDataModel extends GenericEntsDataModel,
+  Table extends TableNamesInDataModel<EntsDataModel>,
+> extends Promise<
+    Ent<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel>[] | null
+  > {
+  filter(
+    predicate: (
+      q: FilterBuilder<NamedTableInfo<EntsDataModel, Table>>,
+    ) => ExpressionOrValue<boolean>,
+  ): this;
+
+  map<TOutput>(
+    callbackFn: (
+      value: Ent<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel>,
+      index: number,
+      array: Ent<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel>[],
+    ) => Promise<TOutput> | TOutput,
+  ): PromiseArrayOrNull<TOutput>;
+
+  paginate(
+    paginationOpts: PaginationOptions,
+  ): PromisePaginationResultOrNull<EntsDataModel, Table>;
+
+  take(n: number): PromiseEntsWriterOrNull<EntsDataModel, Table>;
+
+  first(): PromiseEntWriterOrNull<EntsDataModel, Table>;
+
+  unique(): PromiseEntWriterOrNull<EntsDataModel, Table>;
+
+  docs(): Promise<DocumentByName<EntsDataModel, Table>[] | null>;
+}
+
 export interface PromiseQueryOrNull<
   EntsDataModel extends GenericEntsDataModel,
   Table extends TableNamesInDataModel<EntsDataModel>,
@@ -85,6 +119,18 @@ export interface PromiseQueryOrNull<
     order: "asc" | "desc",
     indexName?: IndexNames<NamedTableInfo<EntsDataModel, Table>>,
   ): PromiseOrderedQueryOrNull<EntsDataModel, Table>;
+}
+
+export interface PromiseQueryWriterOrNull<
+  EntsDataModel extends GenericEntsDataModel,
+  Table extends TableNamesInDataModel<EntsDataModel>,
+> extends PromiseOrderedQueryWriterOrNull<EntsDataModel, Table> {
+  // TODO: The index variant should not be allowed if
+  // this query already used an index
+  order(
+    order: "asc" | "desc",
+    indexName?: IndexNames<NamedTableInfo<EntsDataModel, Table>>,
+  ): PromiseOrderedQueryWriterOrNull<EntsDataModel, Table>;
 }
 
 export interface PromiseTableBase<
@@ -194,10 +240,6 @@ export interface PromiseOrderedQueryBase<
     ) => ExpressionOrValue<boolean>,
   ): this;
 
-  paginate(
-    paginationOpts: PaginationOptions,
-  ): PromisePaginationResult<EntsDataModel, Table>;
-
   docs(): Promise<DocumentByName<EntsDataModel, Table>[]>;
 }
 
@@ -215,6 +257,10 @@ export interface PromiseOrderedQuery<
       array: Ent<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel>[],
     ) => Promise<TOutput> | TOutput,
   ): PromiseArray<TOutput>;
+
+  paginate(
+    paginationOpts: PaginationOptions,
+  ): PromisePaginationResult<EntsDataModel, Table>;
 
   take(n: number): PromiseEnts<EntsDataModel, Table>;
 
@@ -859,6 +905,24 @@ export interface PromiseEntsOrNull<
   docs(): Promise<DocumentByName<EntsDataModel, Table>[] | null>;
 }
 
+export interface PromiseEntsWriterOrNull<
+  EntsDataModel extends GenericEntsDataModel,
+  Table extends TableNamesInDataModel<EntsDataModel>,
+> extends Promise<
+    | EntWriter<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel>[]
+    | null
+  > {
+  map<TOutput>(
+    callbackFn: (
+      value: Ent<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel>,
+      index: number,
+      array: Ent<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel>[],
+    ) => Promise<TOutput> | TOutput,
+  ): PromiseArrayOrNull<TOutput>;
+
+  docs(): Promise<DocumentByName<EntsDataModel, Table>[] | null>;
+}
+
 // This lazy promise materializes objects, so chaining to this type of
 // lazy promise performs one operation for each
 // retrieved document in JavaScript, basically as if using
@@ -1076,10 +1140,34 @@ export interface PromiseEdgeEntsOrNull<
   has(id: GenericId<Table>): Promise<boolean | null>;
 }
 
+export interface PromiseEdgeEntsWriterOrNull<
+  EntsDataModel extends GenericEntsDataModel,
+  Table extends TableNamesInDataModel<EntsDataModel>,
+> extends PromiseEntsWriterOrNull<EntsDataModel, Table> {
+  /**
+   * Returns whether there is an ent with given ID on the other side
+   * the edge. Returns null if chained to a null result.
+   * @param id The ID of the ent on the other end of the edge
+   */
+  has(id: GenericId<Table>): Promise<boolean | null>;
+}
+
 export interface PromiseEdgeEnts<
   EntsDataModel extends GenericEntsDataModel,
   Table extends TableNamesInDataModel<EntsDataModel>,
 > extends PromiseEnts<EntsDataModel, Table> {
+  /**
+   * Returns whether there is an ent with given ID on the other side
+   * the edge.
+   * @param id The ID of the ent on the other end of the edge
+   */
+  has(id: GenericId<Table>): Promise<boolean>;
+}
+
+export interface PromiseEdgeEntsWriter<
+  EntsDataModel extends GenericEntsDataModel,
+  Table extends TableNamesInDataModel<EntsDataModel>,
+> extends PromiseEntsWriter<EntsDataModel, Table> {
   /**
    * Returns whether there is an ent with given ID on the other side
    * the edge.
@@ -1305,8 +1393,8 @@ class PromiseEntOrNullImpl<
       ) as any;
     }
 
-    return new PromiseEntOrNullImpl(
-      this.ctx,
+    return new PromiseEntWriterImpl(
+      this.ctx as any,
       this.entDefinitions,
       edgeDefinition.to,
       async () => {
@@ -1604,45 +1692,109 @@ export type GenericEnt<
   Table extends TableNamesInDataModel<EntsDataModel>,
 > = Ent<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel>;
 
+type PromiseEdgeResult<
+  EdgeConfig extends GenericEdgeConfig,
+  MultipleRef,
+  MultipleField,
+  SingleRef,
+  SingleField,
+> = EdgeConfig["cardinality"] extends "multiple"
+  ? EdgeConfig["type"] extends "ref"
+    ? MultipleRef
+    : MultipleField
+  : EdgeConfig["type"] extends "ref"
+    ? SingleRef
+    : SingleField;
+
 export type PromiseEdge<
   EntsDataModel extends GenericEntsDataModel,
   Table extends TableNamesInDataModel<EntsDataModel>,
   Edge extends keyof EntsDataModel[Table]["edges"],
-> = EntsDataModel[Table]["edges"][Edge]["cardinality"] extends "multiple"
-  ? EntsDataModel[Table]["edges"][Edge]["type"] extends "ref"
-    ? PromiseEdgeEnts<EntsDataModel, EntsDataModel[Table]["edges"][Edge]["to"]>
-    : PromiseQuery<EntsDataModel, EntsDataModel[Table]["edges"][Edge]["to"]>
-  : EntsDataModel[Table]["edges"][Edge]["type"] extends "ref"
-    ? PromiseEntOrNull<EntsDataModel, EntsDataModel[Table]["edges"][Edge]["to"]>
-    : PromiseEnt<EntsDataModel, EntsDataModel[Table]["edges"][Edge]["to"]>;
+  Config extends GenericEdgeConfig = EntsDataModel[Table]["edges"][Edge],
+  ToTable extends
+    TableNamesInDataModel<EntsDataModel> = EntsDataModel[Table]["edges"][Edge]["to"],
+> = PromiseEdgeResult<
+  Config,
+  PromiseEdgeEnts<EntsDataModel, ToTable>,
+  PromiseQuery<EntsDataModel, ToTable>,
+  PromiseEntOrNull<EntsDataModel, ToTable>,
+  PromiseEnt<EntsDataModel, ToTable>
+>;
 
 export type PromiseEdgeOrThrow<
   EntsDataModel extends GenericEntsDataModel,
   Table extends TableNamesInDataModel<EntsDataModel>,
   Edge extends keyof EntsDataModel[Table]["edges"],
-> = EntsDataModel[Table]["edges"][Edge]["cardinality"] extends "multiple"
-  ? EntsDataModel[Table]["edges"][Edge]["type"] extends "ref"
-    ? PromiseEdgeEnts<EntsDataModel, EntsDataModel[Table]["edges"][Edge]["to"]>
-    : PromiseQuery<EntsDataModel, EntsDataModel[Table]["edges"][Edge]["to"]>
-  : EntsDataModel[Table]["edges"][Edge]["type"] extends "ref"
-    ? PromiseEnt<EntsDataModel, EntsDataModel[Table]["edges"][Edge]["to"]>
-    : PromiseEnt<EntsDataModel, EntsDataModel[Table]["edges"][Edge]["to"]>;
+  Config extends GenericEdgeConfig = EntsDataModel[Table]["edges"][Edge],
+  ToTable extends
+    TableNamesInDataModel<EntsDataModel> = EntsDataModel[Table]["edges"][Edge]["to"],
+> = PromiseEdgeResult<
+  Config,
+  PromiseEdgeEnts<EntsDataModel, ToTable>,
+  PromiseQuery<EntsDataModel, ToTable>,
+  PromiseEnt<EntsDataModel, ToTable>,
+  PromiseEnt<EntsDataModel, ToTable>
+>;
 
 type PromiseEdgeOrNull<
   EntsDataModel extends GenericEntsDataModel,
   Table extends TableNamesInDataModel<EntsDataModel>,
   Edge extends keyof EntsDataModel[Table]["edges"],
-> = EntsDataModel[Table]["edges"][Edge]["cardinality"] extends "multiple"
-  ? EntsDataModel[Table]["edges"][Edge]["type"] extends "ref"
-    ? PromiseEdgeEntsOrNull<
-        EntsDataModel,
-        EntsDataModel[Table]["edges"][Edge]["to"]
-      >
-    : PromiseQueryOrNull<
-        EntsDataModel,
-        EntsDataModel[Table]["edges"][Edge]["to"]
-      >
-  : PromiseEntOrNull<EntsDataModel, EntsDataModel[Table]["edges"][Edge]["to"]>;
+  Config extends GenericEdgeConfig = EntsDataModel[Table]["edges"][Edge],
+  ToTable extends
+    TableNamesInDataModel<EntsDataModel> = EntsDataModel[Table]["edges"][Edge]["to"],
+> = PromiseEdgeResult<
+  Config,
+  PromiseEdgeEntsOrNull<EntsDataModel, ToTable>,
+  PromiseQueryOrNull<EntsDataModel, ToTable>,
+  PromiseEntOrNull<EntsDataModel, ToTable>,
+  PromiseEntOrNull<EntsDataModel, ToTable>
+>;
+
+export type PromiseEdgeWriter<
+  EntsDataModel extends GenericEntsDataModel,
+  Table extends TableNamesInDataModel<EntsDataModel>,
+  Edge extends keyof EntsDataModel[Table]["edges"],
+  Config extends GenericEdgeConfig = EntsDataModel[Table]["edges"][Edge],
+  ToTable extends
+    TableNamesInDataModel<EntsDataModel> = EntsDataModel[Table]["edges"][Edge]["to"],
+> = PromiseEdgeResult<
+  Config,
+  PromiseEdgeEntsWriter<EntsDataModel, ToTable>,
+  PromiseQueryWriter<EntsDataModel, ToTable>,
+  PromiseEntWriterOrNull<EntsDataModel, ToTable>,
+  PromiseEntWriter<EntsDataModel, ToTable>
+>;
+
+export type PromiseEdgeWriterOrThrow<
+  EntsDataModel extends GenericEntsDataModel,
+  Table extends TableNamesInDataModel<EntsDataModel>,
+  Edge extends keyof EntsDataModel[Table]["edges"],
+  Config extends GenericEdgeConfig = EntsDataModel[Table]["edges"][Edge],
+  ToTable extends
+    TableNamesInDataModel<EntsDataModel> = EntsDataModel[Table]["edges"][Edge]["to"],
+> = PromiseEdgeResult<
+  Config,
+  PromiseEdgeEntsWriter<EntsDataModel, ToTable>,
+  PromiseQueryWriter<EntsDataModel, ToTable>,
+  PromiseEntWriter<EntsDataModel, ToTable>,
+  PromiseEntWriter<EntsDataModel, ToTable>
+>;
+
+export type PromiseEdgeWriterOrNull<
+  EntsDataModel extends GenericEntsDataModel,
+  Table extends TableNamesInDataModel<EntsDataModel>,
+  Edge extends keyof EntsDataModel[Table]["edges"],
+  Config extends GenericEdgeConfig = EntsDataModel[Table]["edges"][Edge],
+  ToTable extends
+    TableNamesInDataModel<EntsDataModel> = EntsDataModel[Table]["edges"][Edge]["to"],
+> = PromiseEdgeResult<
+  Config,
+  PromiseEdgeEntsWriterOrNull<EntsDataModel, ToTable>,
+  PromiseQueryWriterOrNull<EntsDataModel, ToTable>,
+  PromiseEntWriterOrNull<EntsDataModel, ToTable>,
+  PromiseEntWriterOrNull<EntsDataModel, ToTable>
+>;
 
 export interface PromiseOrderedQueryWriter<
   EntsDataModel extends GenericEntsDataModel,
@@ -1914,7 +2066,7 @@ export interface PromiseEntWriterOrNull<
   > | null> {
   edge<Edge extends keyof EntsDataModel[Table]["edges"]>(
     edge: Edge,
-  ): PromiseEdgeOrNull<EntsDataModel, Table, Edge>;
+  ): PromiseEdgeWriterOrNull<EntsDataModel, Table, Edge>;
 
   doc(): Promise<DocumentByName<EntsDataModel, Table> | null>;
 }
@@ -1927,11 +2079,11 @@ export interface PromiseEntWriter<
   > {
   edge<Edge extends keyof EntsDataModel[Table]["edges"]>(
     edge: Edge,
-  ): PromiseEdge<EntsDataModel, Table, Edge>;
+  ): PromiseEdgeWriter<EntsDataModel, Table, Edge>;
 
   edgeX<Edge extends keyof EntsDataModel[Table]["edges"]>(
     edge: Edge,
-  ): PromiseEdgeOrThrow<EntsDataModel, Table, Edge>;
+  ): PromiseEdgeWriterOrThrow<EntsDataModel, Table, Edge>;
 
   doc(): Promise<DocumentByName<EntsDataModel, Table>>;
 
@@ -1954,7 +2106,7 @@ export interface PromiseEntWriter<
         >
       >
     >,
-  ): Promise<PromiseEntId<EntsDataModel, Table>>;
+  ): PromiseEntId<EntsDataModel, Table>;
 
   /**
    * Replace the value of an existing document, overwriting its old value.
@@ -1971,7 +2123,7 @@ export interface PromiseEntWriter<
         >
       >
     >,
-  ): Promise<PromiseEntId<EntsDataModel, Table>>;
+  ): PromiseEntId<EntsDataModel, Table>;
 
   /**
    * Delete this existing document.
@@ -2305,7 +2457,7 @@ class PromiseEntIdImpl<
   }
 
   get() {
-    return new PromiseEntOrNullImpl(
+    return new PromiseEntWriterImpl(
       this.ctx,
       this.entDefinitions,
       this.table,
