@@ -1677,11 +1677,18 @@ declare class EntInstance<
   doc(): DocumentByName<EntsDataModel, Table>;
 }
 
+type EntBase<
+  Doc extends DocumentByName<EntsDataModel, Table>,
+  Table extends TableNamesInDataModel<EntsDataModel>,
+  Instance extends EntInstance<EntsDataModel, Table>,
+  EntsDataModel extends GenericEntsDataModel,
+> = Doc & Instance;
+
 export type Ent<
   Table extends TableNamesInDataModel<EntsDataModel>,
   Doc extends DocumentByName<EntsDataModel, Table>,
   EntsDataModel extends GenericEntsDataModel,
-> = Doc & EntInstance<EntsDataModel, Table>;
+> = EntBase<Doc, Table, EntInstance<EntsDataModel, Table>, EntsDataModel>;
 
 export type GenericEnt<
   EntsDataModel extends GenericEntsDataModel,
@@ -2371,14 +2378,13 @@ class PromiseEntWriterImpl<
 declare class EntWriterInstance<
   EntsDataModel extends GenericEntsDataModel,
   Table extends TableNamesInDataModel<EntsDataModel>,
-> {
+> extends EntInstance<EntsDataModel, Table> {
   edge<Edge extends keyof EntsDataModel[Table]["edges"]>(
     edge: Edge,
   ): PromiseEdgeWriter<EntsDataModel, Table, Edge>;
   edgeX<Edge extends keyof EntsDataModel[Table]["edges"]>(
     edge: Edge,
   ): PromiseEdgeWriterOrThrow<EntsDataModel, Table, Edge>;
-  doc(): DocumentByName<EntsDataModel, Table>;
 
   /**
    * Patch this existing document, shallow merging it with the given partial
@@ -2430,7 +2436,7 @@ type EntWriter<
   Table extends TableNamesInDataModel<EntsDataModel>,
   Doc extends DocumentByName<EntsDataModel, Table>,
   EntsDataModel extends GenericEntsDataModel,
-> = Doc & EntWriterInstance<EntsDataModel, Table>;
+> = EntBase<Doc, Table, EntWriterInstance<EntsDataModel, Table>, EntsDataModel>;
 
 export type GenericEntWriter<
   EntsDataModel extends GenericEntsDataModel,
