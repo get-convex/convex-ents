@@ -3,7 +3,10 @@ import { Aside } from "../../components/Aside.tsx";
 
 # Setup Ents in an existing Convex project
 
-Starting a new project from scratch? Follow [this guide](/setup) instead.
+Starting a new project from scratch? Follow [the setup guide](/setup) instead.
+
+Use this guide if you have a lot of existing code using `ctx.db` which you want
+to keep while you migrate to Ents.
 
 <Steps>
 ### Install the NPM library
@@ -56,19 +59,23 @@ Add a `functions.ts` file with the following contents:
 <Aside title="Click to show">
 
 ```ts filename="convex/functions.ts"
+import { entsTableFactory } from "convex-ents";
 import {
   customCtx,
   customMutation,
   customQuery,
 } from "convex-helpers/server/customFunctions";
+import { GenericDatabaseReader, GenericDatabaseWriter } from "convex/server";
+import { DataModel } from "./_generated/dataModel";
 import {
-  query as baseQuery,
-  mutation as baseMutation,
-  internalQuery as baseInternalQuery,
   internalMutation as baseInternalMutation,
+  internalQuery as baseInternalQuery,
+  mutation as baseMutation,
+  query as baseQuery,
 } from "./_generated/server";
-import { entsTableFactory } from "convex-ents";
 import { entDefinitions } from "./schema";
+
+type LegacyTables = "messages" | "users";
 
 export const query = customQuery(
   baseQuery,
@@ -76,10 +83,10 @@ export const query = customQuery(
     return {
       table: entsTableFactory(ctx, entDefinitions),
       db: ctx.db as unknown as GenericDatabaseReader<
-        Pick<DataModel, "messages" | "users">
+        Pick<DataModel, LegacyTables>
       >,
     };
-  })
+  }),
 );
 
 export const internalQuery = customQuery(
@@ -88,10 +95,10 @@ export const internalQuery = customQuery(
     return {
       table: entsTableFactory(ctx, entDefinitions),
       db: ctx.db as unknown as GenericDatabaseReader<
-        Pick<DataModel, "messages" | "users">
+        Pick<DataModel, LegacyTables>
       >,
     };
-  })
+  }),
 );
 
 export const mutation = customMutation(
@@ -99,11 +106,9 @@ export const mutation = customMutation(
   customCtx(async (ctx) => {
     return {
       table: entsTableFactory(ctx, entDefinitions),
-      db: ctx.db as GenericDatabaseWriter<
-        Pick<DataModel, "messages" | "users">
-      >,
+      db: ctx.db as GenericDatabaseWriter<Pick<DataModel, LegacyTables>>,
     };
-  })
+  }),
 );
 
 export const internalMutation = customMutation(
@@ -111,16 +116,14 @@ export const internalMutation = customMutation(
   customCtx(async (ctx) => {
     return {
       table: entsTableFactory(ctx, entDefinitions),
-      db: ctx.db as GenericDatabaseWriter<
-        Pick<DataModel, "messages" | "users">
-      >,
+      db: ctx.db as GenericDatabaseWriter<Pick<DataModel, LegacyTables>>,
     };
-  })
+  }),
 );
 ```
 
-Replace the type `"messages" | "users"` with an enumeration of your existing
-tables.
+Update the `LegacyTables` type with an enumeration of your existing tables which
+you want to keep using with `ctx.db`.
 
 </Aside>
 
@@ -191,19 +194,8 @@ To prevent `ctx.db` access to some of the tables in your schema, amend your
 `ctx.db`:
 
 ```diff filename="convex/functions.ts"
-
-      // For query and internalQuery:
-      db: ctx.db as unknown as GenericDatabaseReader<
--        Pick<DataModel, "messages" | "users">
-+        Pick<DataModel, "users">
-      >,
-
-      // For mutation and internalMutation:
-      db: ctx.db as GenericDatabaseWriter<
--        Pick<DataModel, "messages" | "users">
-+        Pick<DataModel, "users">
-      >,
-
+- type LegacyTables = "messages" | "users";
++ type LegacyTables = "users";
 ```
 
 ### (optional) Finish moving to `ctx.table`
@@ -216,13 +208,13 @@ your custom functions setup:
       // For query and internalQuery:
 +      db: undefined,
 -      db: ctx.db as unknown as GenericDatabaseReader<
--        Pick<DataModel, "users">
+-        Pick<DataModel, LegacyTables>
 -      >,
 
       // For mutation and internalMutation:
 +      db: undefined,
 -      db: ctx.db as GenericDatabaseWriter<
--        Pick<DataModel, "users">
+-        Pick<DataModel, LegacyTables>
 -      >,
 
 ```
