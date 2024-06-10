@@ -1,7 +1,8 @@
-import { expect, test as baseTest } from "vitest";
+import { expect, test as baseTest, vi } from "vitest";
 import { convexTest, runCtx } from "./setup.testing";
 import schema from "./schema";
 import { Ent, EntWriter, MutationCtx } from "./types";
+import { api, internal } from "./_generated/api";
 
 // To test typechecking, replace MutationCtx with QueryCtx
 const test = baseTest.extend<{ ctx: MutationCtx }>({
@@ -383,4 +384,21 @@ test("firstX", async ({ ctx }) => {
 test("_storage", async ({ ctx }) => {
   const files = await ctx.table.system("_storage");
   expect(files).toHaveLength(0);
+});
+
+test("_scheduled_functions get", async ({ ctx }) => {
+  vi.useFakeTimers();
+
+  const id = await ctx.scheduler.runAfter(
+    10000,
+    internal.migrations.usersCapitalizeName,
+    { fn: "Foo" },
+  );
+
+  const scheduled = await ctx.table.system("_scheduled_functions").get(id);
+  expect(scheduled).not.toBeNull();
+
+  await ctx.scheduler.cancel(id);
+
+  vi.useRealTimers();
 });

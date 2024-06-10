@@ -719,7 +719,7 @@ class PromiseTableImpl<
       args.length === 1
         ? async () => {
             const id = args[0] as GenericId<Table>;
-            if (this.ctx.db.normalizeId(this.table, id) === null) {
+            if (this.normalizeId(id) === null) {
               throw new Error(`Invalid id \`${id}\` for table "${this.table}"`);
             }
             return {
@@ -774,7 +774,7 @@ class PromiseTableImpl<
         ? async () => {
             const ids = args[0] as GenericId<Table>[];
             ids.forEach((id) => {
-              if (this.ctx.db.normalizeId(this.table, id) === null) {
+              if (this.normalizeId(id) === null) {
                 throw new Error(
                   `Invalid id \`${id}\` for table "${this.table}"`,
                 );
@@ -816,7 +816,9 @@ class PromiseTableImpl<
   }
 
   normalizeId(id: string): GenericId<Table> | null {
-    return this.ctx.db.normalizeId(this.table, id);
+    return isSystemTable(this.table)
+      ? this.ctx.db.system.normalizeId(this.table as any, id)
+      : this.ctx.db.normalizeId(this.table, id);
   }
 
   // normalizeId or throw
