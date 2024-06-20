@@ -14,6 +14,7 @@ import {
 } from "./_generated/server";
 import { getEntDefinitionsWithRules, getViewerId } from "./rules";
 import { entDefinitions } from "./schema";
+import { EntsTableWriter } from "../../src/functions";
 
 export const query = customQuery(
   baseQuery,

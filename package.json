@@ -28,7 +28,7 @@
     "test:once": "cd test && npm run test:once"
   },
   "peerDependencies": {
-    "convex": "^1.11.2"
+    "convex": "^1.13.0"
   },
   "devDependencies": {
     "@types/node": "20.6.0",
