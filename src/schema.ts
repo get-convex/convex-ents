@@ -14,8 +14,16 @@ import {
 } from "convex/server";
 import {
   GenericId,
+  GenericValidator,
   ObjectType,
+  OptionalProperty,
   PropertyValidators,
+  VAny,
+  VFloat64,
+  VId,
+  VObject,
+  VOptional,
+  VUnion,
   Validator,
   v,
 } from "convex/values";
@@ -323,20 +331,14 @@ function deletionConfigFromEntDefinition(table: EntDefinition) {
   return (table as any).deletionConfig as DeletionConfig | undefined;
 }
 
-export function defineEnt<
-  DocumentSchema extends Record<string, Validator<any, any, any>>,
->(
+export function defineEnt<DocumentSchema extends PropertyValidators>(
   documentSchema: DocumentSchema,
-): EntDefinition<
-  ExtractDocument<ObjectValidator<DocumentSchema>>,
-  ExtractFieldPaths<ObjectValidator<DocumentSchema>>
-> {
+): EntDefinition<ObjectValidator<DocumentSchema>> {
   return new EntDefinitionImpl(documentSchema) as any;
 }
 
 export function defineEntFromTable<
-  Document extends GenericDocument = GenericDocument,
-  FieldPaths extends string = string,
+  DocumentType extends GenericValidator = GenericValidator,
   // eslint-disable-next-line @typescript-eslint/ban-types
   Indexes extends GenericTableIndexes = {},
   // eslint-disable-next-line @typescript-eslint/ban-types
@@ -345,43 +347,27 @@ export function defineEntFromTable<
   VectorIndexes extends GenericTableVectorIndexes = {},
 >(
   definition: TableDefinition<
-    Document,
-    FieldPaths,
+    DocumentType,
     Indexes,
     SearchIndexes,
     VectorIndexes
   >,
-): EntDefinition<Document, FieldPaths, Indexes, SearchIndexes, VectorIndexes> {
-  // @ts-expect-error Private field
-  const validator: Validator<any> = definition.documentType;
-
-  const validatorJson: {
-    type: string;
-    value: Record<string, { fieldType: string; optional: boolean }>;
-  } =
-    // @ts-expect-error Private field
-    validator.json;
-
-  if (validatorJson.type !== "object") {
+): EntDefinition<DocumentType, Indexes, SearchIndexes, VectorIndexes> {
+  const validator: DocumentType = definition.validator;
+  if (validator.kind !== "object") {
     throw new Error(
       "Only tables with object definition are supported in Ents, not unions",
     );
   }
-  const tableSchema = Object.fromEntries(
-    Object.entries(validatorJson.value).map(([k, v]) => [
-      k,
-      // @ts-expect-error Private constructor
-      new Validator(v.fieldType, v.optional),
-    ]),
-  );
-  const entDefinition = defineEnt(tableSchema);
+
+  const entDefinition = defineEnt(validator.fields);
   // @ts-expect-error Private fields
   entDefinition.indexes = definition.indexes;
   // @ts-expect-error Private fields
   entDefinition.searchIndexes = definition.searchIndexes;
   // @ts-expect-error Private fields
   entDefinition.vectorIndexes = definition.vectorIndexes;
-  return entDefinition;
+  return entDefinition as any;
 }
 
 type GenericEdges = Record<string, GenericEdgeConfig>;
@@ -393,9 +379,43 @@ export type GenericEdgeConfig = {
   type: "field" | "ref";
 };
 
+type ExtractFieldPaths<T extends Validator<any, any, any>> =
+  // Add in the system fields available in index definitions.
+  // This should be everything except for `_id` because thats added to indexes
+  // automatically.
+  T["fieldPaths"] | keyof SystemFields;
+
+type ObjectFieldType<
+  FieldName extends string,
+  T extends Validator<any, any, any>,
+> = T["isOptional"] extends "optional"
+  ? { [key in FieldName]?: T["type"] }
+  : { [key in FieldName]: T["type"] };
+
+type AddField<
+  V extends GenericValidator,
+  FieldName extends string,
+  P extends GenericValidator,
+> =
+  // Note: We can't use the `AddField` type to add fields to a union type, but ents
+  // do not support schemas with top level unions
+  V extends VObject<
+    infer TypeScriptType,
+    infer Fields,
+    infer IsOptional,
+    infer FieldPaths
+  >
+    ? VObject<
+        Expand<TypeScriptType & ObjectFieldType<FieldName, P>>,
+        Expand<Fields & { FieldName: P }>,
+        IsOptional,
+        FieldPaths | FieldName
+      >
+    : V extends VAny
+      ? VAny
+      : never;
 export interface EntDefinition<
-  Document extends GenericDocument = GenericDocument,
-  FieldPaths extends string = string,
+  DocumentType extends Validator<any, any, any> = Validator<any, any, any>,
   // eslint-disable-next-line @typescript-eslint/ban-types
   Indexes extends GenericTableIndexes = {},
   // eslint-disable-next-line @typescript-eslint/ban-types
@@ -404,13 +424,7 @@ export interface EntDefinition<
   VectorIndexes extends GenericTableVectorIndexes = {},
   // eslint-disable-next-line @typescript-eslint/ban-types
   Edges extends GenericEdges = {},
-> extends TableDefinition<
-    Document,
-    FieldPaths,
-    Indexes,
-    SearchIndexes,
-    VectorIndexes
-  > {
+> extends TableDefinition<DocumentType, Indexes, SearchIndexes, VectorIndexes> {
   /**
    * Define an index on this table.
    *
@@ -423,14 +437,13 @@ export interface EntDefinition<
    */
   index<
     IndexName extends string,
-    FirstFieldPath extends FieldPaths,
-    RestFieldPaths extends FieldPaths[],
+    FirstFieldPath extends ExtractFieldPaths<DocumentType>,
+    RestFieldPaths extends ExtractFieldPaths<DocumentType>[],
   >(
     name: IndexName,
     fields: [FirstFieldPath, ...RestFieldPaths],
   ): EntDefinition<
-    Document,
-    FieldPaths,
+    DocumentType,
     Expand<
       Indexes &
         Record<IndexName, [FirstFieldPath, ...RestFieldPaths, "_creationTime"]>
@@ -451,14 +464,13 @@ export interface EntDefinition<
    */
   searchIndex<
     IndexName extends string,
-    SearchField extends FieldPaths,
-    FilterFields extends FieldPaths = never,
+    SearchField extends ExtractFieldPaths<DocumentType>,
+    FilterFields extends ExtractFieldPaths<DocumentType> = never,
   >(
     name: IndexName,
     indexConfig: Expand<SearchIndexConfig<SearchField, FilterFields>>,
   ): EntDefinition<
-    Document,
-    FieldPaths,
+    DocumentType,
     Indexes,
     Expand<
       SearchIndexes &
@@ -485,14 +497,13 @@ export interface EntDefinition<
   //  */
   vectorIndex<
     IndexName extends string,
-    VectorField extends FieldPaths,
-    FilterFields extends FieldPaths = never,
+    VectorField extends ExtractFieldPaths<DocumentType>,
+    FilterFields extends ExtractFieldPaths<DocumentType> = never,
   >(
     name: IndexName,
     indexConfig: Expand<VectorIndexConfig<VectorField, FilterFields>>,
   ): EntDefinition<
-    Document,
-    FieldPaths,
+    DocumentType,
     Indexes,
     SearchIndexes,
     Expand<
@@ -509,12 +520,11 @@ export interface EntDefinition<
     Edges
   >;
 
-  field<FieldName extends string, T extends Validator<any, any, any>>(
+  field<FieldName extends string, T extends GenericValidator>(
     field: FieldName,
     validator: T,
   ): EntDefinition<
-    Document & ObjectFieldType<FieldName, T>,
-    FieldPaths | FieldName,
+    AddField<DocumentType, FieldName, T>,
     Indexes,
     SearchIndexes,
     VectorIndexes,
@@ -525,8 +535,7 @@ export interface EntDefinition<
     validator: T,
     options: { index: true },
   ): EntDefinition<
-    Document & ObjectFieldType<FieldName, T>,
-    FieldPaths | FieldName,
+    AddField<DocumentType, FieldName, T>,
     Indexes & { [key in FieldName]: [FieldName, "_creationTime"] },
     SearchIndexes,
     VectorIndexes,
@@ -537,20 +546,18 @@ export interface EntDefinition<
     validator: T,
     options: { unique: true },
   ): EntDefinition<
-    Document & ObjectFieldType<FieldName, T>,
-    FieldPaths | FieldName,
+    AddField<DocumentType, FieldName, T>,
     Indexes & { [key in FieldName]: [FieldName, "_creationTime"] },
     SearchIndexes,
     VectorIndexes,
     Edges
   >;
-  field<FieldName extends string, T extends Validator<any, false, any>>(
+  field<FieldName extends string, T extends Validator<any, "required", any>>(
     field: FieldName,
     validator: T,
     options: { default: T["type"] },
   ): EntDefinition<
-    Document & ObjectFieldType<FieldName, T>,
-    FieldPaths | FieldName,
+    AddField<DocumentType, FieldName, T>,
     Indexes,
     SearchIndexes,
     VectorIndexes,
@@ -560,8 +567,7 @@ export interface EntDefinition<
   edge<EdgeName extends string>(
     edge: EdgeName,
   ): EntDefinition<
-    Document & { [key in `${EdgeName}Id`]: GenericId<`${EdgeName}s`> },
-    FieldPaths | `${EdgeName}Id`,
+    AddField<DocumentType, `${EdgeName}Id`, VId<GenericId<`${EdgeName}s`>>>,
     Indexes & { [key in `${EdgeName}Id`]: [`${EdgeName}Id`, "_creationTime"] },
     SearchIndexes,
     VectorIndexes,
@@ -578,8 +584,7 @@ export interface EntDefinition<
     edge: EdgeName,
     options: { field: FieldName },
   ): EntDefinition<
-    Document & { [key in NoInfer<FieldName>]: GenericId<`${EdgeName}s`> },
-    FieldPaths | NoInfer<FieldName>,
+    AddField<DocumentType, NoInfer<FieldName>, VId<GenericId<`${EdgeName}s`>>>,
     Indexes & {
       [key in NoInfer<FieldName>]: [NoInfer<FieldName>, "_creationTime"];
     },
@@ -602,8 +607,7 @@ export interface EntDefinition<
     edge: EdgeName,
     options: { field: FieldName; to: ToTable },
   ): EntDefinition<
-    Document & { [key in NoInfer<FieldName>]: GenericId<ToTable> },
-    FieldPaths | NoInfer<FieldName>,
+    AddField<DocumentType, NoInfer<FieldName>, VId<GenericId<`${ToTable}`>>>,
     Indexes & {
       [key in NoInfer<FieldName>]: [NoInfer<FieldName>, "_creationTime"];
     },
@@ -626,8 +630,7 @@ export interface EntDefinition<
       deletion?: "soft";
     },
   ): EntDefinition<
-    Document,
-    FieldPaths,
+    DocumentType,
     Indexes,
     SearchIndexes,
     VectorIndexes,
@@ -649,8 +652,7 @@ export interface EntDefinition<
       deletion?: "soft";
     },
   ): EntDefinition<
-    Document,
-    FieldPaths,
+    DocumentType,
     Indexes,
     SearchIndexes,
     VectorIndexes,
@@ -677,8 +679,7 @@ export interface EntDefinition<
       deletion?: "soft";
     },
   ): EntDefinition<
-    Document,
-    FieldPaths,
+    DocumentType,
     Indexes,
     SearchIndexes,
     VectorIndexes,
@@ -708,8 +709,7 @@ export interface EntDefinition<
       deletion?: "soft";
     },
   ): EntDefinition<
-    Document,
-    FieldPaths,
+    DocumentType,
     Indexes,
     SearchIndexes,
     VectorIndexes,
@@ -737,8 +737,7 @@ export interface EntDefinition<
       field?: string;
     },
   ): EntDefinition<
-    Document,
-    FieldPaths,
+    DocumentType,
     Indexes,
     SearchIndexes,
     VectorIndexes,
@@ -773,8 +772,7 @@ export interface EntDefinition<
       inverseField?: string;
     },
   ): EntDefinition<
-    Document,
-    FieldPaths,
+    DocumentType,
     Indexes,
     SearchIndexes,
     VectorIndexes,
@@ -813,8 +811,7 @@ export interface EntDefinition<
       inverseField?: string;
     },
   ): EntDefinition<
-    Document,
-    FieldPaths,
+    DocumentType,
     Indexes,
     SearchIndexes,
     VectorIndexes,
@@ -846,8 +843,7 @@ export interface EntDefinition<
   deletion(
     type: "soft",
   ): EntDefinition<
-    Document & { deletionTime?: number },
-    FieldPaths | "deletionTime",
+    AddField<DocumentType, "deletionTime", VOptional<VFloat64>>,
     Indexes,
     SearchIndexes,
     VectorIndexes,
@@ -870,8 +866,7 @@ export interface EntDefinition<
       delayMs: number;
     },
   ): EntDefinition<
-    Document & { deletionTime?: number },
-    FieldPaths | "deletionTime",
+    AddField<DocumentType, "deletionTime", VOptional<VFloat64>>,
     Indexes,
     SearchIndexes,
     VectorIndexes,
@@ -905,6 +900,7 @@ type EdgesOptions = {
 };
 
 class EntDefinitionImpl {
+  validator: GenericValidator;
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
   // @ts-ignore
   private indexes: Index[] = [];
@@ -927,6 +923,7 @@ class EntDefinitionImpl {
 
   constructor(documentSchema: Record<string, Validator<any, any, any>>) {
     this.documentSchema = documentSchema;
+    this.validator = v.object(documentSchema);
   }
 
   index(name: any, fields: any) {
@@ -1094,13 +1091,6 @@ class EntDefinitionImpl {
   }
 }
 
-type ObjectFieldType<
-  FieldName extends string,
-  T extends Validator<any, any, any>,
-> = T["isOptional"] extends true
-  ? { [key in FieldName]?: T["type"] }
-  : { [key in FieldName]: T["type"] };
-
 export type EdgeConfig = {
   name: string;
   to: string;
@@ -1178,45 +1168,21 @@ export type FieldConfig = {
   unique: boolean;
 };
 
-type ExtractDocument<T extends Validator<any, any, any>> =
-  // Add the system fields to `Value` (except `_id` because it depends on
-  //the table name) and trick TypeScript into expanding them.
-  Expand<SystemFields & T["type"]>;
-
 export type Expand<ObjectType extends Record<any, any>> =
   ObjectType extends Record<any, any>
     ? {
         [Key in keyof ObjectType]: ObjectType[Key];
       }
     : never;
-type ExtractFieldPaths<T extends Validator<any, any, any>> =
-  // Add in the system fields available in index definitions.
-  // This should be everything except for `_id` because thats added to indexes
-  // automatically.
-  T["fieldPaths"] | keyof SystemFields;
 export type SystemFields = {
   _creationTime: number;
 };
 
-type ObjectValidator<Validators extends PropertyValidators> = Validator<
+type ObjectValidator<Validators extends PropertyValidators> = VObject<
   // Compute the TypeScript type this validator refers to.
   ObjectType<Validators>,
-  false,
-  // Compute the field paths for this validator. For every property in the object,
-  // add on a field path for that property and extend all the field paths in the
-  // validator.
-  {
-    [Property in keyof Validators]:
-      | JoinFieldPaths<Property & string, Validators[Property]["fieldPaths"]>
-      | Property;
-  }[keyof Validators] &
-    string
+  Validators
 >;
-
-type JoinFieldPaths<
-  Start extends string,
-  End extends string,
-> = `${Start}.${End}`;
 
 export type GenericEntsDataModel = GenericDataModel &
   Record<string, GenericEntModel>;
@@ -1239,7 +1205,6 @@ export type EntDataModelFromSchema<
 > = DataModelFromSchemaDefinition<SchemaDef> & {
   [TableName in keyof SchemaDef["tables"] &
     string]: SchemaDef["tables"][TableName] extends EntDefinition<
-    any,
     any,
     any,
     any,
