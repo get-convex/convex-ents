@@ -7,6 +7,7 @@ import {
   GenericDatabaseReader,
   GenericDatabaseWriter,
   GenericDocument,
+  GenericTableInfo,
   IndexNames,
   IndexRange,
   IndexRangeBuilder,
@@ -1190,18 +1191,35 @@ class PromiseEdgeOrNullImpl<
     entDefinitions: EntsDataModel,
     table: Table,
     private field: string,
-    private retrieveRange: (
+    private retrieveRangeOfEdgeDocs: (
       indexRange: (
         q: IndexRangeBuilder<DocumentByName<EntsDataModel, Table>, any>,
       ) => any,
-    ) => Promise<DocumentByName<EntsDataModel, Table>[] | null>,
+    ) => Promise<Query<GenericTableInfo> | null>,
+    private retrieveDoc: (edgeDoc: DocumentByName<EntsDataModel, Table>) => any,
   ) {
-    super(ctx, entDefinitions, table, () => retrieveRange((q) => q), false);
+    super(
+      ctx,
+      entDefinitions,
+      table,
+      async () => {
+        const query = await retrieveRangeOfEdgeDocs((q) => q);
+        if (query === null) {
+          return null;
+        }
+        const edgeDocs = await query.collect();
+        return await Promise.all(edgeDocs.map(retrieveDoc));
+      },
+      false,
+    );
   }
 
   async has(id: GenericId<Table>) {
-    const docs = await this.retrieveRange((q) => q.eq(this.field, id as any));
-    return (docs?.length ?? 0) > 0;
+    const query = await this.retrieveRangeOfEdgeDocs((q) =>
+      q.eq(this.field, id as any),
+    );
+    const edgeDocs = await query?.collect();
+    return (edgeDocs?.length ?? 0) > 0;
   }
 }
 
@@ -1347,33 +1365,28 @@ class PromiseEntOrNullImpl<
             if (id === null) {
               return null;
             }
-            const edgeDocs = await this.ctx.db
+            return this.ctx.db
               .query(edgeDefinition.table)
               .withIndex(edgeDefinition.field, (q) =>
                 indexRange(q.eq(edgeDefinition.field, id as any) as any),
-              )
-              .collect();
-            return (
-              await Promise.all(
-                edgeDocs.map((edgeDoc) =>
-                  this.ctx.db.get(edgeDoc[edgeDefinition.ref] as any),
-                ),
-              )
-            ).filter(<TValue>(doc: TValue | null, i: number): doc is TValue => {
-              if (doc === null) {
-                throw new Error(
-                  `Dangling reference for edge "${edgeDefinition.name}" in ` +
-                    `table "${this.table}" for document with ID "${id}": ` +
-                    `Could not find a document with ID "${
-                      edgeDocs[i][edgeDefinition.field] as string
-                    }"` +
-                    ` in table "${edgeDefinition.to}" (edge document ID is "${
-                      edgeDocs[i]._id as string
-                    }").`,
-                );
-              }
-              return true;
-            });
+              );
+          },
+          async (edgeDoc) => {
+            const sourceId = edgeDoc[edgeDefinition.field] as string;
+            const targetId = edgeDoc[edgeDefinition.ref] as string;
+            const doc = await this.ctx.db.get(targetId as any);
+            if (doc === null) {
+              throw new Error(
+                `Dangling reference for edge "${edgeDefinition.name}" in ` +
+                  `table "${this.table}" for ` +
+                  `document with ID "${sourceId}": ` +
+                  `Could not find a document with ID "${targetId}"` +
+                  ` in table "${edgeDefinition.to}" (edge document ID is "${
+                    edgeDoc._id as string
+                  }").`,
+              );
+            }
+            return doc;
           },
         ) as any;
       }
