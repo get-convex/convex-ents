@@ -367,6 +367,29 @@ export function defineEntFromTable<
   return entDefinition as any;
 }
 
+type DefineEntFromTables<
+  T extends { [key: string]: TableDefinition<any, any, any, any> },
+> = {
+  [K in keyof T]: T[K] extends TableDefinition<
+    infer D,
+    infer I,
+    infer S,
+    infer V
+  >
+    ? EntDefinition<D, I, S, V>
+    : never;
+};
+
+export function defineEntsFromTables<
+  T extends { [key: string]: TableDefinition<any, any, any, any> },
+>(definitions: T): DefineEntFromTables<T> {
+  const result: any = {};
+  for (const key in definitions) {
+    result[key] = defineEntFromTable(definitions[key]);
+  }
+  return result;
+}
+
 type GenericEdges = Record<string, GenericEdgeConfig>;
 
 export type GenericEdgeConfig = {

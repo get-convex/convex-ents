@@ -19,7 +19,7 @@ the built-in `_id` and `_creationTime` fields, and no declared edges. Ents can
 contain all the same field types Convex documents can. Ents are stored in tables
 in the Convex database.
 
-Unlike bare documents, Ents require a schema. Here's a minimal example of the
+Unlike bare documents, ents require a schema. Here's a minimal example of the
 `convex/schema.ts` file using Ents:
 
 ```ts filename="convex/schema.ts"
@@ -33,7 +33,7 @@ const schema = defineEntSchema({
 
   users: defineEnt({
     name: v.string(),
-  }).edges("messages"),
+  }).edges("messages", { ref: true }),
 });
 
 export default schema;
@@ -109,7 +109,7 @@ defineEntSchema({
   posts: defineEnt({}).field(
     "contentType",
     v.union(v.literal("text"), v.literal("video")),
-    { default: "text" }
+    { default: "text" },
   ),
 });
 ```

@@ -2,6 +2,7 @@ export {
   defineEnt,
   defineEntFromTable,
   defineEntSchema,
+  defineEntsFromTables,
   getEntDefinitions,
 } from "./schema";
 export type { EntDefinition } from "./schema";
