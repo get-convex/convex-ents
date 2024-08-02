@@ -369,8 +369,13 @@ class PromiseQueryOrNullImpl<
       this.ctx,
       this.entDefinitions,
       this.table,
-      this.retrieve,
-      paginationOpts,
+      async () => {
+        const query = await this.retrieve();
+        if (query === null) {
+          return null;
+        }
+        return await query.paginate(paginationOpts);
+      },
     );
   }
 
@@ -516,39 +521,13 @@ class PromiseQueryOrNullImpl<
 
   async _take(n: number) {
     const query = await this.retrieve();
-    if (query === null) {
-      return null;
-    }
-    const readPolicy = getReadRule(this.entDefinitions, this.table);
-    if (readPolicy === undefined) {
-      return await query.take(n);
-    }
-    let numItems = n;
-    const docs = [];
-    let hasMore = true;
-    const iterator = query[Symbol.asyncIterator]();
-    while (hasMore && docs.length < n) {
-      const page = [];
-      for (let i = 0; i < numItems; i++) {
-        const { done, value } = await iterator.next();
-        if (done) {
-          hasMore = false;
-          break;
-        }
-        page.push(value);
-      }
-      docs.push(
-        ...(await filterByReadRule(
-          this.ctx,
-          this.entDefinitions,
-          this.table,
-          page,
-          false,
-        ))!.slice(0, n - docs.length),
-      );
-      numItems = Math.min(64, numItems * 2);
-    }
-    return docs;
+    return await takeFromQuery(
+      query,
+      n,
+      this.ctx,
+      this.entDefinitions,
+      this.table,
+    );
   }
 }
 
@@ -603,10 +582,9 @@ class PromisePaginationResultOrNullImpl<
     private ctx: EntQueryCtx<EntsDataModel>,
     private entDefinitions: EntsDataModel,
     private table: Table,
-    protected retrieve: () => Promise<Query<
-      NamedTableInfo<EntsDataModel, Table>
+    protected retrieve: () => Promise<PaginationResult<
+      DocumentByName<EntsDataModel, Table>
     > | null>,
-    protected paginationOpts: PaginationOptions,
   ) {
     super(() => {});
   }
@@ -629,11 +607,10 @@ class PromisePaginationResultOrNullImpl<
   }
 
   async docs() {
-    const query = await this.retrieve();
-    if (query === null) {
+    const result = await this.retrieve();
+    if (result === null) {
       return null;
     }
-    const result = await query.paginate(this.paginationOpts);
     return {
       ...result,
       page: (await filterByReadRule(
@@ -974,9 +951,9 @@ class PromiseEntsOrNullImpl<
   implements PromiseEntsOrNull<EntsDataModel, Table>
 {
   constructor(
-    private ctx: EntQueryCtx<EntsDataModel>,
-    private entDefinitions: EntsDataModel,
-    private table: Table,
+    protected ctx: EntQueryCtx<EntsDataModel>,
+    protected entDefinitions: EntsDataModel,
+    protected table: Table,
     private retrieve: () => Promise<
       DocumentByName<EntsDataModel, Table>[] | null
     >,
@@ -1131,52 +1108,202 @@ export interface PromiseEntsOrNulls<
     (Ent<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel> | null)[]
   > {}
 
-export interface PromiseEdgeEntsOrNull<
+export interface PromiseEdgeOrderedEntsOrNull<
   EntsDataModel extends GenericEntsDataModel,
   Table extends TableNamesInDataModel<EntsDataModel>,
 > extends PromiseEntsOrNull<EntsDataModel, Table> {
+  /**
+   * Paginate the ents on the other end of the edge.
+   * Results are ordered by edge's `_creationTime`.
+   */
+  paginate(
+    paginationOpts: PaginationOptions,
+  ): PromisePaginationResultOrNull<EntsDataModel, Table>;
+
+  /**
+   * Take the first `n` ents on the other end of the edge
+   * ordered by edge's `_creationTime`.
+   */
+  take(n: number): PromiseEntsOrNull<EntsDataModel, Table>;
+
+  /**
+   * Returns the first ent on the other end of the edge
+   * ordered by edge's `_creationTime`, or `null`.
+   */
+  first(): PromiseEntOrNull<EntsDataModel, Table>;
+}
+
+export interface PromiseEdgeEntsOrNull<
+  EntsDataModel extends GenericEntsDataModel,
+  Table extends TableNamesInDataModel<EntsDataModel>,
+> extends PromiseEdgeOrderedEntsOrNull<EntsDataModel, Table> {
   /**
    * Returns whether there is an ent with given ID on the other side
    * the edge. Returns null if chained to a null result.
    * @param id The ID of the ent on the other end of the edge
    */
   has(id: GenericId<Table>): Promise<boolean | null>;
+
+  /**
+   * Query the ents on the other end of the edge
+   * ordered by edge's `_creationTime`.
+   */
+  order(
+    order: "asc" | "desc",
+    indexName?: IndexNames<NamedTableInfo<EntsDataModel, Table>>,
+  ): PromiseEdgeOrderedEntsOrNull<EntsDataModel, Table>;
+}
+
+export interface PromiseEdgeOrderedEntsWriterOrNull<
+  EntsDataModel extends GenericEntsDataModel,
+  Table extends TableNamesInDataModel<EntsDataModel>,
+> extends PromiseEntsWriterOrNull<EntsDataModel, Table> {
+  /**
+   * Paginate the ents on the other end of the edge.
+   * Results are ordered by edge's `_creationTime`.
+   */
+  paginate(
+    paginationOpts: PaginationOptions,
+  ): PromisePaginationResultWriterOrNull<EntsDataModel, Table>;
+
+  /**
+   * Take the first `n` ents on the other end of the edge
+   * ordered by edge's `_creationTime`.
+   */
+  take(n: number): PromiseEntsWriterOrNull<EntsDataModel, Table>;
+
+  /**
+   * Returns the first ent on the other end of the edge
+   * ordered by edge's `_creationTime`, or `null`.
+   */
+  first(): PromiseEntWriterOrNull<EntsDataModel, Table>;
 }
 
 export interface PromiseEdgeEntsWriterOrNull<
   EntsDataModel extends GenericEntsDataModel,
   Table extends TableNamesInDataModel<EntsDataModel>,
-> extends PromiseEntsWriterOrNull<EntsDataModel, Table> {
+> extends PromiseEdgeOrderedEntsWriterOrNull<EntsDataModel, Table> {
   /**
    * Returns whether there is an ent with given ID on the other side
    * the edge. Returns null if chained to a null result.
    * @param id The ID of the ent on the other end of the edge
    */
   has(id: GenericId<Table>): Promise<boolean | null>;
+
+  /**
+   * Query the ents on the other end of the edge
+   * ordered by edge's `_creationTime`.
+   */
+  order(
+    order: "asc" | "desc",
+    indexName?: IndexNames<NamedTableInfo<EntsDataModel, Table>>,
+  ): PromiseEdgeOrderedEntsWriterOrNull<EntsDataModel, Table>;
+}
+
+export interface PromiseEdgeOrderedEnts<
+  EntsDataModel extends GenericEntsDataModel,
+  Table extends TableNamesInDataModel<EntsDataModel>,
+> extends PromiseEnts<EntsDataModel, Table> {
+  /**
+   * Paginate the ents on the other end of the edge.
+   * Results are ordered by edge's `_creationTime`.
+   */
+  paginate(
+    paginationOpts: PaginationOptions,
+  ): PromisePaginationResult<EntsDataModel, Table>;
+
+  /**
+   * Take the first `n` ents on the other end of the edge
+   * ordered by edge's `_creationTime`.
+   */
+  take(n: number): PromiseEnts<EntsDataModel, Table>;
+
+  /**
+   * Returns the first ent on the other end of the edge
+   * ordered by edge's `_creationTime`, or `null`.
+   */
+  first(): PromiseEntOrNull<EntsDataModel, Table>;
+
+  /**
+   * Returns the first ent on the other end of the edge
+   * ordered by edge's `_creationTime`, or throws if there
+   * are no ents on the other end of the edge.
+   */
+  firstX(): PromiseEnt<EntsDataModel, Table>;
 }
 
 export interface PromiseEdgeEnts<
   EntsDataModel extends GenericEntsDataModel,
   Table extends TableNamesInDataModel<EntsDataModel>,
-> extends PromiseEnts<EntsDataModel, Table> {
+> extends PromiseEdgeOrderedEnts<EntsDataModel, Table> {
   /**
    * Returns whether there is an ent with given ID on the other side
    * the edge.
    * @param id The ID of the ent on the other end of the edge
    */
   has(id: GenericId<Table>): Promise<boolean>;
+
+  /**
+   * Query the ents on the other end of the edge
+   * ordered by edge's `_creationTime`.
+   */
+  order(
+    order: "asc" | "desc",
+    indexName?: IndexNames<NamedTableInfo<EntsDataModel, Table>>,
+  ): PromiseEdgeOrderedEnts<EntsDataModel, Table>;
+}
+
+export interface PromiseEdgeOrderedEntsWriter<
+  EntsDataModel extends GenericEntsDataModel,
+  Table extends TableNamesInDataModel<EntsDataModel>,
+> extends PromiseEntsWriter<EntsDataModel, Table> {
+  /**
+   * Paginate the ents on the other end of the edge.
+   * Results are ordered by edge's `_creationTime`.
+   */
+  paginate(
+    paginationOpts: PaginationOptions,
+  ): PromisePaginationResultWriter<EntsDataModel, Table>;
+
+  /**
+   * Take the first `n` ents on the other end of the edge
+   * ordered by edge's `_creationTime`.
+   */
+  take(n: number): PromiseEntsWriter<EntsDataModel, Table>;
+
+  /**
+   * Returns the first ent on the other end of the edge
+   * ordered by edge's `_creationTime`, or `null`.
+   */
+  first(): PromiseEntWriterOrNull<EntsDataModel, Table>;
+
+  /**
+   * Returns the first ent on the other end of the edge
+   * ordered by edge's `_creationTime`, or throws if there
+   * are no ents on the other end of the edge.
+   */
+  firstX(): PromiseEntWriter<EntsDataModel, Table>;
 }
 
 export interface PromiseEdgeEntsWriter<
   EntsDataModel extends GenericEntsDataModel,
   Table extends TableNamesInDataModel<EntsDataModel>,
-> extends PromiseEntsWriter<EntsDataModel, Table> {
+> extends PromiseEdgeOrderedEntsWriter<EntsDataModel, Table> {
   /**
    * Returns whether there is an ent with given ID on the other side
    * the edge.
    * @param id The ID of the ent on the other end of the edge
    */
   has(id: GenericId<Table>): Promise<boolean>;
+
+  /**
+   * Query the ents on the other end of the edge
+   * ordered by edge's `_creationTime`.
+   */
+  order(
+    order: "asc" | "desc",
+    indexName?: IndexNames<NamedTableInfo<EntsDataModel, Table>>,
+  ): PromiseEdgeOrderedEntsWriter<EntsDataModel, Table>;
 }
 
 class PromiseEdgeOrNullImpl<
@@ -1220,6 +1347,68 @@ class PromiseEdgeOrNullImpl<
     );
     const edgeDocs = await query?.collect();
     return (edgeDocs?.length ?? 0) > 0;
+  }
+
+  order(order: "asc" | "desc") {
+    return new PromiseEdgeOrNullImpl(
+      this.ctx,
+      this.entDefinitions,
+      this.table,
+      this.field,
+      async (indexRange) => {
+        const query = await this.retrieveRangeOfEdgeDocs(indexRange);
+        if (query === null) {
+          return null;
+        }
+        // This class supports both ordered and unordered queries,
+        // so we pretend this one can be ordered again, interface types
+        // won't allow it.
+        return query.order(order) as Query<GenericTableInfo>;
+      },
+      this.retrieveDoc,
+    );
+  }
+
+  paginate(paginationOpts: PaginationOptions) {
+    return new PromisePaginationResultOrNullImpl(
+      this.ctx,
+      this.entDefinitions,
+      this.table,
+      async () => {
+        const query = await this.retrieveRangeOfEdgeDocs((q) => q);
+        if (query === null) {
+          return null;
+        }
+        const result = await query.paginate(paginationOpts);
+        return {
+          ...result,
+          page: await Promise.all(result.page.map(this.retrieveDoc)),
+        };
+      },
+    );
+  }
+
+  take(n: number) {
+    return new PromiseEntsOrNullImpl(
+      this.ctx,
+      this.entDefinitions,
+      this.table,
+      async () => {
+        return await this._take(n);
+      },
+      false,
+    );
+  }
+
+  async _take(n: number) {
+    const query = await this.retrieveRangeOfEdgeDocs((q) => q);
+    return await takeFromQuery(
+      query,
+      n,
+      this.ctx,
+      this.entDefinitions,
+      this.table,
+    );
   }
 }
 
@@ -1875,6 +2064,33 @@ export interface PromiseEntsWriter<
   // are no documents. It does not optimize the previous steps in the query.
   // Otherwise it behaves like db.query().unique().
   uniqueX(): PromiseEntWriter<EntsDataModel, Table>;
+}
+
+export interface PromisePaginationResultWriterOrNull<
+  EntsDataModel extends GenericEntsDataModel,
+  Table extends TableNamesInDataModel<EntsDataModel>,
+> extends Promise<PaginationResult<
+    EntWriter<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel>
+  > | null> {
+  docs(): Promise<PaginationResult<
+    DocumentByName<EntsDataModel, Table>
+  > | null>;
+
+  map<TOutput>(
+    callbackFn: (
+      value: EntWriter<
+        Table,
+        DocumentByName<EntsDataModel, Table>,
+        EntsDataModel
+      >,
+      index: number,
+      array: EntWriter<
+        Table,
+        DocumentByName<EntsDataModel, Table>,
+        EntsDataModel
+      >[],
+    ) => Promise<TOutput> | TOutput,
+  ): Promise<PaginationResult<TOutput> | null>;
 }
 
 export interface PromisePaginationResultWriter<
@@ -2625,6 +2841,48 @@ export function addEntRules<EntsDataModel extends GenericEntsDataModel>(
   },
 ): EntsDataModel {
   return { ...entDefinitions, rules };
+}
+
+async function takeFromQuery(
+  query: Query<GenericTableInfo> | null,
+  n: number,
+  ctx: EntQueryCtx<any>,
+  entDefinitions: GenericEntsDataModel,
+  table: string,
+) {
+  if (query === null) {
+    return null;
+  }
+  const readPolicy = getReadRule(entDefinitions, table);
+  if (readPolicy === undefined) {
+    return await query.take(n);
+  }
+  let numItems = n;
+  const docs = [];
+  let hasMore = true;
+  const iterator = query[Symbol.asyncIterator]();
+  while (hasMore && docs.length < n) {
+    const page = [];
+    for (let i = 0; i < numItems; i++) {
+      const { done, value } = await iterator.next();
+      if (done) {
+        hasMore = false;
+        break;
+      }
+      page.push(value);
+    }
+    docs.push(
+      ...(await filterByReadRule(
+        ctx,
+        entDefinitions,
+        table,
+        page,
+        false,
+      ))!.slice(0, n - docs.length),
+    );
+    numItems = Math.min(64, numItems * 2);
+  }
+  return docs;
 }
 
 async function filterByReadRule<Doc extends GenericDocument>(

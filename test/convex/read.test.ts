@@ -1,8 +1,8 @@
-import { expect, test as baseTest, vi } from "vitest";
-import { convexTest, runCtx } from "./setup.testing";
+import { test as baseTest, expect, vi } from "vitest";
+import { internal } from "./_generated/api";
 import schema from "./schema";
+import { convexTest, runCtx } from "./setup.testing";
 import { Ent, EntWriter, MutationCtx } from "./types";
-import { api, internal } from "./_generated/api";
 
 // To test typechecking, replace MutationCtx with QueryCtx
 const test = baseTest.extend<{ ctx: MutationCtx }>({
@@ -334,6 +334,26 @@ test("edge after getX using index", async ({ ctx }) => {
     .edge("messages");
   expect(messagesByUser.length).toEqual(1);
   expect(messagesByUser[0].text).toEqual("Hello world");
+});
+
+test("paginate many:many edge", async ({ ctx }) => {
+  const user1 = await ctx
+    .table("users")
+    .insert({ name: "Stark", email: "tony@stark.com" })
+    .get();
+  const user2 = await ctx
+    .table("users")
+    .insert({ name: "Musk", email: "elon@musk.com" })
+    .get();
+  await user2.patch({ friends: { add: [user1._id] } });
+  const friends = await ctx
+    .table("users")
+    .firstX()
+    .edge("friends")
+    .paginate({ numItems: 5, cursor: null });
+  expect(friends.page.length).toEqual(1);
+  expect(friends.page[0].name).toEqual("Musk");
+  expect(friends.isDone).toEqual(true);
 });
 
 test("table collect", async ({ ctx }) => {
