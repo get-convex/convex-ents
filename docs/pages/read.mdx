@@ -264,7 +264,7 @@ produced more or less than 1 result:
 const counter = await ctx.table("counters").uniqueX();
 ```
 
-### Accessing system tables
+## Accessing system tables
 
 [System tables](https://docs.convex.dev/database/advanced/system-tables) can be
 read with the `ctx.table.system` method:
@@ -279,23 +279,29 @@ Edges to and from system tables are currently not supported.
 
 ## Traversing edges
 
-Convex Ents allow easily traversing edges declared in the [schema](/schema).
+Convex Ents allow easily traversing edges declared in the
+[schema](/schema#edges) with the `edge` method.
 
 ### Traversing 1:1 edge
 
-The `edge` method returns an ent for 1:1 edges, or `null` if starting from the
-"optional" end of the edge:
+For 1:1 edges, the `edge` method returns:
+
+- The ent required on the other end of the edge (ex: given a `profile`, load the
+  `user`)
+- The ent or `null` on the optional end of the edge (ex: given a `user`, load
+  their `profile`)
 
 ```ts
-const profile = await ctx.table("users").getX(userId).edge("profile");
+const user = await ctx.table("profiles").getX(profileId).edge("user");
+const profileOrNull = await ctx.table("users").getX(userId).edge("profile");
 ```
 
 <Aside title="This is equivalent to the built-in:">
 
 ```ts
-const profile = await ctx.db
-  .query("profiles")
-  .withIndex("userId", (q) => q.eq("userId", userId))
+const user = await ctx.db
+  .query("users")
+  .withIndex("profileId", (q) => q.eq("profileId", profileId))
   .unique();
 ```
 
@@ -310,20 +316,37 @@ const profile = await ctx.table("users").getX(userId).edgeX("profile");
 
 ### Traversing 1:many edges
 
-The `edge` method returns either a list of ents, or a single ent (or null) for
-1:many edges, depending on which end of the edge is used:
+For 1:many edges, the `edge` method returns:
 
-```ts
-const messages = await ctx.table("users").getX(userId).edge("messages");
-```
+- The ent required on the other end of the edge (ex: given a `message`, load the
+  `user`)
+- A list of ents on the end of the multiple edges (ex: given a `user`, load all
+  the `messages`)
 
 ```ts
 const user = await ctx.table("message").getX(messageId).edge("user");
+const messages = await ctx.table("users").getX(userId).edge("messages");
 ```
+
+<Aside title="This is equivalent to the built-in:">
+
+```ts
+const messages = await ctx.db
+  .query("messages")
+  .withIndex("userId", (q) => q.eq("userId", userId))
+  .collect();
+```
+
+</Aside>
+
+In the case where a list is returned, [filtering](#filtering),
+[ordering](#ordering) and [limiting results](#limiting-results) applies and can
+be used.
 
 ### Traversing many:many edges
 
-The `edge` method returns either a list of ents for many:many edges:
+For many:many edges, the `edge` method returns a list of ents on the other end
+of the multiple edges:
 
 ```ts
 const tags = await ctx.table("messages").getX(messageId).edge("tags");

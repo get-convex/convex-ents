@@ -153,9 +153,10 @@ each end, there can be 0, 1 or many Ents connected to the same Ent on the other
 side of the edge. For example, a user (represented by an Ent) has a profile
 (represented by an Ent). In this case we call this a 1:1 edge. If we ask "how
 many profiles does a user X have?" the answer is always 1. Similarly there can
-be 1:many edges, such as user to authored messages, when each message has only a
-single author; and many:many edges, such as messages to tags, where each message
-can have many tags, and each tag can be attached to many messages.
+be 1:many edges, such as a user with the messages they authored, when each
+message has only a single author; and many:many edges, such as messages to tags,
+where each message can have many tags, and each tag can be attached to many
+messages.
 
 Now that you understand all the properties of edges, here's how you can declare
 them: Edges are always declared on the ents that constitute its ends. Let's take
