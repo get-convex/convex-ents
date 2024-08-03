@@ -457,6 +457,42 @@ test("take many:many symmetric edge", async ({ ctx }) => {
   expect(friends[0].name).toEqual("Musk");
 });
 
+test("order many:many edge", async ({ ctx }) => {
+  const userId = await ctx
+    .table("users")
+    .insert({ name: "Stark", email: "tony@stark.com" });
+  const messageId = await ctx
+    .table("messages")
+    .insert({ text: "Hello world", userId: userId });
+  await ctx.table("tags").insertMany([
+    { name: "cool", messages: [messageId] },
+    { name: "funny", messages: [messageId] },
+  ]);
+
+  const firstTag = await ctx
+    .table("messages")
+    .firstX()
+    .edge("tags")
+    .order("desc")
+    .first();
+  expect(firstTag).toMatchObject({ name: "funny" });
+  const firstXTag = await ctx
+    .table("messages")
+    .firstX()
+    .edge("tags")
+    .order("desc")
+    .firstX();
+  expect(firstXTag).toMatchObject({ name: "funny" });
+  await expect(
+    async () =>
+      await ctx.table("messages").firstX().edge("tags").order("desc").unique(),
+  ).rejects.toThrow();
+  await expect(
+    async () =>
+      await ctx.table("messages").firstX().edge("tags").order("desc").uniqueX(),
+  ).rejects.toThrow();
+});
+
 test("table collect", async ({ ctx }) => {
   const userId = await ctx
     .table("users")

@@ -1131,6 +1131,12 @@ export interface PromiseEdgeOrderedEntsOrNull<
    * ordered by edge's `_creationTime`, or `null`.
    */
   first(): PromiseEntOrNull<EntsDataModel, Table>;
+
+  /**
+   * Returns the only ent on the other end of the edge,
+   * `null` if there are none, or throws if there are more than one.
+   */
+  unique(): PromiseEntOrNull<EntsDataModel, Table>;
 }
 
 export interface PromiseEdgeEntsOrNull<
@@ -1177,6 +1183,12 @@ export interface PromiseEdgeOrderedEntsWriterOrNull<
    * ordered by edge's `_creationTime`, or `null`.
    */
   first(): PromiseEntWriterOrNull<EntsDataModel, Table>;
+
+  /**
+   * Returns the only ent on the other end of the edge,
+   * `null` if there are none, or throws if there are more than one.
+   */
+  unique(): PromiseEntWriterOrNull<EntsDataModel, Table>;
 }
 
 export interface PromiseEdgeEntsWriterOrNull<
@@ -1230,6 +1242,18 @@ export interface PromiseEdgeOrderedEnts<
    * are no ents on the other end of the edge.
    */
   firstX(): PromiseEnt<EntsDataModel, Table>;
+
+  /**
+   * Returns the only ent on the other end of the edge,
+   * `null` if there are none, or throws if there are more than one.
+   */
+  unique(): PromiseEntOrNull<EntsDataModel, Table>;
+
+  /**
+   * Returns the only ent on the other end of the edge,
+   * or throws if there are none or more than one.
+   */
+  uniqueX(): PromiseEnt<EntsDataModel, Table>;
 }
 
 export interface PromiseEdgeEnts<
@@ -1283,6 +1307,18 @@ export interface PromiseEdgeOrderedEntsWriter<
    * are no ents on the other end of the edge.
    */
   firstX(): PromiseEntWriter<EntsDataModel, Table>;
+
+  /**
+   * Returns the only ent on the other end of the edge,
+   * `null` if there are none, or throws if there are more than one.
+   */
+  unique(): PromiseEntWriterOrNull<EntsDataModel, Table>;
+
+  /**
+   * Returns the only ent on the other end of the edge,
+   * or throws if there are none or more than one.
+   */
+  uniqueX(): PromiseEntWriter<EntsDataModel, Table>;
 }
 
 export interface PromiseEdgeEntsWriter<
@@ -1426,6 +1462,89 @@ class PromiseEdgeOrNullImpl<
         return await this._take(n);
       },
       false,
+    );
+  }
+
+  first() {
+    return new PromiseEntOrNullImpl(
+      this.ctx,
+      this.entDefinitions,
+      this.table,
+      async () => {
+        const docs = await this._take(1);
+        if (docs === null) {
+          return nullRetriever;
+        }
+        const [doc] = docs;
+        return loadedRetriever(doc);
+      },
+      false,
+    );
+  }
+
+  firstX() {
+    return new PromiseEntWriterImpl(
+      this.ctx as any,
+      this.entDefinitions,
+      this.table,
+      async () => {
+        const docs = await this._take(1);
+        if (docs === null) {
+          return nullRetriever;
+        }
+        const [doc] = docs;
+        if (doc === undefined) {
+          throw new Error("Query returned no documents");
+        }
+        return loadedRetriever(doc);
+      },
+      false,
+    );
+  }
+
+  unique() {
+    return new PromiseEntOrNullImpl(
+      this.ctx,
+      this.entDefinitions,
+      this.table,
+      async () => {
+        const docs = await this._take(2);
+        if (docs === null) {
+          return nullRetriever;
+        }
+        if (docs.length === 0) {
+          return nullRetriever;
+        }
+        if (docs.length === 2) {
+          throw new Error("unique() query returned more than one result");
+        }
+        const [doc] = docs;
+        return loadedRetriever(doc);
+      },
+      false,
+    );
+  }
+
+  uniqueX() {
+    return new PromiseEntWriterImpl(
+      this.ctx as any,
+      this.entDefinitions,
+      this.table,
+      async () => {
+        const docs = await this._take(2);
+        if (docs === null) {
+          return nullRetriever;
+        }
+        if (docs.length === 0) {
+          throw new Error("Query returned no documents");
+        }
+        if (docs.length === 2) {
+          throw new Error("unique() query returned more than one result");
+        }
+        const [doc] = docs;
+        return loadedRetriever(doc);
+      },
+      true,
     );
   }
 
