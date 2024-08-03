@@ -1696,7 +1696,7 @@ class PromiseEntOrNullImpl<
         return new PromiseEdgeOrNullImpl(
           this.ctx,
           this.entDefinitions,
-          this.table,
+          edgeDefinition.to,
           edgeDefinition,
           async () => {
             const { id } = await this.retrieve();

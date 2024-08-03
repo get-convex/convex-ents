@@ -354,6 +354,24 @@ test("has many:many edge", async ({ ctx }) => {
   ).toEqual(true);
 });
 
+test.only("map many:many edge", async ({ ctx }) => {
+  const userId = await ctx
+    .table("users")
+    .insert({ name: "Stark", email: "tony@stark.com" });
+  const messageId = await ctx
+    .table("messages")
+    .insert({ text: "Hello world", userId: userId });
+  const tagId = await ctx
+    .table("tags")
+    .insert({ name: "cool", messages: [messageId] });
+  const users = await ctx
+    .table("tags")
+    .getX(tagId)
+    .edge("messages")
+    .map((message) => message.edge("user"));
+  expect(users).toMatchObject([{ name: "Stark" }]);
+});
+
 test("paginate 1:many edge", async ({ ctx }) => {
   const userId = await ctx
     .table("users")
