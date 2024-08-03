@@ -387,7 +387,7 @@ const hasTag = ctx.table("messages").getX(messageId).edge("tags").has(tagId);
 const hasTag =
   (await ctx.db
     .query("messages_to_tags")
-    .withIndex("messagesId-tagsId", (q) =>
+    .withIndex("messagesId_tagsId", (q) =>
       q.eq("messagesId", message._id).eq("tagsId", tagId),
     )
     .first()) !== null;

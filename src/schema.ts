@@ -223,10 +223,10 @@ export function defineEntSchema<
           })
             .index(forwardId, [forwardId])
             .index(inverseId, [inverseId])
-            .index(`${forwardId}-${inverseId}`, [forwardId, inverseId]);
+            .index(`${forwardId}_${inverseId}`, [forwardId, inverseId]);
           const isSymmetric = inverseEdge === undefined;
           if (!isSymmetric) {
-            edgeTable.index(`${inverseId}-${forwardId}`, [
+            edgeTable.index(`${inverseId}_${forwardId}`, [
               forwardId,
               inverseId,
             ]);

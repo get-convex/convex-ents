@@ -336,6 +336,24 @@ test("edge after getX using index", async ({ ctx }) => {
   expect(messagesByUser[0].text).toEqual("Hello world");
 });
 
+test("has many:many edge", async ({ ctx }) => {
+  const userId = await ctx
+    .table("users")
+    .insert({ name: "Stark", email: "tony@stark.com" });
+  const messageId = await ctx
+    .table("messages")
+    .insert({ text: "Hello world", userId: userId });
+  const tagId = await ctx
+    .table("tags")
+    .insert({ name: "cool", messages: [messageId] });
+  expect(
+    await ctx.table("messages").getX(messageId).edge("tags").has(tagId),
+  ).toEqual(true);
+  expect(
+    await ctx.table("tags").getX(tagId).edge("messages").has(messageId),
+  ).toEqual(true);
+});
+
 test("paginate 1:many edge", async ({ ctx }) => {
   const userId = await ctx
     .table("users")
