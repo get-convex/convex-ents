@@ -227,8 +227,8 @@ export function defineEntSchema<
           const isSymmetric = inverseEdge === undefined;
           if (!isSymmetric) {
             edgeTable.index(`${inverseId}_${forwardId}`, [
-              forwardId,
               inverseId,
+              forwardId,
             ]);
           }
           (schema as any)[edgeTableName] = edgeTable;
