@@ -1317,20 +1317,38 @@ class PromiseEdgeOrNullImpl<
     ctx: EntQueryCtx<EntsDataModel>,
     entDefinitions: EntsDataModel,
     table: Table,
-    private field: string,
-    private retrieveRangeOfEdgeDocs: (
-      indexRange: (
-        q: IndexRangeBuilder<DocumentByName<EntsDataModel, Table>, any>,
-      ) => any,
-    ) => Promise<Query<GenericTableInfo> | null>,
-    private retrieveDoc: (edgeDoc: DocumentByName<EntsDataModel, Table>) => any,
+    private edgeDefinition: EdgeConfig & {
+      cardinality: "multiple";
+      type: "ref";
+    },
+    private retrieveSourceId: () => Promise<GenericId<string> | null>,
+    private retrieveQuery: () => Promise<Query<GenericTableInfo> | null>,
+    private retrieveDoc: (
+      edgeDoc: GenericDocument,
+    ) => Promise<DocumentByName<EntsDataModel, Table>> = async (edgeDoc) => {
+      const sourceId = edgeDoc[edgeDefinition.field] as string;
+      const targetId = edgeDoc[edgeDefinition.ref] as string;
+      const doc = await this.ctx.db.get(targetId as any);
+      if (doc === null) {
+        throw new Error(
+          `Dangling reference for edge "${edgeDefinition.name}" in ` +
+            `table "${this.table}" for ` +
+            `document with ID "${sourceId}": ` +
+            `Could not find a document with ID "${targetId}"` +
+            ` in table "${edgeDefinition.to}" (edge document ID is "${
+              edgeDoc._id as string
+            }").`,
+        );
+      }
+      return doc;
+    },
   ) {
     super(
       ctx,
       entDefinitions,
       table,
       async () => {
-        const query = await retrieveRangeOfEdgeDocs((q) => q);
+        const query = await retrieveQuery();
         if (query === null) {
           return null;
         }
@@ -1341,12 +1359,23 @@ class PromiseEdgeOrNullImpl<
     );
   }
 
-  async has(id: GenericId<Table>) {
-    const query = await this.retrieveRangeOfEdgeDocs((q) =>
-      q.eq(this.field, id as any),
-    );
-    const edgeDocs = await query?.collect();
-    return (edgeDocs?.length ?? 0) > 0;
+  async has(targetId: GenericId<Table>) {
+    const sourceId = await this.retrieveSourceId();
+    if (sourceId === null) {
+      return null;
+    }
+    const edgeDoc = this.ctx.db
+      .query(this.edgeDefinition.table)
+      .withIndex(
+        `${this.edgeDefinition.field}-${this.edgeDefinition.ref}`,
+        (q) =>
+          (q.eq(this.edgeDefinition.field, sourceId as any) as any).eq(
+            this.edgeDefinition.ref,
+            targetId,
+          ),
+      )
+      .first();
+    return edgeDoc !== null;
   }
 
   order(order: "asc" | "desc") {
@@ -1354,9 +1383,10 @@ class PromiseEdgeOrNullImpl<
       this.ctx,
       this.entDefinitions,
       this.table,
-      this.field,
-      async (indexRange) => {
-        const query = await this.retrieveRangeOfEdgeDocs(indexRange);
+      this.edgeDefinition,
+      this.retrieveSourceId,
+      async () => {
+        const query = await this.retrieveQuery();
         if (query === null) {
           return null;
         }
@@ -1365,7 +1395,6 @@ class PromiseEdgeOrNullImpl<
         // won't allow it.
         return query.order(order) as Query<GenericTableInfo>;
       },
-      this.retrieveDoc,
     );
   }
 
@@ -1375,7 +1404,7 @@ class PromiseEdgeOrNullImpl<
       this.entDefinitions,
       this.table,
       async () => {
-        const query = await this.retrieveRangeOfEdgeDocs((q) => q);
+        const query = await this.retrieveQuery();
         if (query === null) {
           return null;
         }
@@ -1401,13 +1430,14 @@ class PromiseEdgeOrNullImpl<
   }
 
   async _take(n: number) {
-    const query = await this.retrieveRangeOfEdgeDocs((q) => q);
+    const query = await this.retrieveQuery();
     return await takeFromQuery(
       query,
       n,
       this.ctx,
       this.entDefinitions,
       this.table,
+      this.retrieveDoc,
     );
   }
 }
@@ -1547,35 +1577,23 @@ class PromiseEntOrNullImpl<
         return new PromiseEdgeOrNullImpl(
           this.ctx,
           this.entDefinitions,
-          edgeDefinition.to,
-          edgeDefinition.ref,
-          async (indexRange) => {
+          this.table,
+          edgeDefinition,
+          async () => {
+            const { id } = await this.retrieve();
+            return id;
+          },
+          async () => {
             const { id } = await this.retrieve();
             if (id === null) {
               return null;
             }
             return this.ctx.db
               .query(edgeDefinition.table)
-              .withIndex(edgeDefinition.field, (q) =>
-                indexRange(q.eq(edgeDefinition.field, id as any) as any),
+              .withIndex(
+                edgeDefinition.field,
+                (q) => q.eq(edgeDefinition.field, id as any) as any,
               );
-          },
-          async (edgeDoc) => {
-            const sourceId = edgeDoc[edgeDefinition.field] as string;
-            const targetId = edgeDoc[edgeDefinition.ref] as string;
-            const doc = await this.ctx.db.get(targetId as any);
-            if (doc === null) {
-              throw new Error(
-                `Dangling reference for edge "${edgeDefinition.name}" in ` +
-                  `table "${this.table}" for ` +
-                  `document with ID "${sourceId}": ` +
-                  `Could not find a document with ID "${targetId}"` +
-                  ` in table "${edgeDefinition.to}" (edge document ID is "${
-                    edgeDoc._id as string
-                  }").`,
-              );
-            }
-            return doc;
           },
         ) as any;
       }
@@ -2849,13 +2867,18 @@ async function takeFromQuery(
   ctx: EntQueryCtx<any>,
   entDefinitions: GenericEntsDataModel,
   table: string,
+  mapToResult?: (retrieved: GenericDocument) => Promise<GenericDocument>,
 ) {
   if (query === null) {
     return null;
   }
   const readPolicy = getReadRule(entDefinitions, table);
   if (readPolicy === undefined) {
-    return await query.take(n);
+    const results = await query.take(n);
+    if (mapToResult === undefined) {
+      return results;
+    }
+    return Promise.all(results.map(mapToResult));
   }
   let numItems = n;
   const docs = [];
@@ -2869,7 +2892,7 @@ async function takeFromQuery(
         hasMore = false;
         break;
       }
-      page.push(value);
+      page.push(mapToResult === undefined ? value : await mapToResult(value));
     }
     docs.push(
       ...(await filterByReadRule(

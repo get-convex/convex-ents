@@ -336,7 +336,72 @@ test("edge after getX using index", async ({ ctx }) => {
   expect(messagesByUser[0].text).toEqual("Hello world");
 });
 
+test("paginate 1:many edge", async ({ ctx }) => {
+  const userId = await ctx
+    .table("users")
+    .insert({ name: "Stark", email: "tony@stark.com" });
+  await ctx.table("messages").insertMany([
+    { text: "Hello world", userId: userId },
+    { text: "Wow", userId: userId },
+    { text: "Incredible", userId: userId },
+  ]);
+
+  const firstMessages = await ctx
+    .table("users")
+    .firstX()
+    .edge("messages")
+    .paginate({ numItems: 2, cursor: null });
+  expect(firstMessages).toMatchObject({
+    page: [{ text: "Hello world" }, { text: "Wow" }],
+    isDone: false,
+  });
+  const nextMessages = await ctx
+    .table("users")
+    .firstX()
+    .edge("messages")
+    .paginate({ numItems: 2, cursor: firstMessages.continueCursor });
+  expect(nextMessages).toMatchObject({
+    page: [{ text: "Incredible" }],
+    isDone: true,
+  });
+});
+
 test("paginate many:many edge", async ({ ctx }) => {
+  const userId = await ctx
+    .table("users")
+    .insert({ name: "Stark", email: "tony@stark.com" });
+  const messageId = await ctx
+    .table("messages")
+    .insert({ text: "Hello world", userId: userId });
+  await ctx.table("tags").insertMany([
+    { name: "cool", messages: [messageId] },
+    { name: "funny", messages: [messageId] },
+    { name: "smart", messages: [messageId] },
+    { name: "wonderful", messages: [messageId] },
+    { name: "grose", messages: [messageId] },
+    { name: "wonky", messages: [messageId] },
+  ]);
+  const firstTags = await ctx
+    .table("messages")
+    .firstX()
+    .edge("tags")
+    .paginate({ numItems: 2, cursor: null });
+  expect(firstTags).toMatchObject({
+    page: [{ name: "cool" }, { name: "funny" }],
+    isDone: false,
+  });
+  const nextTags = await ctx
+    .table("messages")
+    .firstX()
+    .edge("tags")
+    .paginate({ numItems: 2, cursor: firstTags.continueCursor });
+  expect(nextTags).toMatchObject({
+    page: [{ name: "smart" }, { name: "wonderful" }],
+    isDone: false,
+  });
+});
+
+test("paginate many:many symmetric edge", async ({ ctx }) => {
   const user1 = await ctx
     .table("users")
     .insert({ name: "Stark", email: "tony@stark.com" })
@@ -354,6 +419,42 @@ test("paginate many:many edge", async ({ ctx }) => {
   expect(friends.page.length).toEqual(1);
   expect(friends.page[0].name).toEqual("Musk");
   expect(friends.isDone).toEqual(true);
+});
+
+test("take many:many edge", async ({ ctx }) => {
+  const userId = await ctx
+    .table("users")
+    .insert({ name: "Stark", email: "tony@stark.com" });
+  const messageId = await ctx
+    .table("messages")
+    .insert({ text: "Hello world", userId: userId });
+  await ctx.table("tags").insertMany([
+    { name: "cool", messages: [messageId] },
+    { name: "funny", messages: [messageId] },
+    { name: "smart", messages: [messageId] },
+    { name: "wonderful", messages: [messageId] },
+  ]);
+  const tags = await ctx.table("messages").firstX().edge("tags").take(3);
+  expect(tags).toMatchObject([
+    { name: "cool" },
+    { name: "funny" },
+    { name: "smart" },
+  ]);
+});
+
+test("take many:many symmetric edge", async ({ ctx }) => {
+  const user1 = await ctx
+    .table("users")
+    .insert({ name: "Stark", email: "tony@stark.com" })
+    .get();
+  const user2 = await ctx
+    .table("users")
+    .insert({ name: "Musk", email: "elon@musk.com" })
+    .get();
+  await user2.patch({ friends: { add: [user1._id] } });
+  const friends = await ctx.table("users").firstX().edge("friends").take(2);
+  expect(friends.length).toEqual(1);
+  expect(friends[0].name).toEqual("Musk");
 });
 
 test("table collect", async ({ ctx }) => {

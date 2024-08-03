@@ -217,13 +217,21 @@ export function defineEntSchema<
                     ? edge.name + "Id"
                     : otherTableName + "Id";
           // Add the table
-          (schema as any)[edgeTableName] = defineEnt({
+          const edgeTable = defineEnt({
             [forwardId]: v.id(tableName),
             [inverseId]: v.id(otherTableName),
           })
-            .index(forwardId, [forwardId, inverseId])
-            .index(inverseId, [inverseId, forwardId]);
-
+            .index(forwardId, [forwardId])
+            .index(inverseId, [inverseId])
+            .index(`${forwardId}-${inverseId}`, [forwardId, inverseId]);
+          const isSymmetric = inverseEdge === undefined;
+          if (!isSymmetric) {
+            edgeTable.index(`${inverseId}-${forwardId}`, [
+              forwardId,
+              inverseId,
+            ]);
+          }
+          (schema as any)[edgeTableName] = edgeTable;
           (edge as any).type = "ref";
           (edge as any).table = edgeTableName;
           (edge as any).field = forwardId;
