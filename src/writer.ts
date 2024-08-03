@@ -13,7 +13,12 @@ import {
   getReadRule,
   getWriteRule,
 } from "./functions";
-import { FieldConfig, GenericEdgeConfig, GenericEntsDataModel } from "./schema";
+import {
+  FieldConfig,
+  GenericEdgeConfig,
+  GenericEntsDataModel,
+  edgeCompoundIndexName,
+} from "./schema";
 import { ScheduledDeleteFuncRef } from "./deletion";
 
 export class WriterImplBase<
@@ -211,11 +216,16 @@ export class WriterImplBase<
                 idOrIds.add.map(async (id) => {
                   const existing = await this.ctx.db
                     .query(edgeDefinition.table)
-                    .withIndex(edgeDefinition.field, (q) =>
-                      (q.eq(edgeDefinition.field, docId as any) as any).eq(
+                    .withIndex(
+                      edgeCompoundIndexName(
+                        edgeDefinition.field,
                         edgeDefinition.ref,
-                        id,
                       ),
+                      (q) =>
+                        (q.eq(edgeDefinition.field, docId as any) as any).eq(
+                          edgeDefinition.ref,
+                          id,
+                        ),
                     )
                     .first();
                   if (existing === null) {

@@ -34,6 +34,7 @@ import {
   Expand,
   GenericEdgeConfig,
   GenericEntsDataModel,
+  edgeCompoundIndexName,
 } from "./schema";
 import {
   EdgeChanges,
@@ -1403,7 +1404,10 @@ class PromiseEdgeOrNullImpl<
     const edgeDoc = this.ctx.db
       .query(this.edgeDefinition.table)
       .withIndex(
-        `${this.edgeDefinition.field}_${this.edgeDefinition.ref}`,
+        edgeCompoundIndexName(
+          this.edgeDefinition.field,
+          this.edgeDefinition.ref,
+        ),
         (q) =>
           (q.eq(this.edgeDefinition.field, sourceId as any) as any).eq(
             this.edgeDefinition.ref,
