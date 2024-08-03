@@ -353,6 +353,25 @@ const tags = await ctx.table("messages").getX(messageId).edge("tags");
 const messages = await ctx.table("tags").getX(tagId).edge("messages");
 ```
 
+<Aside title="This is equivalent to the built-in:">
+
+```ts
+const tags = await Promise.all(
+  (
+    await ctx.db
+      .query("messages_to_tags")
+      .withIndex("messagesId", (q) => q.eq("messagesId", messageId))
+      .collect()
+  ).map((edge) => ctx.db.get(edge.tagsId)),
+);
+```
+
+</Aside>
+
+The results are ordered by `_creationTime` of the edge, from oldest created to
+newest created. The order can be changed with the [`order` method](#ordering)
+and [the results can be limited](#limiting-results).
+
 ### Testing many:many edge presence
 
 You can efficiently test whether two ents are connected by a many:many edge
@@ -368,7 +387,7 @@ const hasTag = ctx.table("messages").getX(messageId).edge("tags").has(tagId);
 const hasTag =
   (await ctx.db
     .query("messages_to_tags")
-    .withIndex("messagesId", (q) =>
+    .withIndex("messagesId-tagsId", (q) =>
       q.eq("messagesId", message._id).eq("tagsId", tagId),
     )
     .first()) !== null;
