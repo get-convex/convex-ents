@@ -117,6 +117,25 @@ test("insert and delete many:many", async ({ ctx }) => {
   ).toHaveLength(0);
 });
 
+test("insert and delete many:many duplicates", async ({ ctx }) => {
+  const someUserId = await ctx.table("users").insert({
+    name: "Gates",
+    email: "bill@gates.com",
+  });
+  const newMessageId = await ctx.table("messages").insert({
+    text: "Hello world",
+    userId: someUserId,
+  });
+  await ctx
+    .table("tags")
+    .insert({ name: "Blue", messages: [newMessageId, newMessageId] })
+    .get();
+
+  expect(
+    await (ctx.db as any).query("messages_to_tags").collect(),
+  ).toHaveLength(1);
+});
+
 test("patch to remove many:many", async ({ ctx }) => {
   const someUserId = await ctx.table("users").insert({
     name: "Gates",

@@ -213,7 +213,7 @@ export class WriterImplBase<
 
             if (idOrIds.add !== undefined) {
               await Promise.all(
-                idOrIds.add.map(async (id) => {
+                [...new Set(idOrIds.add)].map(async (id) => {
                   const existing = await this.ctx.db
                     .query(edgeDefinition.table)
                     .withIndex(edgeCompoundIndexName(edgeDefinition), (q) =>
