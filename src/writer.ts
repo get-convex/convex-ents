@@ -216,16 +216,11 @@ export class WriterImplBase<
                 idOrIds.add.map(async (id) => {
                   const existing = await this.ctx.db
                     .query(edgeDefinition.table)
-                    .withIndex(
-                      edgeCompoundIndexName(
-                        edgeDefinition.field,
+                    .withIndex(edgeCompoundIndexName(edgeDefinition), (q) =>
+                      (q.eq(edgeDefinition.field, docId as any) as any).eq(
                         edgeDefinition.ref,
+                        id,
                       ),
-                      (q) =>
-                        (q.eq(edgeDefinition.field, docId as any) as any).eq(
-                          edgeDefinition.ref,
-                          id,
-                        ),
                     )
                     .first();
                   if (existing === null) {

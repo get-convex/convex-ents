@@ -223,13 +223,13 @@ export function defineEntSchema<
           })
             .index(forwardId, [forwardId])
             .index(inverseId, [inverseId])
-            .index(edgeCompoundIndexName(forwardId, inverseId), [
+            .index(edgeCompoundIndexNameRaw(forwardId, inverseId), [
               forwardId,
               inverseId,
             ]);
           const isSymmetric = inverseEdge === undefined;
           if (!isSymmetric) {
-            edgeTable.index(edgeCompoundIndexName(inverseId, forwardId), [
+            edgeTable.index(edgeCompoundIndexNameRaw(inverseId, forwardId), [
               inverseId,
               forwardId,
             ]);
@@ -254,7 +254,13 @@ export function defineEntSchema<
   return defineSchema(schema, options);
 }
 
-export function edgeCompoundIndexName(idA: string, idB: string) {
+export function edgeCompoundIndexName(
+  edgeDefinition: EdgeConfig & { cardinality: "multiple"; type: "ref" },
+) {
+  return edgeCompoundIndexNameRaw(edgeDefinition.field, edgeDefinition.ref);
+}
+
+function edgeCompoundIndexNameRaw(idA: string, idB: string) {
   return `${idA}_${idB}`;
 }
 

@@ -159,6 +159,48 @@ test("patch to remove many:many", async ({ ctx }) => {
   ).toHaveLength(0);
 });
 
+test("patch to remove many:many symmetric", async ({ ctx }) => {
+  const friendId = await ctx.table("users").insert({
+    name: "Jobs",
+    email: "steve@jobs.com",
+  });
+  const newUserId = await ctx.table("users").insert({
+    name: "Gates",
+    email: "bill@gates.com",
+    friends: [friendId],
+  });
+
+  expect(await (ctx.db as any).query("users_friends").collect()).toHaveLength(
+    2,
+  );
+  expect(await ctx.table("users").getX(friendId).edge("friends")).toHaveLength(
+    1,
+  );
+  expect(await ctx.table("users").getX(newUserId).edge("friends")).toHaveLength(
+    1,
+  );
+
+  await ctx
+    .table("users")
+    .getX(newUserId)
+    .patch({
+      friends: {
+        remove: [friendId],
+      },
+    });
+
+  // Test the edge deletion behavior
+  expect(await (ctx.db as any).query("users_friends").collect()).toHaveLength(
+    0,
+  );
+  expect(await ctx.table("users").getX(friendId).edge("friends")).toHaveLength(
+    0,
+  );
+  expect(await ctx.table("users").getX(newUserId).edge("friends")).toHaveLength(
+    0,
+  );
+});
+
 test("replace to remove many:many", async ({ ctx }) => {
   const someUserId = await ctx.table("users").insert({
     name: "Gates",

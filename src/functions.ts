@@ -1403,16 +1403,11 @@ class PromiseEdgeOrNullImpl<
     }
     const edgeDoc = this.ctx.db
       .query(this.edgeDefinition.table)
-      .withIndex(
-        edgeCompoundIndexName(
-          this.edgeDefinition.field,
+      .withIndex(edgeCompoundIndexName(this.edgeDefinition), (q) =>
+        (q.eq(this.edgeDefinition.field, sourceId as any) as any).eq(
           this.edgeDefinition.ref,
+          targetId,
         ),
-        (q) =>
-          (q.eq(this.edgeDefinition.field, sourceId as any) as any).eq(
-            this.edgeDefinition.ref,
-            targetId,
-          ),
       )
       .first();
     return edgeDoc !== null;
@@ -2588,26 +2583,32 @@ class PromiseEntWriterImpl<
                 const { add, remove } = value[key]!;
                 const removeEdges = (
                   await Promise.all(
-                    (remove ?? []).map(async (edgeId) =>
+                    (remove ?? []).map(async (otherId) =>
                       (
                         await this.ctx.db
                           .query(edgeDefinition.table)
-                          .withIndex(edgeDefinition.field, (q) =>
-                            (q.eq(edgeDefinition.field, id as any) as any).eq(
-                              edgeDefinition.ref,
-                              edgeId,
-                            ),
+                          .withIndex(
+                            edgeCompoundIndexName(edgeDefinition),
+                            (q) =>
+                              (q.eq(edgeDefinition.field, id as any) as any).eq(
+                                edgeDefinition.ref,
+                                otherId,
+                              ),
                           )
                           .collect()
                       ).concat(
                         edgeDefinition.symmetric
                           ? await this.ctx.db
                               .query(edgeDefinition.table)
-                              .withIndex(edgeDefinition.ref, (q) =>
-                                (q.eq(edgeDefinition.ref, id as any) as any).eq(
-                                  edgeDefinition.field,
-                                  edgeId,
-                                ),
+                              .withIndex(
+                                edgeCompoundIndexName(edgeDefinition),
+                                (q) =>
+                                  (
+                                    q.eq(
+                                      edgeDefinition.field,
+                                      otherId as any,
+                                    ) as any
+                                  ).eq(edgeDefinition.ref, id),
                               )
                               .collect()
                           : [],
