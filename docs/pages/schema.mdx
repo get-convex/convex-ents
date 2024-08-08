@@ -365,12 +365,26 @@ defineEntSchema({
 
 This table will have two ID fields, one for each end of the edge. Their names
 will be inferred from the table names of the connected ents. You can specify
-them explicitly using the `field` option.
+them explicitly using the `field` option:
+
+```ts
+defineEntSchema({
+  messages: defineEnt({
+    name: v.string(),
+  }).edges("tags", { table: "messages_to_assignedTags", field: "messageId" }),
+  tags: defineEnt({
+    text: v.string(),
+  }).edges("messages", {
+    table: "messages_to_assignedTags",
+    field: "assignedTagId",
+  }),
+});
+```
 
 You can also specify explicitly which table is at the other end of the edge via
-the `to` option. This way the edge names don't have match the table name (this
-is helpful when the simple pluralization doesn't work, like edge "category" and
-table "categories"):
+the `to` option. This way the edge names don't have to match the table name
+(this is helpful when the simple pluralization doesn't work, like edge
+"category" and table "categories"):
 
 ```ts
 defineEntSchema({
