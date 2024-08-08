@@ -399,7 +399,7 @@ defineEntSchema({
   tags: defineEnt({
     text: v.string(),
   }).edges("taggedMessages", {
-    name: "messages",
+    to: "messages",
     table: "messages_to_assignedTags",
   }),
 });
