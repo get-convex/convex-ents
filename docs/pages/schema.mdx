@@ -175,8 +175,7 @@ defineEntSchema({
 
 In this example, the edge between "users" and "messages" is 1:many, each user
 can have many associated messages, but each message has only a single associated
-user. This is because the `edge` method was used on the "messages" ent, and
-`{ref: true}` was passed to the `edges` method on the "users" ent.
+user. The syntax is explained below.
 
 ### Understanding how edges are stored
 
@@ -184,10 +183,10 @@ To further understand the ways in which edges can be declared, we need to
 understand the difference in how they are stored. There are two ways edges are
 stored in the database:
 
-1. Field edges: These are stored as a single foreign key column in one of the
-   two connected tables. These are used by default for 1:1 and 1:many edges.
-2. Table edges: These are stored as documents in a separate table. They are
-   required for many:many edges.
+1. _Field edges_ are stored as a single foreign key column in one of the two
+   connected tables. All 1:1 and 1:many edges are field edges.
+2. _Table edges_ are stored as documents in a separate table. All many:many
+   edges are table edges.
 
 In the example above the edge is stored as an `Id<"users>` on the "messages"
 document.
@@ -218,9 +217,13 @@ defineEntSchema({
 
 In this case, each user can have 1 profile, and each profile must have 1
 associated user. This is a field edge stored on the "profiles" table as a
-foreign key. This is the shortest syntax for declaring edges: based on the edge
-name "user", the table on the other end is "users" (`s` is added) and the field
-storing the edge is called "userId" (`Id` is added).
+foreign key. The table that stores the edge is determined by the
+`optional: true` option of the `edge` method - it's the table where the edge is
+not optional.
+
+This is the shortest syntax for declaring edges: based on the edge name "user",
+the table on the other end is "users" (`s` is added) and the field storing the
+edge is called "userId" (`Id` is added).
 
 You can control the name of the field. This becomes necessary if you want to
 have another field edge between the same pair of tables:
@@ -259,7 +262,8 @@ The edge names are used when querying the edges, but they are not stored in the
 database (the field name is, as part of each document that stores its value).
 
 <Callout type="info">
-  Making both ends of the 1:1 edge optional is not supported for now.
+
+Making both ends of the 1:1 edge optional is not supported for now.
 
 In the example above, each profile must have an owner.
 
@@ -285,11 +289,11 @@ defineEntSchema({
 <Graphic src={edgesRef} dark={edgesRefDark} alt="1:many edge pictogram" />
 
 This is a 1:many edge because the `edges` (plural) method is used on the "users"
-ent and the `ref: true` option is specified. And since each user can have
-multiple associated messages, the foreign key must be stored in the "messages"
-table. Just like for 1:1 edges, based on the edge name "user", the table on the
-other end is "users" (`s` is added) and the field storing the edge is called
-"userId" (`Id` is added).
+ent and the `ref: true` option is specified. The `ref` option declares that the
+edges are stored on a field in the other table. In this case each user can have
+multiple associated messages. Just like for 1:1 edges, based on the edge name
+"user", the table on the other end is "users" (`s` is added) and the field
+storing the edge is called "userId" (`Id` is added).
 
 You can control the name of the field. This becomes necessary if you want to
 have another field edge between the same pair of tables:
@@ -322,7 +326,8 @@ defineEntSchema({
 ```
 
 <Callout type="info">
-  Making the singular end of the 1:many edge optional is not supported for now.
+
+Making the singular end of the 1:many edge optional is not supported for now.
 
 In the example above, each message must have an author.
 
