@@ -256,7 +256,12 @@ defineEntSchema({
 The edge names are used when querying the edges, but they are not stored in the
 database (the field name is, as part of each document that stores its value).
 
-<Callout type="info">Optional 1:1 edges are not supported for now.</Callout>
+<Callout type="info">
+  Making both ends of the 1:1 edge optional is not supported for now.
+
+In the example above, each profile must have an owner.
+
+</Callout>
 
 ### 1:many edges
 
@@ -313,6 +318,13 @@ defineEntSchema({
   }).edge("author", { to: "users", field: "authorId" }),
 });
 ```
+
+<Callout type="info">
+  Making the singular end of the 1:many edge optional is not supported for now.
+
+In the example above, each message must have an author.
+
+</Callout>
 
 ### many:many edges
 
