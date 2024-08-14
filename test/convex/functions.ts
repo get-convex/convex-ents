@@ -1,15 +1,24 @@
 import {
+  customAction,
   customCtx,
   customMutation,
   customQuery,
 } from "convex-helpers/server/customFunctions";
-import { entsTableFactory, scheduledDeleteFactory } from "../../src";
+import {
+  entsTableFactory,
+  scheduledDeleteFactory,
+  entsActionReadFactory,
+  entsActionWriteFactory,
+} from "../../src";
 import {
   MutationCtx,
   QueryCtx,
+  ActionCtx,
   internalMutation as baseInternalMutation,
   internalQuery as baseInternalQuery,
+  internalAction as baseInternalAction,
   mutation as baseMutation,
+  action as baseAction,
   query as baseQuery,
 } from "./_generated/server";
 import { getEntDefinitionsWithRules, getViewerId } from "./rules";
@@ -42,6 +51,24 @@ export const internalMutation = customMutation(
     return await mutationCtx(baseCtx);
   }),
 );
+
+export const action = customAction(
+  baseAction,
+  customCtx(async (baseCtx) => {
+    return await actionCtx(baseCtx);
+  }),
+);
+
+export const internalAction = customAction(
+  baseInternalAction,
+  customCtx(async (baseCtx) => {
+    return await actionCtx(baseCtx);
+  }),
+);
+
+export const read = internalQuery(entsActionReadFactory);
+
+export const write = internalMutation(entsActionWriteFactory);
 
 async function queryCtx(baseCtx: QueryCtx) {
   const ctx = {
@@ -89,6 +116,10 @@ export async function mutationCtx(baseCtx: MutationCtx) {
   };
   (ctx as any).viewerX = viewerX;
   return { ...ctx, table, viewer, viewerX, viewerId };
+}
+
+export async function actionCtx(baseCtx: ActionCtx) {
+  return { table: entsTableFactory(baseCtx, entDefinitions) };
 }
 
 export const scheduledDelete = scheduledDeleteFactory(entDefinitions);

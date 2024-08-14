@@ -4,6 +4,7 @@
   "schema": "Ent Schema",
   "read": "Reading Ents",
   "write": "Writing Ents",
+  "actions": "Actions",
   "auth": "Authentication",
   "testing": "Testing Ents",
   "migrations": "Migrating Ents",

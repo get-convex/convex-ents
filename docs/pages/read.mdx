@@ -32,7 +32,11 @@ const task = await ctx.table("tasks").get(taskId);
 <Aside title="This is equivalent to the built-in:">
 
 ```ts
-const task = await ctx.db.get(taskId);
+const id = ctx.db.normalize("tasks", taskId);
+if (id === null) {
+  return null;
+}
+const task = await ctx.db.get(id);
 ```
 
 with the addition of checking that `taskId` belongs to `"tasks"`.
@@ -101,6 +105,7 @@ const task = await Promise.all([taskId1, taskId2].map(ctx.db.get));
 ```
 
 </Aside>
+
 ## Reading multiple ents by IDs or throwing
 
 Retrieve a list of ents or throw an `Error` if any of the IDs didn't map to an
@@ -145,6 +150,29 @@ const posts = await ctx.table("posts", "numLikes", (q) =>
 const posts = await ctx.db
   .query("posts")
   .withIndex("numLikes", (q) => q.gt("numLikes", 100))
+  .collect();
+```
+
+</Aside>
+
+## Searching ents via text search
+
+To use [text search](https://docs.convex.dev/search) call the `search` method:
+
+```ts
+const awesomeVideoPosts = await ctx
+  .table("posts")
+  .search("text", (q) => q.search("text", "awesome").eq("type", "video"));
+```
+
+<Aside title="This is equivalent to the built-in:">
+
+```ts
+const awesomeVideoPosts = await ctx.db
+  .query("posts")
+  .withSearchIndex("text", (q) =>
+    q.search("text", "awesome").eq("type", "video"),
+  )
   .collect();
 ```
 
@@ -395,32 +423,50 @@ const hasTag =
 
 </Aside>
 
-### Traversing edges on retrieved ents
+## Retrieving related ents
+
+Sometimes you want to retrieve both the ents from one table and the related ents
+from another table. Other database systems refer to these as a _joins_ or
+_nested reads_.
+
+### Traversing edges from individual retrieved ents
 
 All the methods for reading ents return the underlying document(s), enriched
-with the `edge` and `edgeX` methods. This allows traversing edges even after
-loading the ent from the database:
+with the `edge` and `edgeX` methods. This allows traversing edges after loading
+the ent from the database:
 
 ```ts
 const user = await ctx.table("users").firstX();
 const profile = user.edgeX("profile");
 ```
 
-## Mapping ents
+### Mapping ents to include edges
 
-To map, that is to produce a new Array by calling a function on each element of
-the original Array, using `async` functions is quite unwieldy in JavaScript
-without the use of libraries. For this reason all lazy promises of a list of
-ents support the `map` method:
+The `map` method can be used to perform arbitrary transformation for each
+returned ent. It can be used to add related ents via the `edge` and `edgeX`
+methods:
 
 ```ts
-const usersWithMessagesAndProfile = await ctx
-  .table("users")
-  .map(async (user) => ({
+const usersWithMessages = await ctx.table("users").map((user) => {
+  return {
     name: user.name,
-    messages: await user.edge("messages"),
-    profile: await user.edgeX("profile"),
-  }));
+    messages: await user.edge("messages").take(5),
+  };
+});
+```
+
+```ts
+const usersWithProfileAndMessages = await ctx.table("users").map((user) => {
+  const [messages, profile] = await Promise.all([
+    profile: user.edgeX("profile"),
+    user.edge("messages").take(5),
+  ])
+  return {
+    name: user.name,
+    profile,
+    messages,
+  };
+});
 ```
 
 <Aside title="This code is equivalent to this code using only built-in Convex and JavaScript
@@ -428,29 +474,47 @@ functionality:">
 
 ```ts
 const usersWithMessagesAndProfile = await Promise.all(
-  (await ctx.db.query("users").collect()).map(async (user) => ({
-    name: user.name,
-    posts: await ctx.db
-      .query("messages")
-      .withIndex("userId", (q) => q.eq("userId", user._id))
-      .collect(),
-    profile: (async () => {
-      const profile = await ctx.db
-        .query("profiles")
+  (await ctx.db.query("users").collect()).map(async (user) => {
+    const [posts, profile] = Promise.all([
+      ctx.db
+        .query("messages")
         .withIndex("userId", (q) => q.eq("userId", user._id))
-        .unique();
-      if (profile === null) {
-        throw new Error(
-          `Edge "profile" does not exist for document wit ID "${user._id}"`,
-        );
-      }
-      return profile;
-    })(),
-  })),
+        .collect(),
+      (async () => {
+        const profile = await ctx.db
+          .query("profiles")
+          .withIndex("userId", (q) => q.eq("userId", user._id))
+          .unique();
+        if (profile === null) {
+          throw new Error(
+            `Edge "profile" does not exist for document with ID "${user._id}"`,
+          );
+        }
+        return profile;
+      })(),
+    ]);
+    return { name: user.name, posts, profile };
+  }),
 );
 ```
 
 </Aside>
+
+As shown in this example, `map` can be used to transform the results by
+selecting or excluding the returned fields, limiting the related ents, or
+requiring that related ents exist.
+
+The `map` method can beused to load ents by traversing more than one edge:
+
+```ts
+const usersWithMessagesAndTags = await ctx.table("users").map(async (user) => ({
+  ...user,
+  messages: await user.edge("messages").map((message) => ({
+    text: message.text,
+    tags: await message.edge("tags"),
+  })),
+}));
+```
 
 ## Returning documents from functions
 
@@ -515,10 +579,9 @@ export const list = query({
   handler: async (ctx) => {
     const usersWithMessagesAndProfile = await ctx
       .table("users")
-      .map(async (user) => ({
+      .map((user) => ({
         ...user,
-        messages: await user.edge("messages").docs(),
-        profile: await user.edgeX("profile").doc(),
+        profile: user.edgeX("profile").doc(),
       }));
   },
 });

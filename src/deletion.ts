@@ -7,8 +7,8 @@ import {
   makeFunctionReference,
 } from "convex/server";
 import { GenericId, Infer, convexToJson, v } from "convex/values";
-import { getEdgeDefinitions } from "./functions";
 import { GenericEntsDataModel } from "./schema";
+import { getEdgeDefinitions } from "./shared";
 
 export type ScheduledDeleteFuncRef = FunctionReference<
   "mutation",

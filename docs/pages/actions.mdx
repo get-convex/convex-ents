@@ -1,0 +1,82 @@
+import { Aside } from "../components/Aside.tsx";
+
+# Reading and Writing Ents in Actions
+
+Convex Ents also provide a `ctx.table` method available in
+[actions](https://docs.convex.dev/functions/actions). The API works similarly to
+the one exposed in queries and mutations, with some differences noted below.
+Under the hood, each awaited lazy `Promise` calls an internal query or mutation
+function to perform the desired, serialized, read or write.
+
+This is especially helpful for the typical pattern of:
+
+1. Calling a mutation from the client
+2. The mutation writes a document to the DB
+3. The mutation schedules an **action** to do some work on the document
+   - This usually entails reading from and writing to the database
+
+See [Zen of Convex](https://docs.convex.dev/zen).
+
+## Consistency, performance and cost
+
+Since each `await` of `ctx.table` performs a function call, you should never
+await two calls that don't require an action-only step, such as `fetch`ing a
+third-party API, in-between them.
+
+Such reads or writes are better implemented in a custom internal query or
+mutation that you define:
+
+```ts
+export const someAction = action({
+  args: {},
+  handler: async (ctx) => {
+    // DO NOT DO THIS:
+    const invite = await ctx.table("invites").first();
+    const user = await ctx.table("users").first();
+    // DO THIS INSTEAD:
+    const { invite, user } = await ctx.runQuery(internal.foo.firsts);
+    fetch("https://example.com", { body: { invite, user } });
+  },
+});
+
+// CORRECT:
+export const firsts = internalQuery({
+  args: {},
+  handler: async (ctx) => {
+    const invite = await ctx.table("invites").first();
+    const user = await ctx.table("users").first();
+    return { invite, user };
+  },
+});
+```
+
+The `ctx.table` API is a convenient shortcut for those cases where your custom
+internal query or mutation would consist of a single `ctx.table` call.
+
+If you don't follow this advice, your actions will cost more, they will be
+slower, and you might get inconsistent DB results manifesting as hard-to-catch
+bugs.
+
+## Reading data
+
+Unless noted below, the methods chained to `ctx.table` work the same as in
+[queries](/read).
+
+### Retrieving related ents
+
+The main difference between reading data in actions vs in
+[queries and mutations](/read#retrieving-related-ents) is that the `map` method
+is not available, and that loaded ents do not have the `edge` and `edgeX`
+methods. Therefore if you need to retrieve related ents you must declare a
+helper query or mutation function.
+
+### Returning documents from actions
+
+In actions the retrieved results are just the documents backing the ents, and so
+the [`docs` and `doc` methods](/read#returning-documents-from-functions) are not
+needed nor available.
+
+## Writing data
+
+The methods for writing data on `ctx.table` work the same as in
+[mutations](/write).

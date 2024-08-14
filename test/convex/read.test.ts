@@ -116,6 +116,13 @@ test("getMany", async ({ ctx }) => {
   expect(specificUsers).toHaveLength(2);
   expect(specificUsers[0]?.name).toEqual(users[0].name);
   expect(specificUsers[1]?.name).toEqual(users[1].name);
+
+  await ctx.table("users").getX(users[0]._id).delete();
+
+  const withNulls = await ctx
+    .table("users")
+    .getMany([users[0]._id, users[1]._id]);
+  expect(withNulls).toMatchObject([null, { name: "Musk" }]);
 });
 
 test("getManyX", async ({ ctx }) => {
@@ -354,7 +361,7 @@ test("has many:many edge", async ({ ctx }) => {
   ).toEqual(true);
 });
 
-test.only("map many:many edge", async ({ ctx }) => {
+test("map many:many edge", async ({ ctx }) => {
   const userId = await ctx
     .table("users")
     .insert({ name: "Stark", email: "tony@stark.com" });

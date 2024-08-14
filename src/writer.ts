@@ -9,7 +9,6 @@ import {
   EntMutationCtx,
   entWrapper,
   getDeletionConfig,
-  getEdgeDefinitions,
   getReadRule,
   getWriteRule,
 } from "./functions";
@@ -20,6 +19,7 @@ import {
   edgeCompoundIndexName,
 } from "./schema";
 import { ScheduledDeleteFuncRef } from "./deletion";
+import { getEdgeDefinitions } from "./shared";
 
 export class WriterImplBase<
   EntsDataModel extends GenericEntsDataModel,

@@ -22,12 +22,19 @@ import {
   SearchFilter,
   SearchFilterBuilder,
   SearchIndexNames,
-  SystemDataModel,
   TableNamesInDataModel,
   WithOptionalSystemFields,
   WithoutSystemFields,
 } from "convex/server";
 import { GenericId } from "convex/values";
+import {
+  ActionReadFuncRef,
+  ActionWriteFuncRef,
+  EntActionCtx,
+  EntsTableAction,
+  PromiseTableActionImpl,
+} from "./actions";
+import { ScheduledDeleteFuncRef } from "./deletion";
 import {
   DeletionConfig,
   EdgeConfig,
@@ -37,13 +44,18 @@ import {
   edgeCompoundIndexName,
 } from "./schema";
 import {
+  EntsSystemDataModel,
+  IndexFieldTypesForEq,
+  PromiseEdgeResult,
+  getEdgeDefinitions,
+} from "./shared";
+import {
   EdgeChanges,
   WithEdgeInserts,
   WithEdgePatches,
   WithEdges,
   WriterImplBase,
 } from "./writer";
-import { ScheduledDeleteFuncRef } from "./deletion";
 
 export interface PromiseOrderedQueryOrNull<
   EntsDataModel extends GenericEntsDataModel,
@@ -62,7 +74,7 @@ export interface PromiseOrderedQueryOrNull<
       value: Ent<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel>,
       index: number,
       array: Ent<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel>[],
-    ) => Promise<TOutput> | TOutput,
+    ) => TOutput | Promise<TOutput>,
   ): PromiseArrayOrNull<TOutput>;
 
   paginate(
@@ -162,15 +174,19 @@ export interface PromiseTableBase<
   ): PromiseEnts<EntsDataModel, Table>;
   getManyX(ids: GenericId<Table>[]): PromiseEnts<EntsDataModel, Table>;
   /**
-   * Returns the string ID format for the ID in a given table, or null if the ID
+   * If given a valid ID for the given table, returns it, or returns null if the ID
    * is from a different table or is not a valid ID.
    *
    * This does not guarantee that the ID exists (i.e. `table("foo").get(id)` may return `null`).
-   *
-   * @param tableName - The name of the table.
-   * @param id - The ID string.
    */
   normalizeId(id: string): GenericId<Table> | null;
+  /**
+   * If given a valid ID for the given table, returns it, or throws if the ID
+   * is from a different table or is not a valid ID.
+   *
+   * This does not guarantee that the ID exists (i.e. `table("foo").get(id)` may return `null`).
+   */
+  normalizeIdX(id: string): GenericId<Table>;
 }
 
 export interface PromiseTable<
@@ -329,7 +345,7 @@ class PromiseQueryOrNullImpl<
       value: Ent<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel>,
       index: number,
       array: Ent<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel>[],
-    ) => Promise<TOutput> | TOutput,
+    ) => TOutput | Promise<TOutput>,
   ) {
     return new PromiseArrayImpl(async () => {
       const array = await this;
@@ -764,7 +780,7 @@ class PromiseTableImpl<
                 const doc = await (isSystemTable(this.table)
                   ? this.ctx.db.system.get(id as any)
                   : this.ctx.db.get(id));
-                if (doc === null) {
+                if (throwIfNull && doc === null) {
                   throw new Error(
                     `Document not found with id \`${id}\` in table "${this.table}"`,
                   );
@@ -942,6 +958,7 @@ export interface PromiseEnts<
   docs(): Promise<DocumentByName<EntsDataModel, Table>[]>;
 }
 
+// Also implements `PromiseEntsOrNulls`, so individual docs can be null
 class PromiseEntsOrNullImpl<
     EntsDataModel extends GenericEntsDataModel,
     Table extends TableNamesInDataModel<EntsDataModel>,
@@ -968,7 +985,7 @@ class PromiseEntsOrNullImpl<
       value: Ent<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel>,
       index: number,
       array: Ent<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel>[],
-    ) => Promise<TOutput> | TOutput,
+    ) => TOutput | Promise<TOutput>,
   ) {
     return new PromiseArrayImpl(async () => {
       const array = await this;
@@ -1088,10 +1105,13 @@ class PromiseEntsOrNullImpl<
   ): Promise<TResult1 | TResult2> {
     return this.docs()
       .then((docs) =>
+        // Handles PromiseEntsOrNulls
         docs === null
           ? null
           : docs.map((doc) =>
-              entWrapper(doc, this.ctx, this.entDefinitions, this.table),
+              doc === null
+                ? (null as any)
+                : entWrapper(doc, this.ctx, this.entDefinitions, this.table),
             ),
       )
       .then(onfulfilled, onrejected);
@@ -1868,6 +1888,14 @@ export function entWrapper<
     writable: false,
     configurable: false,
   });
+  Object.defineProperty(doc, "_edges", {
+    value: () => {
+      return getEdgeDefinitions(entDefinitions, table);
+    },
+    enumerable: false,
+    writable: false,
+    configurable: false,
+  });
   Object.defineProperty(doc, "doc", {
     value: () => {
       return doc;
@@ -1911,17 +1939,21 @@ export function entWrapper<
 }
 
 export function entsTableFactory<
-  Ctx extends EntQueryCtx<any>,
+  Ctx extends EntQueryCtx<any> | EntActionCtx<any>,
   EntsDataModel extends GenericEntsDataModel,
 >(
   ctx: Ctx,
   entDefinitions: EntsDataModel,
   options?: {
-    scheduledDelete: ScheduledDeleteFuncRef;
+    scheduledDelete?: ScheduledDeleteFuncRef;
+    actionRead?: ActionReadFuncRef;
+    actionWrite?: ActionWriteFuncRef;
   },
-): Ctx extends EntMutationCtx<any>
-  ? EntsTableWriter<EntsDataModel>
-  : EntsTable<EntsDataModel> {
+): Ctx extends EntActionCtx<any>
+  ? EntsTableAction<EntsDataModel>
+  : Ctx extends EntMutationCtx<any>
+    ? EntsTableWriter<EntsDataModel>
+    : EntsTable<EntsDataModel> {
   const enrichedCtx = options !== undefined ? { ...ctx, ...options } : ctx;
   const table = (
     table: TableNamesInDataModel<EntsDataModel>,
@@ -1937,24 +1969,39 @@ export function entsTableFactory<
     if (typeof table !== "string") {
       throw new Error(`Expected table name, got \`${table as any}\``);
     }
-    if (indexName !== undefined) {
-      return new PromiseTableImpl(
+    if ("vectorSearch" in ctx) {
+      if (indexName !== undefined) {
+        return new PromiseTableActionImpl(
+          enrichedCtx as any,
+          entDefinitions,
+          table,
+        ).withIndex(indexName, indexRange);
+      }
+      return new PromiseTableActionImpl(
         enrichedCtx as any,
         entDefinitions,
         table,
-      ).withIndex(indexName, indexRange);
+      );
+    } else {
+      if (indexName !== undefined) {
+        return new PromiseTableImpl(
+          enrichedCtx as any,
+          entDefinitions,
+          table,
+        ).withIndex(indexName, indexRange);
+      }
+      if ((ctx.db as any).insert !== undefined) {
+        return new PromiseTableWriterImpl(
+          enrichedCtx as any,
+          entDefinitions,
+          table,
+        );
+      }
+      return new PromiseTableImpl(enrichedCtx as any, entDefinitions, table);
     }
-    if ((ctx.db as any).insert !== undefined) {
-      return new PromiseTableWriterImpl(
-        enrichedCtx as any,
-        entDefinitions,
-        table,
-      ) as any;
-    }
-    return new PromiseTableImpl(enrichedCtx as any, entDefinitions, table);
   };
   table.system = table;
-  return table;
+  return table as any;
 }
 
 type EntsTableReader<EntsDataModel extends GenericEntsDataModel> = {
@@ -1980,12 +2027,6 @@ export type EntsTable<EntsDataModel extends GenericEntsDataModel> =
   EntsTableReader<EntsDataModel> & {
     system: EntsTableReader<EntsSystemDataModel>;
   };
-
-type EntsSystemDataModel = {
-  [key in keyof SystemDataModel]: SystemDataModel[key] & {
-    edges: Record<string, never>;
-  };
-};
 
 export type EntsTableWriter<EntsDataModel extends GenericEntsDataModel> = {
   <
@@ -2031,20 +2072,6 @@ export type GenericEnt<
   EntsDataModel extends GenericEntsDataModel,
   Table extends TableNamesInDataModel<EntsDataModel>,
 > = Ent<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel>;
-
-type PromiseEdgeResult<
-  EdgeConfig extends GenericEdgeConfig,
-  MultipleRef,
-  MultipleField,
-  SingleRef,
-  SingleField,
-> = EdgeConfig["cardinality"] extends "multiple"
-  ? EdgeConfig["type"] extends "ref"
-    ? MultipleRef
-    : MultipleField
-  : EdgeConfig["type"] extends "ref"
-    ? SingleRef
-    : SingleField;
 
 export type PromiseEdge<
   EntsDataModel extends GenericEntsDataModel,
@@ -2320,7 +2347,6 @@ export interface PromiseTableWriter<
    * @param value - The {@link Value} to insert into the given table.
    * @returns - {@link GenericId} of the new document.
    */
-  // TODO: Chain methods to get the written document?
   insert(
     value: Expand<
       WithoutSystemFields<
@@ -2858,6 +2884,7 @@ class PromiseEntIdImpl<
 
 export interface EntQueryCtx<DataModel extends GenericDataModel> {
   db: GenericDatabaseReader<DataModel>;
+  vectorSearch?: undefined;
 }
 
 export interface EntMutationCtx<DataModel extends GenericDataModel>
@@ -2876,21 +2903,6 @@ const nullRetriever = {
   id: null,
   doc: async () => null,
 };
-
-type IndexFieldTypesForEq<
-  EntsDataModel extends GenericEntsDataModel,
-  Table extends TableNamesInDataModel<EntsDataModel>,
-  T extends string[],
-> = Pop<{
-  [K in keyof T]: FieldTypeFromFieldPath<
-    DocumentByName<EntsDataModel, Table>,
-    T[K]
-  >;
-}>;
-
-type Pop<T extends any[]> = T extends [...infer Rest, infer _Last]
-  ? Rest
-  : never;
 
 // function idRetriever<
 //   DataModel extends GenericDataModel,
@@ -3086,16 +3098,6 @@ export function getWriteRule(
   table: string,
 ) {
   return (entDefinitions.rules as Rules)?.[table]?.write;
-}
-
-export function getEdgeDefinitions<
-  EntsDataModel extends GenericEntsDataModel,
-  Table extends TableNamesInDataModel<EntsDataModel>,
->(entDefinitions: EntsDataModel, table: Table) {
-  return entDefinitions[table].edges as Record<
-    keyof EntsDataModel[Table]["edges"],
-    EdgeConfig
-  >;
 }
 
 export function getDeletionConfig<
