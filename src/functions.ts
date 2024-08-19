@@ -27,13 +27,6 @@ import {
   WithoutSystemFields,
 } from "convex/server";
 import { GenericId } from "convex/values";
-import {
-  ActionReadFuncRef,
-  ActionWriteFuncRef,
-  EntActionCtx,
-  EntsTableAction,
-  PromiseTableActionImpl,
-} from "./actions";
 import { ScheduledDeleteFuncRef } from "./deletion";
 import {
   DeletionConfig,
@@ -1939,21 +1932,17 @@ export function entWrapper<
 }
 
 export function entsTableFactory<
-  Ctx extends EntQueryCtx<any> | EntActionCtx<any>,
+  Ctx extends EntQueryCtx<any>,
   EntsDataModel extends GenericEntsDataModel,
 >(
   ctx: Ctx,
   entDefinitions: EntsDataModel,
   options?: {
     scheduledDelete?: ScheduledDeleteFuncRef;
-    actionRead?: ActionReadFuncRef;
-    actionWrite?: ActionWriteFuncRef;
   },
-): Ctx extends EntActionCtx<any>
-  ? EntsTableAction<EntsDataModel>
-  : Ctx extends EntMutationCtx<any>
-    ? EntsTableWriter<EntsDataModel>
-    : EntsTable<EntsDataModel> {
+): Ctx extends EntMutationCtx<any>
+  ? EntsTableWriter<EntsDataModel>
+  : EntsTable<EntsDataModel> {
   const enrichedCtx = options !== undefined ? { ...ctx, ...options } : ctx;
   const table = (
     table: TableNamesInDataModel<EntsDataModel>,
@@ -1969,36 +1958,22 @@ export function entsTableFactory<
     if (typeof table !== "string") {
       throw new Error(`Expected table name, got \`${table as any}\``);
     }
-    if ("vectorSearch" in ctx) {
-      if (indexName !== undefined) {
-        return new PromiseTableActionImpl(
-          enrichedCtx as any,
-          entDefinitions,
-          table,
-        ).withIndex(indexName, indexRange);
-      }
-      return new PromiseTableActionImpl(
+
+    if (indexName !== undefined) {
+      return new PromiseTableImpl(
+        enrichedCtx as any,
+        entDefinitions,
+        table,
+      ).withIndex(indexName, indexRange);
+    }
+    if ((ctx.db as any).insert !== undefined) {
+      return new PromiseTableWriterImpl(
         enrichedCtx as any,
         entDefinitions,
         table,
       );
-    } else {
-      if (indexName !== undefined) {
-        return new PromiseTableImpl(
-          enrichedCtx as any,
-          entDefinitions,
-          table,
-        ).withIndex(indexName, indexRange);
-      }
-      if ((ctx.db as any).insert !== undefined) {
-        return new PromiseTableWriterImpl(
-          enrichedCtx as any,
-          entDefinitions,
-          table,
-        );
-      }
-      return new PromiseTableImpl(enrichedCtx as any, entDefinitions, table);
     }
+    return new PromiseTableImpl(enrichedCtx as any, entDefinitions, table);
   };
   table.system = table;
   return table as any;

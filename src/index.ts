@@ -8,7 +8,6 @@ export {
 export type { EntDefinition } from "./schema";
 export { entsTableFactory, addEntRules } from "./functions";
 export { scheduledDeleteFactory } from "./deletion";
-export { entsActionReadFactory, entsActionWriteFactory } from "./actions";
 export type {
   GenericEnt,
   GenericEntWriter,

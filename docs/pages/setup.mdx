@@ -55,13 +55,10 @@ Add a `functions.ts` file with the following contents:
 import { entsTableFactory } from "convex-ents";
 import {
   customCtx,
-  customAction,
   customMutation,
   customQuery,
 } from "convex-helpers/server/customFunctions";
 import {
-  action as baseAction,
-  internalAction as baseInternalAction,
   internalMutation as baseInternalMutation,
   internalQuery as baseInternalQuery,
   mutation as baseMutation,
@@ -108,24 +105,6 @@ export const internalMutation = customMutation(
     };
   }),
 );
-
-export const action = customAction(
-  baseAction,
-  customCtx(async (ctx) => {
-    return {
-      table: entsTableFactory(ctx, entDefinitions),
-    };
-  }),
-);
-
-export const internalAction = customAction(
-  baseInternalAction,
-  customCtx(async (ctx) => {
-    return {
-      table: entsTableFactory(ctx, entDefinitions),
-    };
-  }),
-);
 ```
 
 </Aside>
@@ -142,12 +121,11 @@ Add a `types.ts` file with the following contents:
 import { GenericEnt, GenericEntWriter } from "convex-ents";
 import { CustomCtx } from "convex-helpers/server/customFunctions";
 import { TableNames } from "./_generated/dataModel";
-import { action, mutation, query } from "./functions";
+import { mutation, query } from "./functions";
 import { entDefinitions } from "./schema";
 
 export type QueryCtx = CustomCtx<typeof query>;
 export type MutationCtx = CustomCtx<typeof mutation>;
-export type ActionCtx = CustomCtx<typeof action>;
 
 export type Ent<TableName extends TableNames> = GenericEnt<
   typeof entDefinitions,
@@ -196,7 +174,6 @@ export const tag = mutation({
 });
 ```
 
-For more details see [Reading Ents](/read), [Writing Ents](/write) and
-[Actions](/actions).
+For more details see [Reading Ents](/read) and [Writing Ents](/write).
 
 </Steps>

@@ -33,7 +33,7 @@ comparison of Prisma, Convex and Convex Ents.
 [SaaS Starter](https://github.com/xixixao/saas-starter) is a full project
 template built out using Convex Ents.
 
-<Tabs items={["Example query", "mutation", "action", "schema"]}>
+<Tabs items={["Example query", "mutation", "schema"]}>
 
 <Tabs.Tab>
 
@@ -69,20 +69,6 @@ export const acceptInvite = mutation({
     });
     await invite.delete();
     return (await invite.edge("team")).slug;
-  },
-});
-```
-
-</Tabs.Tab>
-<Tabs.Tab>
-
-```ts filename="convex/ai.ts"
-export const generate = internalAction({
-  args: { id: v.id("prompts") },
-  handler: async (ctx, { id }) => {
-    const { text } = await ctx.table("prompts").getX(id);
-    const response = await fetchResponse(text);
-    await ctx.table("prompts").getX(id).patch({ response });
   },
 });
 ```
