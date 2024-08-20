@@ -447,7 +447,7 @@ returned ent. It can be used to add related ents via the `edge` and `edgeX`
 methods:
 
 ```ts
-const usersWithMessages = await ctx.table("users").map((user) => {
+const usersWithMessages = await ctx.table("users").map(async (user) => {
   return {
     name: user.name,
     messages: await user.edge("messages").take(5),
@@ -456,7 +456,7 @@ const usersWithMessages = await ctx.table("users").map((user) => {
 ```
 
 ```ts
-const usersWithProfileAndMessages = await ctx.table("users").map((user) => {
+const usersWithProfileAndMessages = await ctx.table("users").map(async (user) => {
   const [messages, profile] = await Promise.all([
     profile: user.edgeX("profile"),
     user.edge("messages").take(5),
@@ -509,7 +509,7 @@ The `map` method can beused to load ents by traversing more than one edge:
 ```ts
 const usersWithMessagesAndTags = await ctx.table("users").map(async (user) => ({
   ...user,
-  messages: await user.edge("messages").map((message) => ({
+  messages: await user.edge("messages").map(async (message) => ({
     text: message.text,
     tags: await message.edge("tags"),
   })),
@@ -579,9 +579,9 @@ export const list = query({
   handler: async (ctx) => {
     const usersWithMessagesAndProfile = await ctx
       .table("users")
-      .map((user) => ({
+      .map(async (user) => ({
         ...user,
-        profile: user.edgeX("profile").doc(),
+        profile: await user.edgeX("profile").doc(),
       }));
   },
 });
