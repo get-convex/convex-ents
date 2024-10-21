@@ -1414,7 +1414,7 @@ class PromiseEdgeOrNullImpl<
     if (sourceId === null) {
       return null;
     }
-    const edgeDoc = this.ctx.db
+    const edgeDoc = await this.ctx.db
       .query(this.edgeDefinition.table)
       .withIndex(edgeCompoundIndexName(this.edgeDefinition), (q) =>
         (q.eq(this.edgeDefinition.field, sourceId as any) as any).eq(
