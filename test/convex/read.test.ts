@@ -350,15 +350,27 @@ test("has many:many edge", async ({ ctx }) => {
   const messageId = await ctx
     .table("messages")
     .insert({ text: "Hello world", userId: userId });
+  const messageId2 = await ctx
+    .table("messages")
+    .insert({ text: "Hello to another world", userId: userId });
   const tagId = await ctx
     .table("tags")
     .insert({ name: "cool", messages: [messageId] });
+  const tagId2 = await ctx
+    .table("tags")
+    .insert({ name: "not-cool", messages: [] });
   expect(
     await ctx.table("messages").getX(messageId).edge("tags").has(tagId),
   ).toEqual(true);
   expect(
     await ctx.table("tags").getX(tagId).edge("messages").has(messageId),
   ).toEqual(true);
+  expect(
+    await ctx.table("tags").getX(tagId2).edge("messages").has(messageId2),
+  ).toEqual(false);
+  expect(
+    await ctx.table("messages").getX(messageId2).edge("tags").has(tagId2),
+  ).toEqual(false);
 });
 
 test("map many:many edge", async ({ ctx }) => {
