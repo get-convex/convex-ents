@@ -554,6 +554,22 @@ test("edge write in pagination", async ({ ctx }) => {
   expect((await ctx.table("users").getX(user._id)).name).toEqual("Bill");
 });
 
+test("1:many optional edge not needed", async ({ ctx }) => {
+  const photoId = await ctx.table("photos").insert({ url: "https://a.b" });
+  expect((await ctx.table("photos").getX(photoId)).url).toEqual("https://a.b");
+});
+
+test("1:many optional edge provided", async ({ ctx }) => {
+  const userId = await ctx.table("users").insert({
+    name: "Gates",
+    email: "bill@gates.com",
+  });
+  const photoId = await ctx
+    .table("photos")
+    .insert({ url: "https://a.b", ownerId: userId });
+  expect((await ctx.table("photos").getX(photoId)).ownerId).toEqual(userId);
+});
+
 test("write from indexed get", async ({ ctx }) => {
   await ctx.table("users").insert({
     name: "Gates",

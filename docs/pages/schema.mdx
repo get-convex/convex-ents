@@ -269,7 +269,7 @@ You can make both ends of a 1:1 edge optional:
 defineEntSchema({
   users: defineEnt({
     name: v.string(),
-  }).edge("profile", { ref: "userId", optional: true }),
+  }).edge("profile", { optional: true }),
   profiles: defineEnt({
     bio: v.string(),
   }).edge("user", { field: "userId", optional: true }),
@@ -278,8 +278,8 @@ defineEntSchema({
 
 In this case a profile can be created without a set `userId`.
 
-You have to set the `ref` and `field` options to determine which side of the
-edge stores it.
+You have to set the `field` option to determine which side of the edge stores
+the edge.
 
 ### 1:many edges
 
@@ -337,13 +337,25 @@ defineEntSchema({
 });
 ```
 
-<Callout type="info">
+#### Optional 1:many edges
 
-Making the singular end of the 1:many edge optional is not supported for now.
+You can make the foreign key optional:
 
-In the example above, each message must have an author.
+```ts
+defineEntSchema({
+  users: defineEnt({
+    name: v.string(),
+  }).edges("messages", { ref: true }),
+  messages: defineEnt({
+    text: v.string(),
+  }).edge("user", { field: "userId", optional: true }),
+});
+```
 
-</Callout>
+In this case a message can be created without a set `userId`.
+
+You have to set the `field` option to signify that the singular end of the edge
+stores the foreign key.
 
 ### many:many edges
 

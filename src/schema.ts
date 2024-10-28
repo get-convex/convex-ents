@@ -696,7 +696,7 @@ export interface EntDefinition<
     AddField<
       DocumentType,
       NoInfer<FieldName>,
-      VOptional<VId<GenericId<`${EdgeName}s`>>>
+      VOptional<VId<GenericId<ToTable>>>
     >,
     Indexes & {
       [key in NoInfer<FieldName>]: [NoInfer<FieldName>, "_creationTime"];
