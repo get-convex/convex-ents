@@ -16,15 +16,17 @@ export type PromiseEdgeResult<
   EdgeConfig extends GenericEdgeConfig,
   MultipleRef,
   MultipleField,
-  SingleRef,
-  SingleField,
+  SingleOptional,
+  Single,
 > = EdgeConfig["cardinality"] extends "multiple"
   ? EdgeConfig["type"] extends "ref"
     ? MultipleRef
     : MultipleField
   : EdgeConfig["type"] extends "ref"
-    ? SingleRef
-    : SingleField;
+    ? SingleOptional
+    : EdgeConfig["optional"] extends true
+      ? SingleOptional
+      : Single;
 
 export type IndexFieldTypesForEq<
   EntsDataModel extends GenericEntsDataModel,

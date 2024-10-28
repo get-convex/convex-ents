@@ -100,13 +100,6 @@ export function defineEntSchema<
           inverseEdge.cardinality === "single" &&
           inverseEdge.type === "ref"
         ) {
-          // TODO: If we want to support optional 1:1 edges in the future
-          // throw new Error(
-          //   `Both edge "${edge.name}" on ent "${inverseEdge.to}" and ` +
-          //     `edge "${inverseEdge.name}" on ent "${edge.to}" are marked ` +
-          //     `as optional, specify which table should store the 1:1 edge by ` +
-          //     `providing a \`field\` name.`
-          // );
           throw new Error(
             `Both edge "${edge.name}" in table "${inverseEdge.to}" and ` +
               `edge "${inverseEdge.name}" in table "${edge.to}" are marked ` +
@@ -418,6 +411,7 @@ export type GenericEdgeConfig = {
   to: string;
   cardinality: "single" | "multiple";
   type: "field" | "ref";
+  optional?: boolean;
 };
 
 type ExtractFieldPaths<T extends Validator<any, any, any>> =
@@ -455,6 +449,7 @@ type AddField<
     : V extends VAny
       ? VAny
       : never;
+
 export interface EntDefinition<
   DocumentType extends Validator<any, any, any> = Validator<any, any, any>,
   // eslint-disable-next-line @typescript-eslint/ban-types
@@ -618,6 +613,7 @@ export interface EntDefinition<
         to: `${EdgeName}s`;
         type: "field";
         cardinality: "single";
+        optional: false;
       };
     }
   >;
@@ -637,6 +633,31 @@ export interface EntDefinition<
         to: `${EdgeName}s`;
         type: "field";
         cardinality: "single";
+        optional: false;
+      };
+    }
+  >;
+  edge<EdgeName extends string, const FieldName extends string>(
+    edge: EdgeName,
+    options: { field: FieldName; optional: true },
+  ): EntDefinition<
+    AddField<
+      DocumentType,
+      NoInfer<FieldName>,
+      VOptional<VId<GenericId<`${EdgeName}s`>>>
+    >,
+    Indexes & {
+      [key in NoInfer<FieldName>]: [NoInfer<FieldName>, "_creationTime"];
+    },
+    SearchIndexes,
+    VectorIndexes,
+    Edges & {
+      [key in EdgeName]: {
+        name: EdgeName;
+        to: `${EdgeName}s`;
+        type: "field";
+        cardinality: "single";
+        optional: true;
       };
     }
   >;
@@ -660,6 +681,35 @@ export interface EntDefinition<
         to: ToTable;
         type: "field";
         cardinality: "single";
+        optional: false;
+      };
+    }
+  >;
+  edge<
+    EdgeName extends string,
+    const FieldName extends string,
+    const ToTable extends string,
+  >(
+    edge: EdgeName,
+    options: { field: FieldName; to: ToTable; optional: true },
+  ): EntDefinition<
+    AddField<
+      DocumentType,
+      NoInfer<FieldName>,
+      VOptional<VId<GenericId<`${EdgeName}s`>>>
+    >,
+    Indexes & {
+      [key in NoInfer<FieldName>]: [NoInfer<FieldName>, "_creationTime"];
+    },
+    SearchIndexes,
+    VectorIndexes,
+    Edges & {
+      [key in EdgeName]: {
+        name: EdgeName;
+        to: ToTable;
+        type: "field";
+        cardinality: "single";
+        optional: true;
       };
     }
   >;
@@ -1036,15 +1086,20 @@ class EntDefinitionImpl {
       throw new Error(`Duplicate edge "${edgeName}"`);
     }
     const to = options?.to ?? edgeName + "s";
-    if (options?.optional !== true) {
+    if (options?.field !== undefined || options?.optional !== true) {
       const fieldName = options?.field ?? edgeName + "Id";
-      this.documentSchema = { ...this.documentSchema, [fieldName]: v.id(to) };
+      this.documentSchema = {
+        ...this.documentSchema,
+        [fieldName]:
+          options?.optional === true ? v.optional(v.id(to)) : v.id(to),
+      };
       this.edgeConfigs[edgeName] = {
         name: edgeName,
         to,
         cardinality: "single",
         type: "field",
         field: fieldName,
+        optional: options?.optional === true,
       };
       this.indexes.push({
         indexDescriptor: fieldName,
@@ -1143,6 +1198,7 @@ export type EdgeConfig = {
           type: "field";
           field: string;
           unique: boolean;
+          optional: boolean;
         }
       | {
           type: "ref";
@@ -1179,6 +1235,7 @@ type EdgeConfigBeforeDefineSchema = {
       | {
           type: "field";
           field: string;
+          optional: boolean;
         }
       | {
           type: "ref";

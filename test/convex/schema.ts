@@ -26,11 +26,16 @@ const schema = defineEntSchema(
       .edges("messages", { ref: true })
       .edges("followers", { to: "users", inverse: "followees" })
       .edges("friends", { to: "users" })
-      .edge("secret", { ref: "ownerId", optional: true }),
+      .edge("secret", { ref: "ownerId", optional: true })
+      .edge("photo", { ref: "userId", optional: true }),
 
     profiles: defineEnt({
       bio: v.string(),
     }).edge("user"),
+
+    photos: defineEnt({
+      url: v.string(),
+    }).edge("user", { field: "userId", optional: true }),
 
     tags: defineEnt({
       name: v.string(),
@@ -110,9 +115,12 @@ const schema = defineEntSchema(
     members: defineEnt({})
       .edge("team")
       .edges("datas", { ref: true })
+      .edge("badge", { ref: "memberId", optional: true })
       .deletion("soft"),
 
     datas: defineEnt({}).edge("member"),
+
+    badges: defineEnt({}).edge("member", { field: "memberId", optional: true }),
   },
   { schemaValidation: true },
 );

@@ -79,6 +79,32 @@ test("1:1 edgeX from ref end, existing", async ({ ctx }) => {
   expect(firstUserProfile.bio).toEqual("Hello world");
 });
 
+test("1:1 optional edge missing", async ({ ctx }) => {
+  const photo = await ctx.table("photos").insert({ url: "https://a.b" }).get();
+
+  const user = await photo.edge("user");
+  if (false) {
+    // @ts-expect-error
+    user._id;
+  }
+
+  expect(user).toBeNull();
+});
+
+test("1:1 optional edge traversal", async ({ ctx }) => {
+  const userId = await ctx
+    .table("users")
+    .insert({ name: "Stark", email: "tony@stark.com" });
+  const photo = await ctx
+    .table("photos")
+    .insert({ url: "https://a.b", userId })
+    .get();
+
+  const user = await photo.edge("user");
+  expect(user).not.toBeNull();
+  expect(user!.name).toEqual("Stark");
+});
+
 test("1:many edge from field end", async ({ ctx }) => {
   const userId = await ctx
     .table("users")

@@ -1777,11 +1777,21 @@ class PromiseEntOrNullImpl<
         return {
           id: otherId,
           doc: async () => {
+            if (otherId === undefined) {
+              if (edgeDefinition.optional) {
+                return null;
+              }
+              throw new Error(
+                `Unexpected null reference for edge "${edgeDefinition.name}" in ` +
+                  `table "${this.table}" on document with ID "${id}": ` +
+                  `Expected an ID for a document in table "${edgeDefinition.to}".`,
+              );
+            }
             const otherDoc = await this.ctx.db.get(otherId);
             if (otherDoc === null) {
               throw new Error(
                 `Dangling reference for edge "${edgeDefinition.name}" in ` +
-                  `table "${this.table}" for document with ID "${id}": ` +
+                  `table "${this.table}" on document with ID "${id}": ` +
                   `Could not find a document with ID "${otherId}"` +
                   ` in table "${edgeDefinition.to}".`,
               );
