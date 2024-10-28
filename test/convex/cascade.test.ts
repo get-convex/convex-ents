@@ -13,12 +13,14 @@ test("scheduled delete", async () => {
     const teamId = await ctx.table("teams").insert({});
     const memberId = await ctx.table("members").insert({ teamId });
     const dataId = await ctx.table("datas").insert({ memberId });
+    const badgeId = await ctx.table("badges").insert({ memberId });
     await ctx.table("teams").getX(teamId).delete();
     const softDeletedTeam = await ctx.table("teams").getX(teamId);
     expect(softDeletedTeam.deletionTime).not.toBeUndefined();
     const softDeletedMember = await ctx.table("members").getX(memberId);
     expect(softDeletedMember.deletionTime).not.toBeUndefined();
     expect(await ctx.table("datas").getX(dataId)).not.toBeNull();
+    expect(await ctx.table("badges").getX(badgeId)).not.toBeNull();
   });
 
   await t.finishAllScheduledFunctions(vi.runAllTimers);
@@ -31,6 +33,8 @@ test("scheduled delete", async () => {
     expect(members.length).toBe(0);
     const datas = await ctx.table("datas");
     expect(datas.length).toBe(0);
+    const badges = await ctx.table("badges");
+    expect(badges.length).toBe(0);
   });
 
   vi.useRealTimers();

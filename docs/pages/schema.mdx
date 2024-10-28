@@ -261,13 +261,25 @@ defineEntSchema({
 The edge names are used when querying the edges, but they are not stored in the
 database (the field name is, as part of each document that stores its value).
 
-<Callout type="info">
+#### Optional 1:1 edges
 
-Making both ends of the 1:1 edge optional is not supported for now.
+You can make both ends of a 1:1 edge optional:
 
-In the example above, each profile must have an owner.
+```ts
+defineEntSchema({
+  users: defineEnt({
+    name: v.string(),
+  }).edge("profile", { ref: "userId", optional: true }),
+  profiles: defineEnt({
+    bio: v.string(),
+  }).edge("user", { field: "userId", optional: true }),
+});
+```
 
-</Callout>
+In this case a profile can be created without a set `userId`.
+
+You have to set the `ref` and `field` options to determine which side of the
+edge stores it.
 
 ### 1:many edges
 
