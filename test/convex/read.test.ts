@@ -83,6 +83,7 @@ test("1:1 optional edge missing", async ({ ctx }) => {
   const photo = await ctx.table("photos").insert({ url: "https://a.b" }).get();
 
   const user = await photo.edge("user");
+  // Check that the edge is nullable
   if (false) {
     // @ts-expect-error
     user._id;
@@ -103,6 +104,9 @@ test("1:1 optional edge traversal", async ({ ctx }) => {
   const user = await photo.edge("user");
   expect(user).not.toBeNull();
   expect(user!.name).toEqual("Stark");
+  const photoFromUser = await user!.edge("photo");
+  expect(photoFromUser).not.toBeNull();
+  expect(photoFromUser!.url).toEqual("https://a.b");
 });
 
 test("1:many edge from field end", async ({ ctx }) => {
@@ -112,6 +116,36 @@ test("1:many edge from field end", async ({ ctx }) => {
   await ctx.table("messages").insert({ text: "Hello world", userId });
   const firstMessageUser = await ctx.table("messages").firstX().edge("user");
   expect(firstMessageUser.name).toEqual("Stark");
+});
+
+test("1:many optional edge missing", async ({ ctx }) => {
+  const photo = await ctx.table("photos").insert({ url: "https://a.b" }).get();
+
+  const user = await photo.edge("owner");
+  // Check that the edge is nullable
+  if (false) {
+    // @ts-expect-error
+    user._id;
+  }
+
+  expect(user).toBeNull();
+});
+
+test("1:many optional edge traversal", async ({ ctx }) => {
+  const userId = await ctx
+    .table("users")
+    .insert({ name: "Stark", email: "tony@stark.com" });
+  const photo = await ctx
+    .table("photos")
+    .insert({ url: "https://a.b", ownerId: userId })
+    .get();
+
+  const user = await photo.edge("owner");
+  expect(user).not.toBeNull();
+  expect(user!.name).toEqual("Stark");
+  const photos = await user!.edge("ownedPhotos");
+  expect(photos).toHaveLength(1);
+  expect(photos[0].url).toEqual("https://a.b");
 });
 
 test("many:many symmetric edge", async ({ ctx }) => {
