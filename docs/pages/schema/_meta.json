@@ -1,6 +1,8 @@
 {
-  "auth": "Authentication",
   "types": "Types",
   "deletes": "Cascading Deletes",
+  "auth": "Authentication",
+  "files": "File Storage",
+  "schedule": "Scheduled Functions",
   "rules": "Rules"
 }

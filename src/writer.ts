@@ -44,8 +44,8 @@ export class WriterImplBase<
     if (behavior === "soft" && !isDeletingSoftly) {
       throw new Error(
         `Cannot soft delete document with ID "${id}" in ` +
-          `table "${this.table}" because it does not have an ` +
-          `"allowSoft", "soft" or "scheduled" deletion behavior configured.`,
+          `table "${this.table}" because it does not have ` +
+          `a "soft" or "scheduled" deletion behavior configured.`,
       );
     }
     const edges: EdgeChanges = {};
@@ -69,6 +69,21 @@ export class WriterImplBase<
                   .collect()
               ).map((doc) => doc._id as GenericId<any>);
               edges[key] = { remove };
+            }
+          } else if (edgeDefinition.cardinality === "single") {
+            if (
+              edgeDefinition.deletion !== undefined &&
+              (!isDeletingSoftly || edgeDefinition.deletion === "soft")
+            ) {
+              const doc = await this.ctx.db.get(id);
+              if (doc !== null) {
+                const otherId = doc[edgeDefinition.field] as
+                  | GenericId<any>
+                  | undefined;
+                edges[key] = {
+                  remove: otherId !== undefined ? [otherId] : [],
+                };
+              }
             }
           } else if (edgeDefinition.cardinality === "multiple") {
             if (!isDeletingSoftly) {
@@ -141,6 +156,21 @@ export class WriterImplBase<
     );
   }
 
+  async deleteSystem(table: string, id: GenericId<any>) {
+    switch (table) {
+      case "_storage":
+        await this.ctx.storage.delete(id);
+        break;
+      case "_scheduled_functions":
+        await this.ctx.scheduler.cancel(id);
+        break;
+      default:
+        throw new Error(
+          `Cannot cascade deletion to unsupported system table "${table}".`,
+        );
+    }
+  }
+
   async writeEdges(
     docId: GenericId<any>,
     changes: EdgeChanges,
@@ -187,6 +217,22 @@ export class WriterImplBase<
                   this.ctx.db.patch(id, {
                     [edgeDefinition.ref]: docId,
                   } as any),
+                ),
+              );
+            }
+          } else if (edgeDefinition.cardinality === "single") {
+            if (idOrIds.remove !== undefined && idOrIds.remove.length > 0) {
+              await Promise.all(
+                idOrIds.remove.map(
+                  isSystemTable(edgeDefinition.to)
+                    ? (id) => this.deleteSystem(edgeDefinition.to, id)
+                    : (id) =>
+                        this.deleteIdIn(
+                          id,
+                          edgeDefinition.to,
+                          (deleteSoftly ?? false) &&
+                            edgeDefinition.deletion === "soft",
+                        ),
                 ),
               );
             }
@@ -448,3 +494,7 @@ export type EdgeChanges = Record<
     removeEdges?: GenericId<any>[];
   }
 >;
+
+export function isSystemTable(table: string) {
+  return table.startsWith("_");
+}

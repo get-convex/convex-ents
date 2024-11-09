@@ -243,9 +243,9 @@ You have to provide the field name on both ends of the edge (via the `ref` and
 `field` options respectively).
 
 You can also specify explicitly which table is at the other end of the edge via
-the `to` option. This way the edge name doesn't have match the table name (this
-is helpful when the simple pluralization doesn't work, like edge "category" and
-table "categories"):
+the `to` option. This way the edge name doesn't have to match the table name
+(this is helpful when the simple pluralization doesn't work, like edge
+"category" and table "categories"):
 
 ```ts
 defineEntSchema({
@@ -280,6 +280,12 @@ In this case a profile can be created without a set `userId`.
 
 You have to set the `field` option to determine which side of the edge stores
 the edge.
+
+#### 1:1 edges to system tables
+
+You can connect ents to documents in system tables via 1:1 edges, see
+[File Storage](/schema/files) and [Scheduled Functions](/schema/schedule) for
+details.
 
 ### 1:many edges
 

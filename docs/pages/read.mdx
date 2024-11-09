@@ -303,7 +303,10 @@ const scheduledFunctions = await ctx.table.system("_scheduled_functions");
 ```
 
 All the previously listed methods are also supported by `ctx.table.system`.
-Edges to and from system tables are currently not supported.
+
+You might also access documents in system tables through edges, see
+[File Storage](/schema/files) and [Scheduled Functions](/schema/schedule) for
+details.
 
 ## Traversing edges
 

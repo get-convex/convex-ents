@@ -56,6 +56,30 @@ The following scenarios are currently supported:
   - When ent B is deleted, the documents storing the edges to ents A are all
     deleted, but ents A are _not_ deleted.
 
+### Overriding deletion direction for 1:1 edges
+
+For 1:1 edges, you can additionally configure deletion to propagate from the ent
+that stores the edge to the other ent, by setting the `deletion` option on the
+edge declaration:
+
+```ts
+defineEntSchema({
+  users: defineEnt({
+    name: v.string(),
+  }).edge("profile", { optional: true }),
+  profiles: defineEnt({
+    bio: v.string(),
+  }).edge("user", { deletion: "hard" }),
+});
+```
+
+In this example, when a user is deleted, their profile is deleted as well, which
+is the default behavior, but also when a profile is deleted, the user is
+deleted.
+
+This is especially useful for cascading deletes to file storage, see [File
+Storage].
+
 ## Soft deletion behavior
 
 You can configure an ent to use the `"soft"` deletion behavior with the
@@ -191,7 +215,7 @@ export const query = customQuery(
       table: entsTableFactory(ctx, entDefinitions),
       db: undefined,
     };
-  })
+  }),
 );
 
 export const internalQuery = customQuery(
@@ -201,7 +225,7 @@ export const internalQuery = customQuery(
       table: entsTableFactory(ctx, entDefinitions),
       db: undefined,
     };
-  })
+  }),
 );
 
 export const mutation = customMutation(
@@ -213,7 +237,7 @@ export const mutation = customMutation(
       }),
       db: undefined,
     };
-  })
+  }),
 );
 
 export const internalMutation = customMutation(
@@ -225,7 +249,7 @@ export const internalMutation = customMutation(
       }),
       db: undefined,
     };
-  })
+  }),
 );
 ```
 

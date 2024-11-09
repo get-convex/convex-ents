@@ -1,11 +1,13 @@
 import { test as baseTest, expect, vi } from "vitest";
 import { internal } from "./_generated/api";
 import schema from "./schema";
-import { convexTest, runCtx } from "./setup.testing";
+import { convexTest, getNewFileId, runCtx } from "./setup.testing";
 import { Ent, EntWriter, MutationCtx } from "./types";
+import { StorageActionWriter } from "convex/server";
 
-// To test typechecking, replace MutationCtx with QueryCtx
-const test = baseTest.extend<{ ctx: MutationCtx }>({
+const test = baseTest.extend<{
+  ctx: MutationCtx & { storage: StorageActionWriter };
+}>({
   // eslint-disable-next-line no-empty-pattern
   ctx: async ({}, use) => {
     const t = convexTest(schema);
@@ -107,6 +109,38 @@ test("1:1 optional edge traversal", async ({ ctx }) => {
   const photoFromUser = await user!.edge("photo");
   expect(photoFromUser).not.toBeNull();
   expect(photoFromUser!.url).toEqual("https://a.b");
+});
+
+test("1:1 edge to _storage traversal", async ({ ctx }) => {
+  const userId = await ctx
+    .table("users")
+    .insert({ name: "Stark", email: "tony@stark.com" });
+  const fileId = await getNewFileId(ctx);
+  const headshot = await ctx
+    .table("headshots")
+    .insert({ taken: "2024-11-09", fileId, userId })
+    .get();
+  const metadata = await headshot.edge("file");
+  expect(metadata.size).toEqual(2);
+});
+
+test("1:1 edge to _scheduled_functions traversal", async ({ ctx }) => {
+  const userId = await ctx
+    .table("users")
+    .insert({ name: "Stark", email: "tony@stark.com" });
+  const fileId = await getNewFileId(ctx);
+  const jobId = await ctx.scheduler.runAfter(
+    1000,
+    internal.migrations.usersCapitalizeName,
+    { fn: "boo" },
+  );
+  const headshot = await ctx
+    .table("headshots")
+    .insert({ taken: "2024-11-09", fileId, jobId, userId })
+    .get();
+  const metadata = await headshot.edge("job");
+  expect(metadata).not.toBeNull();
+  expect(metadata!.state.kind).toEqual("pending");
 });
 
 test("1:many edge from field end", async ({ ctx }) => {

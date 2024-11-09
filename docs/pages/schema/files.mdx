@@ -1,0 +1,60 @@
+# File Storage
+
+You can connect files from [file storage](https://docs.convex.dev/file-storage)
+to your ents.
+
+The basic way to do this is the same as in vanilla Convex, adding a storage ID
+field:
+
+```ts
+defineEntSchema({
+  users: defineEnt({
+    name: v.string(),
+    photoId: v.id("_storage"),
+  }),
+});
+```
+
+You can then retrieve the file URL for serving, update the ID etc. For example,
+to retrieve all users with URLs to their photos:
+
+```ts
+return ctx.table("users").map(async (user) => ({
+  ...user,
+  photoUrl: await ctx.storage.getUrl(user.photoId),
+}));
+```
+
+## Using edges for cascading deletes
+
+The one downside to this approach is that [cascading deletes](/schema/deletes)
+do not propagate to referenced files, leaving orphaned files behind. To handle
+this scenario Ents support specifying the connection to files as a 1:1 edge:
+
+```ts
+defineEntSchema({
+  users: defineEnt({
+    name: v.string(),
+  }).edge("photo", { to: "_storage", deletion: "hard" }),
+});
+```
+
+The field name is derived from the edge name (here `fieldId`), you can also
+specify it with the `field` option.
+
+You can automatically delete a connected file via the `deletion` option. Only
+the `"hard"` value is valid, since there is no way to mark soft deletion on a
+document in file storage.
+
+Note that if you use `ctx.storage.delete` to delete a file that is referenced in
+other ents, Ents will not cascade that deletion. Ideally do not use
+`ctx.storage.delete`, or handle any other required deletions manually.
+
+### Get file metadata via edge
+
+If you traverse the edge you will receive the
+[file metadata](https://docs.convex.dev/file-storage/file-metadata):
+
+```ts
+const photoMetadata = await user.edge("photo");
+```

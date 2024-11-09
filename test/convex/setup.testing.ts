@@ -18,3 +18,8 @@ export async function runCtx(
 ) {
   return { ...ctx, ...(await mutationCtx(ctx)) };
 }
+
+export async function getNewFileId(ctx: { storage: StorageActionWriter }) {
+  const bytes = new Uint8Array([0b00001100, 0b00000000]).buffer;
+  return await ctx.storage.store(new Blob([bytes]));
+}

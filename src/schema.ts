@@ -51,6 +51,32 @@ export function defineEntSchema<
       }
 
       const otherTableName = edge.to;
+      if (otherTableName.startsWith("_")) {
+        if (edge.cardinality !== "single") {
+          throw new Error(
+            `Many:many edge "${edge.name}" in table "${tableName}" ` +
+              `points to a system table "${otherTableName}", but only 1:1 ` +
+              `edges can point to system tables`,
+          );
+        }
+        if (edge.type !== "field") {
+          throw new Error(
+            `Edge "${edge.name}" in table "${tableName}" ` +
+              `pointing to a system table "${otherTableName}" cannot be ` +
+              `optional, it must store the system document ID. Remove ` +
+              `the \`optional\` option.`,
+          );
+        }
+        if (edge.deletion === "soft") {
+          throw new Error(
+            `Edge "${edge.name}" in table "${tableName}" ` +
+              `pointing to a system table "${otherTableName}" cannot use ` +
+              `soft deletion, because system documents cannot be soft deleted.`,
+          );
+        }
+        // Nothing else to do, the edge is set up.
+        continue;
+      }
       const otherTable = schema[otherTableName];
       if (otherTable === undefined) {
         throw new Error(
@@ -121,7 +147,7 @@ export function defineEntSchema<
         (inverseEdge as EdgeConfigSingleField).unique = true;
       }
       if (
-        (edge.cardinality === "single" && edge.type === "ref") ||
+        edge.cardinality === "single" ||
         (edge.cardinality === "multiple" && edge.type === "field")
       ) {
         if (
@@ -605,6 +631,7 @@ export interface EntDefinition<
 
   edge<EdgeName extends string>(
     edge: EdgeName,
+    options?: { deletion: "hard" | "soft" },
   ): EntDefinition<
     AddField<DocumentType, `${EdgeName}Id`, VId<GenericId<`${EdgeName}s`>>>,
     Indexes & { [key in `${EdgeName}Id`]: [`${EdgeName}Id`, "_creationTime"] },
@@ -622,7 +649,7 @@ export interface EntDefinition<
   >;
   edge<EdgeName extends string, const FieldName extends string>(
     edge: EdgeName,
-    options: { field: FieldName },
+    options: { field: FieldName; deletion?: "hard" | "soft" },
   ): EntDefinition<
     AddField<DocumentType, NoInfer<FieldName>, VId<GenericId<`${EdgeName}s`>>>,
     Indexes & {
@@ -642,7 +669,11 @@ export interface EntDefinition<
   >;
   edge<EdgeName extends string, const FieldName extends string>(
     edge: EdgeName,
-    options: { field: FieldName; optional: true },
+    options: {
+      field: FieldName;
+      optional: true;
+      deletion?: "hard" | "soft";
+    },
   ): EntDefinition<
     AddField<
       DocumentType,
@@ -670,11 +701,42 @@ export interface EntDefinition<
     const ToTable extends string,
   >(
     edge: EdgeName,
-    options: { field: FieldName; to: ToTable },
+    options: {
+      field: FieldName;
+      to: ToTable;
+      deletion?: ToTable extends "_storage" | "_scheduled_functions"
+        ? "hard"
+        : "hard" | "soft";
+    },
   ): EntDefinition<
     AddField<DocumentType, NoInfer<FieldName>, VId<GenericId<`${ToTable}`>>>,
     Indexes & {
       [key in NoInfer<FieldName>]: [NoInfer<FieldName>, "_creationTime"];
+    },
+    SearchIndexes,
+    VectorIndexes,
+    Edges & {
+      [key in EdgeName]: {
+        name: EdgeName;
+        to: ToTable;
+        type: "field";
+        cardinality: "single";
+        optional: false;
+      };
+    }
+  >;
+  edge<EdgeName extends string, const ToTable extends string>(
+    edge: EdgeName,
+    options: {
+      to: ToTable;
+      deletion?: ToTable extends "_storage" | "_scheduled_functions"
+        ? "hard"
+        : "hard" | "soft";
+    },
+  ): EntDefinition<
+    AddField<DocumentType, `${EdgeName}Id`, VId<GenericId<`${ToTable}`>>>,
+    Indexes & {
+      [key in `${EdgeName}Id`]: [`${EdgeName}Id`, "_creationTime"];
     },
     SearchIndexes,
     VectorIndexes,
@@ -694,7 +756,14 @@ export interface EntDefinition<
     const ToTable extends string,
   >(
     edge: EdgeName,
-    options: { field: FieldName; to: ToTable; optional: true },
+    options: {
+      field: FieldName;
+      to: ToTable;
+      optional: true;
+      deletion?: ToTable extends "_storage" | "_scheduled_functions"
+        ? "hard"
+        : "hard" | "soft";
+    },
   ): EntDefinition<
     AddField<
       DocumentType,
@@ -981,7 +1050,7 @@ type EdgeOptions = {
   field?: string;
   ref?: string;
   to?: string;
-  deletion?: "soft";
+  deletion?: "soft" | "hard";
 };
 
 type EdgesOptions = {
@@ -1104,6 +1173,7 @@ class EntDefinitionImpl {
         type: "field",
         field: fieldName,
         optional: options?.optional === true,
+        deletion: options?.deletion,
       };
       this.indexes.push({
         indexDescriptor: fieldName,
@@ -1118,7 +1188,7 @@ class EntDefinitionImpl {
         cardinality: "single",
         type: "ref",
         ref: options.ref ?? null,
-        deletion: options.deletion,
+        deletion: options.deletion as "soft" | undefined,
       };
     }
     return this;
@@ -1204,6 +1274,7 @@ export type EdgeConfig = {
           field: string;
           unique: boolean;
           optional: boolean;
+          deletion?: "soft" | "hard";
         }
       | {
           type: "ref";
@@ -1270,6 +1341,7 @@ type EdgeConfigBeforeDefineSchema = {
           type: "field";
           field: string;
           optional: boolean;
+          deletion?: "soft" | "hard";
         }
       | {
           type: "ref";

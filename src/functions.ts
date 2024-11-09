@@ -22,6 +22,7 @@ import {
   SearchFilter,
   SearchFilterBuilder,
   SearchIndexNames,
+  StorageWriter,
   TableNamesInDataModel,
   WithOptionalSystemFields,
   WithoutSystemFields,
@@ -48,6 +49,7 @@ import {
   WithEdgePatches,
   WithEdges,
   WriterImplBase,
+  isSystemTable,
 } from "./writer";
 
 export interface PromiseOrderedQueryOrNull<
@@ -1788,7 +1790,12 @@ class PromiseEntOrNullImpl<
               );
             }
             const otherDoc = await this.ctx.db.get(otherId);
-            if (otherDoc === null) {
+            // _scheduled_functions cannot be made dangling-reference-free,
+            // because they are deleted by Convex automatically.
+            if (
+              otherDoc === null &&
+              edgeDefinition.to !== "_scheduled_functions"
+            ) {
               throw new Error(
                 `Dangling reference for edge "${edgeDefinition.name}" in ` +
                   `table "${this.table}" on document with ID "${id}": ` +
@@ -2069,8 +2076,14 @@ export type PromiseEdge<
   Config,
   PromiseEdgeEnts<EntsDataModel, ToTable>,
   PromiseQuery<EntsDataModel, ToTable>,
-  PromiseEntOrNull<EntsDataModel, ToTable>,
-  PromiseEnt<EntsDataModel, ToTable>
+  ToTable extends "_storage" | "_scheduled_functions"
+    ? PromiseEntOrNull<EntsSystemDataModel, ToTable>
+    : PromiseEntOrNull<EntsDataModel, ToTable>,
+  ToTable extends "_storage"
+    ? PromiseEnt<EntsSystemDataModel, ToTable>
+    : ToTable extends "_scheduled_functions"
+      ? PromiseEntOrNull<EntsSystemDataModel, ToTable>
+      : PromiseEnt<EntsDataModel, ToTable>
 >;
 
 export type PromiseEdgeOrThrow<
@@ -2876,6 +2889,7 @@ export interface EntMutationCtx<DataModel extends GenericDataModel>
   extends EntQueryCtx<DataModel> {
   db: GenericDatabaseWriter<DataModel>;
 
+  storage: StorageWriter;
   scheduler: Scheduler;
 }
 
@@ -3092,8 +3106,4 @@ export function getDeletionConfig<
   return (entDefinitions[table] as any).deletionConfig as
     | DeletionConfig
     | undefined;
-}
-
-function isSystemTable(table: string) {
-  return table.startsWith("_");
 }

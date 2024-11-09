@@ -1,9 +1,13 @@
-import { test as baseTest, expect } from "vitest";
+import { StorageActionWriter } from "convex/server";
+import { test as baseTest, expect, vi } from "vitest";
+import { internal } from "./_generated/api";
 import schema from "./schema";
-import { convexTest, runCtx } from "./setup.testing";
+import { convexTest, getNewFileId, runCtx } from "./setup.testing";
 import { MutationCtx } from "./types";
 
-const test = baseTest.extend<{ ctx: MutationCtx }>({
+const test = baseTest.extend<{
+  ctx: MutationCtx & { storage: StorageActionWriter };
+}>({
   // eslint-disable-next-line no-empty-pattern
   ctx: async ({}, use) => {
     const t = convexTest(schema);
@@ -502,6 +506,20 @@ test("1:1 optional edge provided", async ({ ctx }) => {
   expect((await ctx.table("photos").getX(photoId)).userId).toEqual(userId);
 });
 
+test("1:1 edge to _storage", async ({ ctx }) => {
+  const userId = await ctx.table("users").insert({
+    name: "Gates",
+    email: "bill@gates.com",
+  });
+  const fileId = await getNewFileId(ctx);
+  const headshotId = await ctx
+    .table("headshots")
+    .insert({ taken: "2024-11-09", fileId, userId });
+  expect((await ctx.table("headshots").getX(headshotId)).fileId).toEqual(
+    fileId,
+  );
+});
+
 test("1:many edge write", async ({ ctx }) => {
   const userId = await ctx.table("users").insert({
     name: "Gates",
@@ -622,4 +640,79 @@ test("cascading deletes", async ({ ctx }) => {
     .table("messageDetails")
     .get(messageDetailId);
   expect(deletedMessageDetail).toBeNull();
+});
+
+test("hard deletion through field edge", async ({ ctx }) => {
+  vi.useFakeTimers();
+  const userId = await ctx
+    .table("users")
+    .insert({ name: "Stark", email: "tony@stark.com" });
+  const fileId = await getNewFileId(ctx);
+  const jobId = await ctx.scheduler.runAfter(
+    1000,
+    internal.migrations.usersCapitalizeName,
+    { fn: "boo" },
+  );
+  const headshotDetailId = await ctx.table("headshotDetails").insert({});
+  const headshotId = await ctx.table("headshots").insert({
+    taken: "2024-11-09",
+    fileId,
+    jobId,
+    detailId: headshotDetailId,
+    userId,
+  });
+  {
+    const file = await ctx.table.system("_storage").get(fileId);
+    expect(file).not.toBeNull();
+    const headshotDetail = await ctx
+      .table("headshotDetails")
+      .get(headshotDetailId);
+    expect(headshotDetail).not.toBeNull();
+    const job = await ctx.table.system("_scheduled_functions").get(jobId);
+    expect(job).not.toBeNull();
+    expect(job!.state.kind).toEqual("pending");
+  }
+
+  await ctx.table("users").getX(userId).delete();
+
+  {
+    const headshot = await ctx.table("headshots").get(headshotId);
+    expect(headshot).toBeNull();
+    const file = await ctx.table.system("_storage").get(fileId);
+    expect(file).toBeNull();
+    const headshotDetail = await ctx
+      .table("headshotDetails")
+      .get(headshotDetailId);
+    expect(headshotDetail).toBeNull();
+    const job = await ctx.table.system("_scheduled_functions").get(jobId);
+    expect(job).not.toBeNull();
+    expect(job!.state.kind).toEqual("canceled");
+  }
+  vi.useRealTimers();
+});
+
+test("soft deletion through field edge", async ({ ctx }) => {
+  const userId = await ctx
+    .table("users")
+    .insert({ name: "Stark", email: "tony@stark.com" });
+  const fileId = await getNewFileId(ctx);
+  const headshotDetailId = await ctx.table("headshotDetails").insert({});
+  const headshotId = await ctx.table("headshots").insert({
+    taken: "2024-11-09",
+    fileId,
+    detailId: headshotDetailId,
+    userId,
+  });
+
+  await ctx.table("headshots").getX(headshotId).delete();
+
+  const headshot = await ctx.table("headshots").getX(headshotId);
+  expect(headshot.deletionTime).not.toBeUndefined();
+  const file = await ctx.table.system("_storage").get(fileId);
+  expect(file).not.toBeNull();
+  const headshotDetail = await ctx
+    .table("headshotDetails")
+    .get(headshotDetailId);
+  expect(headshotDetail).not.toBeNull();
+  expect(headshotDetail!.deletionTime).not.toBeUndefined();
 });

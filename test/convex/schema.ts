@@ -28,7 +28,8 @@ const schema = defineEntSchema(
       .edges("friends", { to: "users" })
       .edge("secret", { ref: "ownerId", optional: true })
       .edge("photo", { ref: "userId", optional: true })
-      .edges("ownedPhotos", { to: "photos", ref: "ownerId" }),
+      .edges("ownedPhotos", { to: "photos", ref: "ownerId" })
+      .edges("headshots", { ref: true }),
 
     profiles: defineEnt({
       bio: v.string(),
@@ -39,6 +40,29 @@ const schema = defineEntSchema(
     })
       .edge("user", { field: "userId", optional: true })
       .edge("owner", { field: "ownerId", to: "users", optional: true }),
+
+    headshots: defineEnt({
+      taken: v.string(),
+    })
+      .edge("user")
+      .edge("file", { to: "_storage", deletion: "hard" })
+      .edge("job", {
+        field: "jobId",
+        to: "_scheduled_functions",
+        deletion: "hard",
+        optional: true,
+      })
+      .edge("detail", {
+        field: "detailId",
+        to: "headshotDetails",
+        deletion: "soft",
+        optional: true,
+      })
+      .deletion("soft"),
+
+    headshotDetails: defineEnt({})
+      .edge("headshot", { optional: true })
+      .deletion("soft"),
 
     tags: defineEnt({
       name: v.string(),

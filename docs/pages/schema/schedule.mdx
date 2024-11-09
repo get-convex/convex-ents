@@ -1,0 +1,85 @@
+# Scheduled Functions
+
+You can connect
+[scheduled functions](https://docs.convex.dev/scheduling/scheduled-functions) to
+your ents.
+
+The basic way to do this is the same as in vanilla Convex, adding a scheduled
+function ID field:
+
+```ts
+defineEntSchema({
+  answers: defineEnt({
+    question: v.string(),
+    actionId: v.id("_scheduled_functions"),
+  }),
+});
+```
+
+You can then retrieve the scheduled function status and cancel it. For example,
+to retrieve all answers with the status of their action:
+
+```ts
+return ctx.table("answers").map(async ({ question, actionId }) => ({
+  question,
+  status:
+    (await ctx.table("_scheduled_functions").get(actionId)?.state.kind) ??
+    "stale",
+}));
+```
+
+## Using edges for connecting scheduled functions
+
+You can simplify the code above by declaring a 1:1 edge to scheduled functions:
+
+```ts
+defineEntSchema({
+  answers: defineEnt({
+    question: v.string(),
+  }).edge("action", { to: "_scheduled_functions" }),
+});
+```
+
+The field name is derived from the edge name (here `actionId`), you can also
+specify it with the `field` option.
+
+You can then retrieve scheduled function status via the edge:
+
+```ts
+return ctx.table("answers").map(async (answer) => ({
+  question: answer.question,
+  status: (await answer.edge("action")?.state.kind) ?? "stale",
+}));
+```
+
+### Automatic cancelation during cascading deletion
+
+You can automatically cancel a connected scheduled function via the `deletion`
+option:
+
+```ts
+defineEntSchema({
+  answers: defineEnt({
+    question: v.string(),
+  }).edge("action", { to: "_scheduled_functions", deletion: "hard" }),
+});
+```
+
+Only the `"hard"` value is valid, since there is no way to mark soft deletion on
+a scheduled function.
+
+In this example when an answer is deleted, its action, if pending or
+in-progress, is canceled.
+
+Note that if you use `ctx.storage.delete` to delete a file that is referenced in
+other ents, Ents will not cascade that deletion. Ideally do not use
+`ctx.storage.delete`, or handle any other required deletions manually.
+
+### Get file metadata via edge
+
+If you traverse the edge you will receive the
+[file metadata](https://docs.convex.dev/file-storage/file-metadata):
+
+```ts
+const photoMetadata = await user.edge("photo");
+```

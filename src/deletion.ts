@@ -90,11 +90,11 @@ export function scheduledDeleteFactory<
       if (doc.deletionTime !== origin.deletionTime) {
         if (inProgress) {
           console.error(
-            `[Ents] Already in-progress scheduled deletion for "${origin.id}" was cancelled!`,
+            `[Ents] Already in-progress scheduled deletion for "${origin.id}" was canceled!`,
           );
         } else {
           console.log(
-            `[Ents] Scheduled deletion for "${origin.id}" was cancelled`,
+            `[Ents] Scheduled deletion for "${origin.id}" was canceled`,
           );
         }
         return;

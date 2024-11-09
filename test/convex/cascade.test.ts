@@ -14,7 +14,9 @@ test("scheduled delete", async () => {
     const memberId = await ctx.table("members").insert({ teamId });
     const dataId = await ctx.table("datas").insert({ memberId });
     const badgeId = await ctx.table("badges").insert({ memberId });
+
     await ctx.table("teams").getX(teamId).delete();
+
     const softDeletedTeam = await ctx.table("teams").getX(teamId);
     expect(softDeletedTeam.deletionTime).not.toBeUndefined();
     const softDeletedMember = await ctx.table("members").getX(memberId);
