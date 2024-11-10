@@ -1,3 +1,5 @@
+[![NPM Version](https://badge.fury.io/js/convex-ents.svg?style=flat)](https://npmjs.org/package/convex-ents)
+
 # Convex Ents
 
 > Ents is in maintenance mode. We're open to taking PRs, and will make sure it
