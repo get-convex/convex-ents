@@ -981,6 +981,7 @@ type EdgeOptions = {
   field?: string;
   ref?: string;
   to?: string;
+  deletion?: "soft";
 };
 
 type EdgesOptions = {
@@ -1117,6 +1118,7 @@ class EntDefinitionImpl {
         cardinality: "single",
         type: "ref",
         ref: options.ref ?? null,
+        deletion: options.deletion,
       };
     }
     return this;
