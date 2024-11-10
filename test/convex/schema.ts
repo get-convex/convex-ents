@@ -27,7 +27,7 @@ const schema = defineEntSchema(
       .edges("followers", { to: "users", inverse: "followees" })
       .edges("friends", { to: "users" })
       .edge("secret", { ref: "ownerId", optional: true })
-      .edge("photo", { ref: "userId", optional: true })
+      .edge("photo", { ref: "userId", optional: true, deletion: "hard" })
       .edges("ownedPhotos", { to: "photos", ref: "ownerId" }),
 
     profiles: defineEnt({
@@ -123,7 +123,7 @@ const schema = defineEntSchema(
 
     datas: defineEnt({}).edge("member"),
 
-    badges: defineEnt({}).edge("member", { field: "memberId", optional: true }),
+    badges: defineEnt({}).edge("member", { field: "memberId" }),
   },
   { schemaValidation: true },
 );

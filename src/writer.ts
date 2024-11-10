@@ -59,7 +59,7 @@ export class WriterImplBase<
             (edgeDefinition.cardinality === "multiple" &&
               edgeDefinition.type === "field")
           ) {
-            if (!isDeletingSoftly || edgeDefinition.deletion === "soft") {
+            if (!isDeletingSoftly || edgeDefinition.deletion !== undefined) {
               const remove = (
                 await this.ctx.db
                   .query(edgeDefinition.to)
@@ -160,6 +160,7 @@ export class WriterImplBase<
               edgeDefinition.type === "field")
           ) {
             if (idOrIds.remove !== undefined && idOrIds.remove.length > 0) {
+<<<<<<< Updated upstream
               // Cascading delete because 1:many edges are not optional
               // on the stored field end.
               await Promise.all(
@@ -169,17 +170,30 @@ export class WriterImplBase<
                     edgeDefinition.to,
                     (deleteSoftly ?? false) &&
                       edgeDefinition.deletion === "soft",
+=======
+              if (edgeDefinition.deletion === "unsetField") {
+                await Promise.all(
+                  idOrIds.remove.map((id) =>
+                    this.ctx.db.patch(id, {
+                      [edgeDefinition.ref]: undefined,
+                    } as any),
+>>>>>>> Stashed changes
                   ),
-                ),
-              );
-              // This would be behavior for optional edge:
-              // await Promise.all(
-              //   idsToDelete.map((id) =>
-              //     this.ctx.db.patch(id, {
-              //       [edgeDefinition.ref]: undefined,
-              //     } as any)
-              //   )
-              // );
+                );
+              } else {
+                // Cascading delete because 1:many edges are not optional
+                // on the stored field end.
+                await Promise.all(
+                  idOrIds.remove.map((id) =>
+                    this.deleteIdIn(
+                      id,
+                      edgeDefinition.to,
+                      (deleteSoftly ?? false) &&
+                        edgeDefinition.deletion === "soft",
+                    ),
+                  ),
+                );
+              }
             }
             if (idOrIds.add !== undefined && idOrIds.add.length > 0) {
               await Promise.all(

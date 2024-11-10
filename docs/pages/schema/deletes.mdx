@@ -42,19 +42,44 @@ the ents on the other side of the edge are deleted as well.
 
 The following scenarios are currently supported:
 
-- 1:1 edge between ent A and ent B, ents A store the edge.
+- 1:1 edge between ent A and ent B, ent A stores the edge.
   - When ent A is deleted, only _it_ is deleted.
   - When ent B is deleted, the ent A connected to it is deleted as well (which
     might cause more edge and ent deletions).
-- 1:many edge between ent A and ent B, ents A store the edge.
+    - Unless the edge from A to B is marked as
+      [optional](/schema#optional-11-edges), in that case the ID field is unset
+      and the deletion does not propagate.
+- 1:many edge between ent A and ent B, ent A stores the edge.
   - When ent A is deleted, only _it_ is deleted.
   - When ent B is deleted, ents A connected to it are deleted as well (which
     might cause more edge and ent deletions).
+    - Unless the edge from A to B is marked as
+      [optional](/schema#optional-1many-edges), in that case the ID field is
+      unset and the deletion does not propagate.
 - many:many edge between ent A and ent B.
   - When ent A is deleted, the documents storing the edges to ents B are all
     deleted, but ents B are _not_ deleted.
   - When ent B is deleted, the documents storing the edges to ents A are all
     deleted, but ents A are _not_ deleted.
+
+### Deleting optional 1:1 and 1:many edges
+
+You can override the default behavior for optional 1:1 and 1:many edges, forcing
+them to propagate deletion.
+
+```ts
+defineEntSchema({
+  users: defineEnt({
+    name: v.string(),
+  }).edge("profile", { optional: true, deletion: "hard" }),
+  profiles: defineEnt({
+    bio: v.string(),
+  }).edge("user", { field: "userId", optional: true }),
+});
+```
+
+In this example, when a user is deleted, their profile is deleted as well, even
+though a profile does not require the user edge.
 
 ## Soft deletion behavior
 
@@ -191,7 +216,7 @@ export const query = customQuery(
       table: entsTableFactory(ctx, entDefinitions),
       db: undefined,
     };
-  })
+  }),
 );
 
 export const internalQuery = customQuery(
@@ -201,7 +226,7 @@ export const internalQuery = customQuery(
       table: entsTableFactory(ctx, entDefinitions),
       db: undefined,
     };
-  })
+  }),
 );
 
 export const mutation = customMutation(
@@ -213,7 +238,7 @@ export const mutation = customMutation(
       }),
       db: undefined,
     };
-  })
+  }),
 );
 
 export const internalMutation = customMutation(
@@ -225,7 +250,7 @@ export const internalMutation = customMutation(
       }),
       db: undefined,
     };
-  })
+  }),
 );
 ```
 

@@ -489,6 +489,7 @@ test("1:1 edge write loaded", async ({ ctx }) => {
 test("1:1 optional edge not needed", async ({ ctx }) => {
   const photoId = await ctx.table("photos").insert({ url: "https://a.b" });
   expect((await ctx.table("photos").getX(photoId)).url).toEqual("https://a.b");
+  await (ctx.db as any).patch(photoId, { userId: undefined });
 });
 
 test("1:1 optional edge provided", async ({ ctx }) => {

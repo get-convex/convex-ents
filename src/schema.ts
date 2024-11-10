@@ -136,7 +136,11 @@ export function defineEntSchema<
               `configured.`,
           );
         }
+        if (edge.deletion === undefined && inverseEdge.optional) {
+          (edge as any).deletion = "unsetField";
+        }
       }
+
       if (edge.cardinality === "multiple") {
         if (!isSelfDirected && inverseEdge === undefined) {
           throw new Error(
@@ -721,7 +725,7 @@ export interface EntDefinition<
     options: {
       optional: true;
       ref?: string;
-      deletion?: "soft";
+      deletion?: "soft" | "hard";
     },
   ): EntDefinition<
     DocumentType,
@@ -743,7 +747,7 @@ export interface EntDefinition<
       optional: true;
       to: ToTable;
       ref?: string;
-      deletion?: "soft";
+      deletion?: "soft" | "hard";
     },
   ): EntDefinition<
     DocumentType,
@@ -770,7 +774,7 @@ export interface EntDefinition<
     edge: EdgesName,
     options: {
       ref: true | string;
-      deletion?: "soft";
+      deletion?: "soft" | "hard";
     },
   ): EntDefinition<
     DocumentType,
@@ -800,7 +804,7 @@ export interface EntDefinition<
     options: {
       to: TableName;
       ref: true | string;
-      deletion?: "soft";
+      deletion?: "soft" | "hard";
     },
   ): EntDefinition<
     DocumentType,
@@ -1208,7 +1212,7 @@ export type EdgeConfig = {
       | {
           type: "ref";
           ref: string;
-          deletion?: "soft";
+          deletion?: "soft" | "hard" | "unsetField";
         }
     ))
   | ({
@@ -1217,7 +1221,7 @@ export type EdgeConfig = {
       | {
           type: "field";
           ref: string;
-          deletion?: "soft";
+          deletion?: "soft" | "hard" | "unsetField";
         }
       | {
           type: "ref";
@@ -1274,7 +1278,7 @@ type EdgeConfigBeforeDefineSchema = {
       | {
           type: "ref";
           ref: null | string;
-          deletion?: "soft";
+          deletion?: "soft" | "hard";
         }
     ))
   | ({
@@ -1283,7 +1287,7 @@ type EdgeConfigBeforeDefineSchema = {
       | {
           type: "field";
           ref: true | string;
-          deletion?: "soft";
+          deletion?: "soft" | "hard";
         }
       | {
           type: "ref";

@@ -39,3 +39,43 @@ test("scheduled delete", async () => {
 
   vi.useRealTimers();
 });
+
+test("don't cascade across optional 1:1 edge", async () => {
+  const t = convexTest(schema);
+  await t.run(async (baseCtx) => {
+    const ctx = await runCtx(baseCtx);
+
+    const userId = await ctx.table("users").insert({
+      name: "Gates",
+      email: "bill@gates.com",
+    });
+    const photoId = await ctx
+      .table("photos")
+      .insert({ url: "https://a.b", ownerId: userId });
+
+    await ctx.table("users").getX(userId).delete();
+
+    const notDeletedPhoto = await ctx.table("photos").get(photoId);
+    expect(notDeletedPhoto).not.toBeNull();
+  });
+});
+
+test("cascade across optional 1:1 edge when configured", async () => {
+  const t = convexTest(schema);
+  await t.run(async (baseCtx) => {
+    const ctx = await runCtx(baseCtx);
+
+    const userId = await ctx.table("users").insert({
+      name: "Gates",
+      email: "bill@gates.com",
+    });
+    const photoId = await ctx
+      .table("photos")
+      .insert({ url: "https://a.b", userId });
+
+    await ctx.table("users").getX(userId).delete();
+
+    const deletedPhoto = await ctx.table("photos").get(photoId);
+    expect(deletedPhoto).toBeNull();
+  });
+});
