@@ -134,7 +134,7 @@ export class WriterImplBase<
     return id;
   }
 
-  async deletedIdIn(id: GenericId<any>, table: string, cascadingSoft: boolean) {
+  async deleteIdIn(id: GenericId<any>, table: string, cascadingSoft: boolean) {
     await new WriterImplBase(this.ctx, this.entDefinitions, table).deleteId(
       id,
       cascadingSoft ? "soft" : "hard",
@@ -164,7 +164,7 @@ export class WriterImplBase<
               // on the stored field end.
               await Promise.all(
                 idOrIds.remove.map((id) =>
-                  this.deletedIdIn(
+                  this.deleteIdIn(
                     id,
                     edgeDefinition.to,
                     (deleteSoftly ?? false) &&
