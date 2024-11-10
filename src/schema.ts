@@ -40,12 +40,12 @@ export function defineEntSchema<
     for (const edge of edgeConfigsBeforeDefineSchema(table)) {
       if (
         // Skip inverse edges, we process their forward edges
-        (edge.cardinality === "multiple" &&
-          edge.type === "ref" &&
-          edge.inverse !== undefined) ||
-        // symmetric is only set by defineEntSchema,
-        // so we already processed the pair
-        (edge as any).symmetric !== undefined
+        edge.cardinality === "multiple" &&
+        edge.type === "ref" &&
+        (edge.inverse !== undefined ||
+          // symmetric is only set by defineEntSchema,
+          // so we already processed the pair
+          (edge as unknown as EdgeConfigMultipleRef).symmetric !== undefined)
       ) {
         continue;
       }
@@ -115,10 +115,10 @@ export function defineEntSchema<
           );
         }
         if (edge.ref === null) {
-          (edge as any).ref = inverseEdge.field;
+          (edge as EdgeConfigSingleRef).ref = inverseEdge.field;
         }
         // For now the the non-optional end is always unique
-        (inverseEdge as any).unique = true;
+        (inverseEdge as EdgeConfigSingleField).unique = true;
       }
       if (
         (edge.cardinality === "single" && edge.type === "ref") ||
@@ -160,8 +160,8 @@ export function defineEntSchema<
                 `specify the \`ref\` option.`,
             );
           }
-          (edge as any).type = "field";
-          (edge as any).ref = inverseEdge.field;
+          (edge as EdgeConfigMultipleField).type = "field";
+          (edge as EdgeConfigMultipleField).ref = inverseEdge.field;
         }
 
         if (inverseEdge?.cardinality === "multiple" || isSelfDirected) {
@@ -227,18 +227,21 @@ export function defineEntSchema<
               forwardId,
             ]);
           }
-          (schema as any)[edgeTableName] = edgeTable;
-          (edge as any).type = "ref";
-          (edge as any).table = edgeTableName;
-          (edge as any).field = forwardId;
-          (edge as any).ref = inverseId;
-          (edge as any).symmetric = inverseEdge === undefined;
+          (schema as Record<string, EntDefinition>)[edgeTableName] = edgeTable;
+          const edgeConfig = edge as unknown as EdgeConfigMultipleRef;
+          edgeConfig.type = "ref";
+          edgeConfig.table = edgeTableName;
+          edgeConfig.field = forwardId;
+          edgeConfig.ref = inverseId;
+          edgeConfig.symmetric = inverseEdge === undefined;
           if (inverseEdge !== undefined) {
             inverseEdge.type = "ref";
-            (inverseEdge as any).table = edgeTableName;
-            (inverseEdge as any).field = inverseId;
-            (inverseEdge as any).ref = forwardId;
-            (inverseEdge as any).symmetric = false;
+            const inverseEdgeConfig =
+              inverseEdge as unknown as EdgeConfigMultipleRef;
+            inverseEdgeConfig.table = edgeTableName;
+            inverseEdgeConfig.field = inverseId;
+            inverseEdgeConfig.ref = forwardId;
+            inverseEdgeConfig.symmetric = false;
           }
         }
       }
@@ -1224,6 +1227,35 @@ export type EdgeConfig = {
         }
     ))
 );
+
+type EdgeConfigSingleField = Extract<
+  EdgeConfig,
+  {
+    type: "field";
+    cardinality: "single";
+  }
+>;
+type EdgeConfigSingleRef = Extract<
+  EdgeConfig,
+  {
+    type: "ref";
+    cardinality: "single";
+  }
+>;
+type EdgeConfigMultipleField = Extract<
+  EdgeConfig,
+  {
+    type: "field";
+    cardinality: "multiple";
+  }
+>;
+type EdgeConfigMultipleRef = Extract<
+  EdgeConfig,
+  {
+    type: "ref";
+    cardinality: "multiple";
+  }
+>;
 
 type EdgeConfigBeforeDefineSchema = {
   name: string;
