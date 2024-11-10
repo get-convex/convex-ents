@@ -4,4 +4,15 @@ const withNextra = require("nextra")({
   defaultShowCopyCode: true,
 });
 
-module.exports = withNextra({ basePath: "/convex-ents" });
+module.exports = withNextra({
+  basePath: "/convex-ents",
+  redirects() {
+    return [
+      {
+        source: "/auth",
+        destination: "/schema/auth",
+        permanent: true,
+      },
+    ];
+  },
+});

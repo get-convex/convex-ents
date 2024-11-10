@@ -1,4 +1,5 @@
 {
+  "auth": "Authentication",
   "types": "Types",
   "deletes": "Cascading Deletes",
   "rules": "Rules"
