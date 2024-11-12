@@ -63,7 +63,7 @@ the field. Indexes allow efficient point and range lookups and efficient sorting
 of the results by the indexed field. The following schema:
 
 ```ts
-defineSchema({
+defineEntSchema({
   users: defineEnt({}).field("email", v.string(), { index: true }),
 });
 ```
@@ -88,7 +88,7 @@ checked for an existing document with the same field value. Every unique field
 is also an indexed field (as the index is used for an efficient lookup).
 
 ```ts
-defineSchema({
+defineEntSchema({
   users: defineEnt({}).field("email", v.string(), { unique: true }),
 });
 ```

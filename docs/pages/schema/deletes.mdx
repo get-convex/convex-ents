@@ -86,7 +86,7 @@ You can configure an ent to use the `"soft"` deletion behavior with the
 `deletion` method in your schema:
 
 ```ts
-defineSchema({
+defineEntSchema({
   users: defineEnt({
     name: v.string(),
   }).deletion("soft"),
@@ -119,7 +119,7 @@ for soft deletions for individual 1:1 and 1:many edges via the `deletion` option
 on edge declarations:
 
 ```ts
-defineSchema({
+defineEntSchema({
   users: defineEnt({
     email: v.string(),
   })
@@ -261,7 +261,7 @@ You can configure an ent to use the `"scheduled"` deletion behavior with the
 `deletion` method in your schema:
 
 ```ts
-defineSchema({
+defineEntSchema({
   users: defineEnt({
     email: v.string(),
   })
@@ -286,7 +286,7 @@ that need to be deleted to finish the cascading deletion.
 The hard deletion can be delayed into the future with the `delayMs` option:
 
 ```ts
-defineSchema({
+defineEntSchema({
   users: defineEnt({
     email: v.string(),
   })
