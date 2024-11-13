@@ -166,7 +166,7 @@ To enable scheduled ent deletion you need to add two lines of code to your
 
 ```ts
 // Add this import
-import { scheduledDeleteFactory } from "convex-ents/deletion";
+import { scheduledDeleteFactory } from "convex-ents";
 
 // Add this export
 export const scheduledDelete = scheduledDeleteFactory(entDefinitions);
@@ -181,7 +181,7 @@ Expose the mutation somewhere in your `convex` folder, and its reference to the
 factory function:
 
 ```ts filename="convex/someFileName.ts"
-import { scheduledDeleteFactory } from "convex-ents/deletion";
+import { scheduledDeleteFactory } from "convex-ents";
 import { entDefinitions } from "./schema";
 
 export const myNameForScheduledDelete = scheduledDeleteFactory(entDefinitions, {
