@@ -100,7 +100,7 @@ test("1:1 optional edge traversal", async ({ ctx }) => {
     .insert({ name: "Stark", email: "tony@stark.com" });
   const photo = await ctx
     .table("photos")
-    .insert({ url: "https://a.b", userId })
+    .insert({ url: "https://a.b", user: userId })
     .get();
 
   const user = await photo.edge("user");

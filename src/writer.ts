@@ -371,11 +371,10 @@ export class WriterImplBase<
         this.table,
       )[key];
       if (
-        edgeDefinition === undefined
-        // This doesn't do anything because the edge name doesn't match the field name
-        //  ||
-        // (edgeDefinition.cardinality === "single" &&
-        //   edgeDefinition.type === "field")
+        edgeDefinition === undefined ||
+        (edgeDefinition.cardinality === "single" &&
+          edgeDefinition.type === "field" &&
+          edgeDefinition.field === key)
       ) {
         fields[key] = value[key]!;
       }

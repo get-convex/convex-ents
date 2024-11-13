@@ -27,7 +27,7 @@ const schema = defineEntSchema(
       .edges("followers", { to: "users", inverse: "followees" })
       .edges("friends", { to: "users" })
       .edge("secret", { ref: "ownerId" })
-      .edge("photo", { ref: "userId" })
+      .edge("photo", { ref: "user" })
       .edges("ownedPhotos", { to: "photos", ref: "ownerId" })
       .edges("headshots", { ref: true }),
 
@@ -38,7 +38,7 @@ const schema = defineEntSchema(
     photos: defineEnt({
       url: v.string(),
     })
-      .edge("user", { field: "userId", optional: true })
+      .edge("user", { field: "user", optional: true })
       .edge("owner", { field: "ownerId", to: "users", optional: true }),
 
     headshots: defineEnt({

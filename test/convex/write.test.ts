@@ -502,8 +502,8 @@ test("1:1 optional edge provided", async ({ ctx }) => {
   });
   const photoId = await ctx
     .table("photos")
-    .insert({ url: "https://a.b", userId });
-  expect((await ctx.table("photos").getX(photoId)).userId).toEqual(userId);
+    .insert({ url: "https://a.b", user: userId });
+  expect((await ctx.table("photos").getX(photoId)).user).toEqual(userId);
 });
 
 test("1:1 edge to _storage", async ({ ctx }) => {
