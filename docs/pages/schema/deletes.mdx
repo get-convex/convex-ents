@@ -100,7 +100,15 @@ current server time.
 If the ent is being deleted as a result of cascading hard deletion, it is hard
 deleted.
 
-You can include or exclude soft deleted ents from results by filtering.
+### Filtering soft deleted ents
+
+You can include or exclude soft deleted ents from results by filtering:
+
+```ts
+const notDeletedUsers = await ctx
+  .table("users")
+  .filter((q) => q.eq(q.field("deletionTime"), undefined));
+```
 
 ### Undeleting soft deleted ents
 
