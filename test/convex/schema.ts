@@ -22,12 +22,12 @@ const schema = defineEntSchema(
     })
       .field("email", v.string(), { unique: true })
       .field("height", v.optional(v.number()), { index: true })
-      .edge("profile", { optional: true })
+      .edge("profile", { ref: true })
       .edges("messages", { ref: true })
       .edges("followers", { to: "users", inverse: "followees" })
       .edges("friends", { to: "users" })
-      .edge("secret", { ref: "ownerId", optional: true })
-      .edge("photo", { ref: "userId", optional: true })
+      .edge("secret", { ref: "ownerId" })
+      .edge("photo", { ref: "userId" })
       .edges("ownedPhotos", { to: "photos", ref: "ownerId" })
       .edges("headshots", { ref: true }),
 
@@ -61,7 +61,7 @@ const schema = defineEntSchema(
       .deletion("soft"),
 
     headshotDetails: defineEnt({})
-      .edge("headshot", { optional: true })
+      .edge("headshot", { ref: true })
       .deletion("soft"),
 
     tags: defineEnt({
@@ -80,12 +80,8 @@ const schema = defineEntSchema(
         searchField: "text",
         filterFields: ["type"],
       })
-      .edge("attachment", { ref: "originId", optional: true })
-      .edge("secondaryAttachment", {
-        ref: "copyId",
-        to: "attachments",
-        optional: true,
-      })
+      .edge("attachment", { ref: "originId" })
+      .edge("secondaryAttachment", { ref: "copyId", to: "attachments" })
       .edges("allAttachments", { to: "attachments", ref: "shareId" })
       .edges("anyAttachments", {
         to: "attachments",
@@ -142,7 +138,7 @@ const schema = defineEntSchema(
     members: defineEnt({})
       .edge("team")
       .edges("datas", { ref: true })
-      .edge("badge", { ref: "memberId", optional: true })
+      .edge("badge", { ref: "memberId" })
       .deletion("soft"),
 
     datas: defineEnt({}).edge("member"),

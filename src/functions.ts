@@ -2690,7 +2690,10 @@ class PromiseEntWriterImpl<
                 if (oldDoc[key] !== undefined && oldDoc[key] !== idOrIds) {
                   // This would be only allowed if the edge is optional
                   // on the field side, which is not supported
-                  throw new Error("Cannot set 1:1 edge from optional end.");
+
+                  // TODO: Fix!
+
+                  throw new Error("Cannot set 1:1 edge from ref end.");
                   // edges[key] = {
                   //   add: idOrIds as GenericId<any>,
                   //   remove: oldDoc[key] as GenericId<any> | undefined,

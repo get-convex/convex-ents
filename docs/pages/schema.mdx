@@ -54,7 +54,7 @@ Compared to a [vanilla schema file](https://docs.convex.dev/database/schemas):
 An Ent field is a field in its backing document. Some types of [edges](#edges)
 add additional fields not directly specified in the schema.
 
-For Ents fields can be further configured.
+Ents add field configurations beyond vanilla Convex.
 
 ### Indexed fields
 
@@ -83,7 +83,7 @@ defineEntSchema({
 ### Unique fields
 
 Similar to an indexed field, you can declare that a field must be unique in the
-table. This comes at a cost: On every write to the backing a table, it must be
+table. This comes at a cost: On every write to the backing table, it must be
 checked for an existing document with the same field value. Every unique field
 is also an indexed field (as the index is used for an efficient lookup).
 
@@ -132,14 +132,15 @@ reading the ent.
 
 ## Edges
 
-An edge is a representation of some business logic modelled by the database.
-Some examples are:
+An edge is a representation of some business logic modeled by the database. Some
+examples are:
 
-- User A liking post X can be represented by an edge.
-- User B authoring post Y can be represented by an edge.
-- User C is friends with user D can be represented by an edge.
+- User A liking post X
+- User B authoring post Y
+- User C is friends with user D
+- Folder F is a child of folder G
 
-Every edge has two "ends", each being an Ent. Those Ents can be stored in the
+Every edge has two "ends", each being an ent. Those ents can be stored in the
 same or in 2 different tables. Edges can represent symmetrical relationships.
 The "friends with" edge is an example. If user C is friends with user D, then
 user D is friends with user C. Symmetrical edge only make sense if both ends of
@@ -148,10 +149,10 @@ two names, one for each direction. For the user liking a post example, one
 direction can be called "likedPosts" (from users to posts), the other "likers"
 (from posts to users).
 
-Edges can also declare how many Ents can be connected through the same edge. For
-each end, there can be 0, 1 or many Ents connected to the same Ent on the other
-side of the edge. For example, a user (represented by an Ent) has a profile
-(represented by an Ent). In this case we call this a 1:1 edge. If we ask "how
+Edges can also declare how many ents can be connected through the same edge. For
+each end, there can be 0, 1 or many ents connected to the same ent on the other
+side of the edge. For example, a user (represented by an ent) has a profile
+(represented by an ent). In this case we call this a 1:1 edge. If we ask "how
 many profiles does a user X have?" the answer is always 1. Similarly there can
 be 1:many edges, such as a user with the messages they authored, when each
 message has only a single author; and many:many edges, such as messages to tags,
@@ -200,15 +201,13 @@ documents are created (see
 Here's a basic example of a 1:1 edge, defined for each ent using the `edge`
 (singular) method:
 
-{/* TODO: Support optional on both sides, one side needs to choose to store the field */}
-
 <Graphic src={edge} dark={edgeDark} alt="1:1 edges pictogram" />
 
 ```ts
 defineEntSchema({
   users: defineEnt({
     name: v.string(),
-  }).edge("profile", { optional: true }),
+  }).edge("profile", { ref: true }),
   profiles: defineEnt({
     bio: v.string(),
   }).edge("user"),
@@ -217,69 +216,71 @@ defineEntSchema({
 
 In this case, each user can have 1 profile, and each profile must have 1
 associated user. This is a field edge stored on the "profiles" table as a
-foreign key. The table that stores the edge is determined by the
-`optional: true` option of the `edge` method - it's the table where the edge is
-not optional.
+foreign key. The "users" table's documents do not store the edge, because the
+`ref: true` option specifies that the edge a "refers" to the field on the other
+end of the edge.
 
-This is the shortest syntax for declaring edges: based on the edge name "user",
-the table on the other end is "users" (`s` is added) and the field storing the
-edge is called "userId" (`Id` is added).
-
-You can control the name of the field. This becomes necessary if you want to
-have another field edge between the same pair of tables:
+The syntax shown is actually a shortcut for the following declaration:
 
 ```ts
 defineEntSchema({
   users: defineEnt({
     name: v.string(),
-  }).edge("profile", { ref: "ownerId", optional: true }),
+  }).edge("profile", { to: "profiles", ref: "userId" }),
   profiles: defineEnt({
     bio: v.string(),
-  }).edge("user", { field: "ownerId" }),
+  }).edge("user", { to: "users", field: "userId" }),
 });
 ```
 
-You have to provide the field name on both ends of the edge (via the `ref` and
-`field` options respectively).
+The available options are:
 
-You can also specify explicitly which table is at the other end of the edge via
-the `to` option. This way the edge name doesn't have to match the table name
-(this is helpful when the simple pluralization doesn't work, like edge
-"category" and table "categories"):
-
-```ts
-defineEntSchema({
-  users: defineEnt({
-    name: v.string(),
-  }).edge("info", { to: "profiles", ref: "ownerId", optional: true }),
-  profiles: defineEnt({
-    bio: v.string(),
-  }).edge("owner", { to: "users", field: "ownerId" }),
-});
-```
+- `to` is the table storing ents on the other end of the edge. It defaults to
+  edge name suffixed with `s` (edge `profile` -> table `"profiles"`). You'll
+  want to specify it when this simple pluralization doesn't work (like edge
+  `category` and table `"categories"`).
+- `ref` signifies that the edge is stored in a field on the other ent. It can
+  either be the literal `true`, or the actual field's name. You must specify the
+  name when you want to have another field edge between the same pair of tables.
+- `field` is the name of the field that stores the foreign key. It defaults to
+  the edge name suffixed with `Id` (edge `user` -> field `userId`).
 
 The edge names are used when querying the edges, but they are not stored in the
 database (the field name is, as part of each document that stores its value).
 
 #### Optional 1:1 edges
 
-You can make both ends of a 1:1 edge optional:
+You can make the field storing the edge optional with the `optional` option.
+
+Shortcut syntax:
 
 ```ts
 defineEntSchema({
   users: defineEnt({
     name: v.string(),
-  }).edge("profile", { optional: true }),
+  }).edge("profile", { ref: true }),
   profiles: defineEnt({
     bio: v.string(),
   }).edge("user", { field: "userId", optional: true }),
 });
 ```
 
-In this case a profile can be created without a set `userId`.
+You must specify the `field` name when using `optional`.
 
-You have to set the `field` option to determine which side of the edge stores
-the edge.
+Fully specified:
+
+```ts
+defineEntSchema({
+  users: defineEnt({
+    name: v.string(),
+  }).edge("profile", { to: "profiles", ref: "userId" }),
+  profiles: defineEnt({
+    bio: v.string(),
+  }).edge("user", { to: "users", field: "userId", optional: true }),
+});
+```
+
+In this example a profile can be created without a set `userId`.
 
 #### 1:1 edges to system tables
 
@@ -308,44 +309,42 @@ defineEntSchema({
 
 This is a 1:many edge because the `edges` (plural) method is used on the "users"
 ent and the `ref: true` option is specified. The `ref` option declares that the
-edges are stored on a field in the other table. In this case each user can have
-multiple associated messages. Just like for 1:1 edges, based on the edge name
-"user", the table on the other end is "users" (`s` is added) and the field
-storing the edge is called "userId" (`Id` is added).
+edges are stored on a field in the other table. In this example each user can
+have multiple associated messages.
 
-You can control the name of the field. This becomes necessary if you want to
-have another field edge between the same pair of tables:
+The syntax shown is actually a shortcut for the following declaration:
 
 ```ts
 defineEntSchema({
   users: defineEnt({
     name: v.string(),
-  }).edges("messages", { ref: "authorId" }),
+  }).edges("messages", { to: "messages", ref: "userId" }),
   messages: defineEnt({
     text: v.string(),
-  }).edge("user", { field: "authorId" }),
+  }).edge("user", { to: "users", field: "userId" }),
 });
 ```
 
-You can also specify explicitly which table is at the other end of the edge via
-the `to` option. This way the edge names don't have match the table name (this
-is helpful when the simple pluralization doesn't work, like edge "category" and
-table "categories"):
+The available options are:
 
-```ts
-defineEntSchema({
-  users: defineEnt({
-    name: v.string(),
-  }).edges("authoredMessages", { to: "messages", ref: "authorId" }),
-  messages: defineEnt({
-    text: v.string(),
-  }).edge("author", { to: "users", field: "authorId" }),
-});
-```
+- `to` is the table storing ents on the other end of the edge.
+  - for the `edges` method, it defaults to the edge name (edges `messages` ->
+    table `"messages"`)
+  - for the `edge` method, it defaults to the edge name suffixed with `s` (edge
+    `user` -> table `"users"`).
+  - You'll need to specify `to` when the defaults don't match your table names.
+- `ref` signifies that the edge is stored in a field on the other ent. It can
+  either be the literal `true`, or the actual field's name. You must specify the
+  name when you want to have another field edge between the same pair of tables
+  (to identify the inverse edge).
+- `field` is the name of the field that stores the foreign key. It defaults to
+  the edge name suffixed with `Id` (edge `user` -> field `userId`).
 
 #### Optional 1:many edges
 
-You can make the foreign key optional:
+You can make the field storing the edge optional with the `optional` option.
+
+Shortcut syntax:
 
 ```ts
 defineEntSchema({
@@ -358,10 +357,22 @@ defineEntSchema({
 });
 ```
 
-In this case a message can be created without a set `userId`.
+You must specify the `field` name when using `optional`.
 
-You have to set the `field` option to signify that the singular end of the edge
-stores the foreign key.
+Fully specified:
+
+```ts
+defineEntSchema({
+  users: defineEnt({
+    name: v.string(),
+  }).edges("messages", { to: "messages", ref: "userId" }),
+  messages: defineEnt({
+    text: v.string(),
+  }).edge("user", { to: "users", field: "userId", optional: true }),
+});
+```
+
+In this case a message can be created without a set `userId`.
 
 ### many:many edges
 
@@ -384,56 +395,41 @@ defineEntSchema({
 In this case the table storing the edge is called `messages_to_tags`, based on
 the tables storing each end of the edge.
 
-You can control the name of the table storing the edges. This becomes necessary
-if you want to have multiple edges connecting the same pair of tables:
+The syntax shown is actually a shortcut for the following declaration:
 
 ```ts
 defineEntSchema({
   messages: defineEnt({
     name: v.string(),
-  }).edges("tags", { table: "messages_to_assignedTags" }),
-  tags: defineEnt({
-    text: v.string(),
-  }).edges("messages", { table: "messages_to_assignedTags" }),
-});
-```
-
-This table will have two ID fields, one for each end of the edge. Their names
-will be inferred from the table names of the connected ents. You can specify
-them explicitly using the `field` option:
-
-```ts
-defineEntSchema({
-  messages: defineEnt({
-    name: v.string(),
-  }).edges("tags", { table: "messages_to_assignedTags", field: "messageId" }),
+  }).edges("tags", {
+    to: "tags",
+    table: "tags_to_messages",
+    field: "tagsId",
+  }),
   tags: defineEnt({
     text: v.string(),
   }).edges("messages", {
-    table: "messages_to_assignedTags",
-    field: "assignedTagId",
-  }),
-});
-```
-
-You can also specify explicitly which table is at the other end of the edge via
-the `to` option. This way the edge names don't have to match the table name
-(this is helpful when the simple pluralization doesn't work, like edge
-"category" and table "categories"):
-
-```ts
-defineEntSchema({
-  messages: defineEnt({
-    name: v.string(),
-  }).edges("assignedTags", { to: "tags", table: "messages_to_assignedTags" }),
-  tags: defineEnt({
-    text: v.string(),
-  }).edges("taggedMessages", {
     to: "messages",
-    table: "messages_to_assignedTags",
+    table: "tags_to_messages",
+    field: "messagesId",
   }),
 });
 ```
+
+The available options are:
+
+- `to` is the table storing ents on the other end of the edge. It defaults to
+  the edge name (edges `tags` -> table `"tags"`). You can specify it if you want
+  to call the edge something more specific.
+- `table` is the name of the table storing the edges. This table will have two
+  ID fields, one for each end of the edge. You must specify the name when you
+  want to have multiple different edges connecting the same pair of tables.
+  These tables are only used by the framework under the hood, and won't appear
+  in your code.
+- `field` is the name of the field on `table` that stores the ID of the ent on
+  this end of the edge. It defaults to the edge name with suffixed with `Id`
+  (edge `tags` -> field `tagsId`). These fields will only be used by the
+  framework under the hood, and won't appear in your code.
 
 #### Asymmetrical self-directed many:many edges
 

@@ -62,9 +62,9 @@ export function defineEntSchema<
         if (edge.type !== "field") {
           throw new Error(
             `Edge "${edge.name}" in table "${tableName}" ` +
-              `pointing to a system table "${otherTableName}" cannot be ` +
-              `optional, it must store the system document ID. Remove ` +
-              `the \`optional\` option.`,
+              `pointing to a system table "${otherTableName}" must store ` +
+              `the edge by storing the system document ID. Remove ` +
+              `the \`ref\` option.`,
           );
         }
         if (edge.deletion === "soft") {
@@ -129,7 +129,8 @@ export function defineEntSchema<
           throw new Error(
             `Both edge "${edge.name}" in table "${inverseEdge.to}" and ` +
               `edge "${inverseEdge.name}" in table "${edge.to}" are marked ` +
-              `as optional, choose one to be required.`,
+              `as references, choose one to store the edge by removing ` +
+              `the \`ref\` option.`,
           );
         }
         if (
@@ -175,7 +176,7 @@ export function defineEntSchema<
           if (inverseEdge.type === "ref") {
             throw new Error(
               `The edge "${inverseEdge.name}" in table "${otherTableName}" ` +
-                `cannot be optional, as it must store the 1:many edge as a field. ` +
+                `specified \`ref\`, but it must store the 1:many edge as a field. ` +
                 `Check the its inverse edge "${edge.name}" in table "${tableName}".`,
             );
           }
@@ -788,8 +789,7 @@ export interface EntDefinition<
   edge<EdgeName extends string>(
     edge: EdgeName,
     options: {
-      optional: true;
-      ref?: string;
+      ref: true | string;
       deletion?: "soft";
     },
   ): EntDefinition<
@@ -809,9 +809,8 @@ export interface EntDefinition<
   edge<EdgeName extends string, const ToTable extends string>(
     edge: EdgeName,
     options: {
-      optional: true;
       to: ToTable;
-      ref?: string;
+      ref: true | string;
       deletion?: "soft";
     },
   ): EntDefinition<
@@ -1048,7 +1047,7 @@ type FieldOptions = {
 type EdgeOptions = {
   optional?: true;
   field?: string;
-  ref?: string;
+  ref?: true | string;
   to?: string;
   deletion?: "soft" | "hard";
 };
@@ -1159,7 +1158,14 @@ class EntDefinitionImpl {
       throw new Error(`Duplicate edge "${edgeName}"`);
     }
     const to = options?.to ?? edgeName + "s";
-    if (options?.field !== undefined || options?.optional !== true) {
+    if (options?.field !== undefined && options?.ref !== undefined) {
+      throw new Error(
+        `Cannot specify both \`field\` and \`ref\` for the same edge, ` +
+          `choose one to be the reference and the other to store ` +
+          `the foreign key.`,
+      );
+    }
+    if (options?.field !== undefined || options?.ref === undefined) {
       const fieldName = options?.field ?? edgeName + "Id";
       this.documentSchema = {
         ...this.documentSchema,
@@ -1181,16 +1187,14 @@ class EntDefinitionImpl {
       });
       return this;
     }
-    if (options.optional === true) {
-      this.edgeConfigs[edgeName] = {
-        name: edgeName,
-        to,
-        cardinality: "single",
-        type: "ref",
-        ref: options.ref ?? null,
-        deletion: options.deletion as "soft" | undefined,
-      };
-    }
+    this.edgeConfigs[edgeName] = {
+      name: edgeName,
+      to,
+      cardinality: "single",
+      type: "ref",
+      ref: options.ref === true ? null : options.ref,
+      deletion: options.deletion as "soft" | undefined,
+    };
     return this;
   }
 
