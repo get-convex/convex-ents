@@ -248,6 +248,11 @@ test("table using index", async ({ ctx }) => {
   expect(firstVideoWithMoreThan3Likes.type).toEqual("video");
 });
 
+test("cannot order by index after using index", async ({ ctx }) => {
+  // @ts-expect-error
+  ctx.table("users", "height").order("asc", "email");
+});
+
 test("search", async ({ ctx }) => {
   await ctx.table("posts").insertMany([
     { text: "My great video", type: "video", numLikes: 4 },

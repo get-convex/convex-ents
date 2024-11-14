@@ -122,8 +122,6 @@ export interface PromiseQueryOrNull<
   EntsDataModel extends GenericEntsDataModel,
   Table extends TableNamesInDataModel<EntsDataModel>,
 > extends PromiseOrderedQueryOrNull<EntsDataModel, Table> {
-  // TODO: The index variant should not be allowed if
-  // this query already used an index
   order(
     order: "asc" | "desc",
     indexName?: IndexNames<NamedTableInfo<EntsDataModel, Table>>,
@@ -211,6 +209,16 @@ export interface PromiseTable<
    * Fetch a document from the DB for a given ID, throw if it doesn't exist.
    */
   getX(id: GenericId<Table>): PromiseEnt<EntsDataModel, Table>;
+
+  /**
+   * Return all documents in the table in given order.
+   * Sort either by given index or by _creationTime.
+   */
+  order(
+    order: "asc" | "desc",
+    indexName?: IndexNames<NamedTableInfo<EntsDataModel, Table>>,
+  ): PromiseOrderedQuery<EntsDataModel, Table>;
+
   /**
    * Query by running a full text search against a search index.
    *
@@ -290,10 +298,7 @@ export interface PromiseQuery<
   EntsDataModel extends GenericEntsDataModel,
   Table extends TableNamesInDataModel<EntsDataModel>,
 > extends PromiseOrderedQuery<EntsDataModel, Table> {
-  order(
-    order: "asc" | "desc",
-    indexName?: IndexNames<NamedTableInfo<EntsDataModel, Table>>,
-  ): PromiseOrderedQuery<EntsDataModel, Table>;
+  order(order: "asc" | "desc"): PromiseOrderedQuery<EntsDataModel, Table>;
 }
 
 class PromiseQueryOrNullImpl<
@@ -2033,7 +2038,7 @@ export type EntsTableWriter<EntsDataModel extends GenericEntsDataModel> = {
         NamedIndex<NamedTableInfo<EntsDataModel, Table>, IndexName>
       >,
     ) => IndexRange,
-  ): PromiseTableWriter<Table, EntsDataModel>;
+  ): PromiseQueryWriter<EntsDataModel, Table>;
   <Table extends TableNamesInDataModel<EntsDataModel>>(
     table: Table,
   ): PromiseTableWriter<Table, EntsDataModel>;
@@ -2203,10 +2208,7 @@ export interface PromiseQueryWriter<
   EntsDataModel extends GenericEntsDataModel,
   Table extends TableNamesInDataModel<EntsDataModel>,
 > extends PromiseOrderedQueryWriter<EntsDataModel, Table> {
-  order(
-    order: "asc" | "desc",
-    indexName?: IndexNames<NamedTableInfo<EntsDataModel, Table>>,
-  ): PromiseOrderedQueryWriter<EntsDataModel, Table>;
+  order(order: "asc" | "desc"): PromiseOrderedQueryWriter<EntsDataModel, Table>;
 }
 
 // This lazy promise materializes objects, so chaining to this type of
@@ -2308,6 +2310,16 @@ export interface PromiseTableWriter<
    * Fetch a document from the DB for a given ID, throw if it doesn't exist.
    */
   getX(id: GenericId<Table>): PromiseEntWriter<EntsDataModel, Table>;
+
+  /**
+   * Return all documents in the table in given order.
+   * Sort either by given index or by _creationTime.
+   */
+  order(
+    order: "asc" | "desc",
+    indexName?: IndexNames<NamedTableInfo<EntsDataModel, Table>>,
+  ): PromiseOrderedQueryWriter<EntsDataModel, Table>;
+
   /**
    * Query by running a full text search against a search index.
    *
