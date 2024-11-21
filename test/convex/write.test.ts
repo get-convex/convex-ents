@@ -275,6 +275,19 @@ test("patch doesn't readd many:many edge", async ({ ctx }) => {
   ).toHaveLength(1);
 });
 
+test("patch can readd the same 1:1 edge", async ({ ctx }) => {
+  const userId = await ctx.table("users").insert({
+    name: "Gates",
+    email: "bill@gates.com",
+  });
+  const profile = await ctx
+    .table("profiles")
+    .insert({ bio: "Hello world", userId })
+    .get();
+
+  await profile.patch({ userId });
+});
+
 test("symmetric many:many", async ({ ctx }) => {
   const friendId = await ctx.table("users").insert({
     name: "Jobs",
