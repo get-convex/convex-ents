@@ -380,12 +380,9 @@ export function defineEnt<DocumentSchema extends PropertyValidators>(
 
 export function defineEntFromTable<
   DocumentType extends GenericValidator = GenericValidator,
-  // eslint-disable-next-line @typescript-eslint/ban-types
-  Indexes extends GenericTableIndexes = {},
-  // eslint-disable-next-line @typescript-eslint/ban-types
-  SearchIndexes extends GenericTableSearchIndexes = {},
-  // eslint-disable-next-line @typescript-eslint/ban-types
-  VectorIndexes extends GenericTableVectorIndexes = {},
+  Indexes extends GenericTableIndexes = Record<string, never>,
+  SearchIndexes extends GenericTableSearchIndexes = Record<string, never>,
+  VectorIndexes extends GenericTableVectorIndexes = Record<string, never>,
 >(
   definition: TableDefinition<
     DocumentType,
@@ -482,13 +479,13 @@ type AddField<
 
 export interface EntDefinition<
   DocumentType extends Validator<any, any, any> = Validator<any, any, any>,
-  // eslint-disable-next-line @typescript-eslint/ban-types
+  // eslint-disable-next-line @typescript-eslint/no-empty-interface
   Indexes extends GenericTableIndexes = {},
-  // eslint-disable-next-line @typescript-eslint/ban-types
+  // eslint-disable-next-line @typescript-eslint/no-empty-interface
   SearchIndexes extends GenericTableSearchIndexes = {},
-  // eslint-disable-next-line @typescript-eslint/ban-types
+  // eslint-disable-next-line @typescript-eslint/no-empty-interface
   VectorIndexes extends GenericTableVectorIndexes = {},
-  // eslint-disable-next-line @typescript-eslint/ban-types
+  // eslint-disable-next-line @typescript-eslint/no-empty-interface
   Edges extends GenericEdges = {},
 > extends TableDefinition<DocumentType, Indexes, SearchIndexes, VectorIndexes> {
   /**
@@ -1129,26 +1126,39 @@ class EntDefinitionImpl {
   }
 
   field(name: string, validator: any, options?: FieldOptions): this {
-    if (this.documentSchema[name] !== undefined) {
-      // TODO: Store the fieldConfigs in an array so that we can
-      // do the uniqueness check in defineEntSchema where we
-      // know the table name.
-      throw new Error(`Duplicate field "${name}"`);
-    }
     const finalValidator =
       options?.default !== undefined ? v.optional(validator) : validator;
+
+    // Update or create the field in document schema
     this.documentSchema = { ...this.documentSchema, [name]: finalValidator };
+
+    // Update or create index if needed
     if (options?.unique === true || options?.index === true) {
+      // Remove any existing index for this field
+      this.indexes = this.indexes.filter(idx => idx.indexDescriptor !== name);
+      // Add the new index
       this.indexes.push({ indexDescriptor: name, fields: [name] });
     }
+
+    // Update or set default value
     if (options?.default !== undefined) {
       this.defaults[name] = options.default;
+    } else {
+      // Remove default if it existed before but is not specified now
+      delete this.defaults[name];
     }
+
+    // Update or set unique configuration
     if (options?.unique === true) {
       this.fieldConfigs[name] = { name, unique: true };
+    } else {
+      // Remove unique config if it existed before but is not specified now
+      delete this.fieldConfigs[name];
     }
+
     return this;
   }
+
 
   edge(edgeName: string, options?: EdgeOptions): this {
     if (this.edgeConfigs[edgeName] !== undefined) {
