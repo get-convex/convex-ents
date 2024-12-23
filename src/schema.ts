@@ -515,6 +515,50 @@ export interface EntDefinition<
     VectorIndexes,
     Edges
   >;
+  updateField<FieldName extends string, T extends GenericValidator>(
+    field: FieldName,
+    validator: T,
+  ): EntDefinition<
+    AddField<DocumentType, FieldName, T>,
+    Indexes,
+    SearchIndexes,
+    VectorIndexes,
+    Edges
+  >;
+  updateField<FieldName extends string, T extends Validator<any, any, any>>(
+    field: FieldName,
+    validator: T,
+    options: { index: true },
+  ): EntDefinition<
+    AddField<DocumentType, FieldName, T>,
+    Indexes & { [key in FieldName]: [FieldName, "_creationTime"] },
+    SearchIndexes,
+    VectorIndexes,
+    Edges
+  >;
+  updateField<FieldName extends string, T extends Validator<any, any, any>>(
+    field: FieldName,
+    validator: T,
+    options: { unique: true },
+  ): EntDefinition<
+    AddField<DocumentType, FieldName, T>,
+    Indexes & { [key in FieldName]: [FieldName, "_creationTime"] },
+    SearchIndexes,
+    VectorIndexes,
+    Edges
+  >;
+  updateField<FieldName extends string, T extends Validator<any, "required", any>>(
+    field: FieldName,
+    validator: T,
+    options: { default: T["type"] },
+  ): EntDefinition<
+    AddField<DocumentType, FieldName, T>,
+    Indexes,
+    SearchIndexes,
+    VectorIndexes,
+    Edges
+  >;
+
 
   /**
    * Define a search index on this table.
@@ -626,6 +670,8 @@ export interface EntDefinition<
     VectorIndexes,
     Edges
   >;
+
+
 
   edge<EdgeName extends string>(
     edge: EdgeName,
@@ -1126,7 +1172,7 @@ class EntDefinitionImpl {
   }
 
 
-  field(name: string, validator: any, options?: FieldOptions): this {
+  updateField(name: string, validator: any, options?: FieldOptions): this {
     const finalValidator =
       options?.default !== undefined ? v.optional(validator) : validator;
 
@@ -1160,6 +1206,27 @@ class EntDefinitionImpl {
     return this;
   }
 
+  field(name: string, validator: any, options?: FieldOptions): this {
+    if (this.documentSchema[name] !== undefined) {
+      // TODO: Store the fieldConfigs in an array so that we can
+      // do the uniqueness check in defineEntSchema where we
+      // know the table name.
+      throw new Error(`Duplicate field "${name}"`);
+    }
+    const finalValidator =
+      options?.default !== undefined ? v.optional(validator) : validator;
+    this.documentSchema = { ...this.documentSchema, [name]: finalValidator };
+    if (options?.unique === true || options?.index === true) {
+      this.indexes.push({ indexDescriptor: name, fields: [name] });
+    }
+    if (options?.default !== undefined) {
+      this.defaults[name] = options.default;
+    }
+    if (options?.unique === true) {
+      this.fieldConfigs[name] = { name, unique: true };
+    }
+    return this;
+  }
 
   edge(edgeName: string, options?: EdgeOptions): this {
     if (this.edgeConfigs[edgeName] !== undefined) {
