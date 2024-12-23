@@ -1131,7 +1131,7 @@ class EntDefinitionImpl {
       options?.default !== undefined ? v.optional(validator) : validator;
 
     // Update or create the field in document schema
-    this.documentSchema = { ...this.documentSchema, [name]: finalValidator };
+    this.documentSchema[name] = finalValidator ;
 
     // Update or create index if needed
     if (options?.unique === true || options?.index === true) {
