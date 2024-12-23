@@ -45,6 +45,20 @@ interface EntDefinition<DocumentType extends Validator<any, any, any> = Validato
      * @returns A {@link TableDefinition} with this index included.
      */
     index<IndexName extends string, FirstFieldPath extends ExtractFieldPaths<DocumentType>, RestFieldPaths extends ExtractFieldPaths<DocumentType>[]>(name: IndexName, fields: [FirstFieldPath, ...RestFieldPaths]): EntDefinition<DocumentType, Expand<Indexes & Record<IndexName, [FirstFieldPath, ...RestFieldPaths, "_creationTime"]>>, SearchIndexes, VectorIndexes, Edges>;
+    updateField<FieldName extends string, T extends GenericValidator>(field: FieldName, validator: T): EntDefinition<AddField<DocumentType, FieldName, T>, Indexes, SearchIndexes, VectorIndexes, Edges>;
+    updateField<FieldName extends string, T extends Validator<any, any, any>>(field: FieldName, validator: T, options: {
+        index: true;
+    }): EntDefinition<AddField<DocumentType, FieldName, T>, Indexes & {
+        [key in FieldName]: [FieldName, "_creationTime"];
+    }, SearchIndexes, VectorIndexes, Edges>;
+    updateField<FieldName extends string, T extends Validator<any, any, any>>(field: FieldName, validator: T, options: {
+        unique: true;
+    }): EntDefinition<AddField<DocumentType, FieldName, T>, Indexes & {
+        [key in FieldName]: [FieldName, "_creationTime"];
+    }, SearchIndexes, VectorIndexes, Edges>;
+    updateField<FieldName extends string, T extends Validator<any, "required", any>>(field: FieldName, validator: T, options: {
+        default: T["type"];
+    }): EntDefinition<AddField<DocumentType, FieldName, T>, Indexes, SearchIndexes, VectorIndexes, Edges>;
     /**
      * Define a search index on this table.
      *

@@ -303,7 +303,7 @@ var EntDefinitionImpl = class {
       documentType: import_values.v.object(this.documentSchema).json
     };
   }
-  field(name, validator, options) {
+  updateField(name, validator, options) {
     const finalValidator = options?.default !== void 0 ? import_values.v.optional(validator) : validator;
     this.documentSchema[name] = finalValidator;
     if (options?.unique === true || options?.index === true) {
@@ -319,6 +319,23 @@ var EntDefinitionImpl = class {
       this.fieldConfigs[name] = { name, unique: true };
     } else {
       delete this.fieldConfigs[name];
+    }
+    return this;
+  }
+  field(name, validator, options) {
+    if (this.documentSchema[name] !== void 0) {
+      throw new Error(`Duplicate field "${name}"`);
+    }
+    const finalValidator = options?.default !== void 0 ? import_values.v.optional(validator) : validator;
+    this.documentSchema = { ...this.documentSchema, [name]: finalValidator };
+    if (options?.unique === true || options?.index === true) {
+      this.indexes.push({ indexDescriptor: name, fields: [name] });
+    }
+    if (options?.default !== void 0) {
+      this.defaults[name] = options.default;
+    }
+    if (options?.unique === true) {
+      this.fieldConfigs[name] = { name, unique: true };
     }
     return this;
   }
