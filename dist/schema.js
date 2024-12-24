@@ -299,8 +299,47 @@ var EntDefinitionImpl = class {
       documentType: import_values.v.object(this.documentSchema).json
     };
   }
-  updateField(name, validator, options) {
-    const finalValidator = options?.default !== void 0 ? import_values.v.optional(validator) : validator;
+  //
+  // updateField(name: string, validator: any, options?: FieldOptions): this {
+  //   const finalValidator =
+  //     options?.default !== undefined ? v.optional(validator) : validator;
+  //
+  //   // Update or create the field in document schema
+  //   this.documentSchema[name] = finalValidator ;
+  //
+  //   // Update or create index if needed
+  //   if (options?.unique === true || options?.index === true) {
+  //     // Remove any existing index for this field
+  //     this.indexes = this.indexes.filter(idx => idx.indexDescriptor !== name);
+  //     // Add the new index
+  //     this.indexes.push({ indexDescriptor: name, fields: [name] });
+  //   }
+  //
+  //   // Update or set default value
+  //   if (options?.default !== undefined) {
+  //     this.defaults[name] = options.default;
+  //   } else {
+  //     // Remove default if it existed before but is not specified now
+  //     delete this.defaults[name];
+  //   }
+  //
+  //   // Update or set unique configuration
+  //   if (options?.unique === true) {
+  //     this.fieldConfigs[name] = { name, unique: true };
+  //   } else {
+  //     // Remove unique config if it existed before but is not specified now
+  //     delete this.fieldConfigs[name];
+  //   }
+  //
+  //   return this;
+  // }
+  fieldOptions(name, options) {
+    const existingValidator = this.documentSchema[name];
+    if (!existingValidator) {
+      throw new Error(`Field "${name}" not found in schema`);
+    }
+    const finalValidator = options?.default !== void 0 ? import_values.v.optional(existingValidator) : existingValidator;
+    delete this.documentSchema[name];
     this.documentSchema[name] = finalValidator;
     if (options?.unique === true || options?.index === true) {
       this.indexes = this.indexes.filter((idx) => idx.indexDescriptor !== name);
