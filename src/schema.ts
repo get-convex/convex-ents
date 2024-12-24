@@ -9,7 +9,7 @@ import {
   SearchIndexConfig,
   TableDefinition,
   VectorIndexConfig,
-  defineSchema,
+  defineSchema
 } from "convex/server";
 import {
   GenericId,
@@ -22,7 +22,7 @@ import {
   VObject,
   VOptional,
   Validator,
-  v,
+  v
 } from "convex/values";
 
 export function defineEntSchema<
@@ -30,7 +30,7 @@ export function defineEntSchema<
   StrictTableNameTypes extends boolean = true,
 >(
   schema: Schema,
-  options?: DefineSchemaOptions<StrictTableNameTypes>,
+  options?: DefineSchemaOptions<StrictTableNameTypes>
 ): SchemaDefinition<Schema, StrictTableNameTypes> {
   // Set the properties of edges which requires knowing their inverses,
   // and add edge tables.
@@ -55,23 +55,23 @@ export function defineEntSchema<
         if (edge.cardinality !== "single") {
           throw new Error(
             `Many:many edge "${edge.name}" in table "${tableName}" ` +
-              `points to a system table "${otherTableName}", but only 1:1 ` +
-              `edges can point to system tables`,
+            `points to a system table "${otherTableName}", but only 1:1 ` +
+            `edges can point to system tables`
           );
         }
         if (edge.type !== "field") {
           throw new Error(
             `Edge "${edge.name}" in table "${tableName}" ` +
-              `pointing to a system table "${otherTableName}" must store ` +
-              `the edge by storing the system document ID. Remove ` +
-              `the \`ref\` option.`,
+            `pointing to a system table "${otherTableName}" must store ` +
+            `the edge by storing the system document ID. Remove ` +
+            `the \`ref\` option.`
           );
         }
         if (edge.deletion === "soft") {
           throw new Error(
             `Edge "${edge.name}" in table "${tableName}" ` +
-              `pointing to a system table "${otherTableName}" cannot use ` +
-              `soft deletion, because system documents cannot be soft deleted.`,
+            `pointing to a system table "${otherTableName}" cannot use ` +
+            `soft deletion, because system documents cannot be soft deleted.`
           );
         }
         // Nothing else to do, the edge is set up.
@@ -81,22 +81,22 @@ export function defineEntSchema<
       if (otherTable === undefined) {
         throw new Error(
           `Edge "${edge.name}" in table "${tableName}" ` +
-            `points to an undefined table "${otherTableName}"`,
+          `points to an undefined table "${otherTableName}"`
         );
       }
 
       const isSelfDirected = edge.to === tableName;
 
       const inverseEdgeCandidates = edgeConfigsBeforeDefineSchema(
-        otherTable,
+        otherTable
       ).filter(canBeInverseEdge(tableName, edge, isSelfDirected));
       if (inverseEdgeCandidates.length > 1) {
         throw new Error(
           `Edge "${edge.name}" in table "${tableName}" ` +
-            `has too many potential inverse edges in table "${otherTableName}": ` +
-            `${inverseEdgeCandidates
-              .map((edge) => `"${edge.name}"`)
-              .join(", ")}`,
+          `has too many potential inverse edges in table "${otherTableName}": ` +
+          `${inverseEdgeCandidates
+            .map((edge) => `"${edge.name}"`)
+            .join(", ")}`
         );
       }
       const inverseEdge: EdgeConfigBeforeDefineSchema | undefined =
@@ -109,7 +109,7 @@ export function defineEntSchema<
       ) {
         throw new Error(
           `Missing inverse edge in table "${otherTableName}" ` +
-            `for edge "${edge.name}" in table "${tableName}"`,
+          `for edge "${edge.name}" in table "${tableName}"`
         );
       }
 
@@ -119,7 +119,7 @@ export function defineEntSchema<
           throw new Error(
             `Missing inverse edge in table "${otherTableName}" ${
               edge.ref !== null ? `with field "${edge.ref}" ` : ""
-            }for edge "${edge.name}" in table "${tableName}"`,
+            }for edge "${edge.name}" in table "${tableName}"`
           );
         }
         if (
@@ -128,9 +128,9 @@ export function defineEntSchema<
         ) {
           throw new Error(
             `Both edge "${edge.name}" in table "${inverseEdge.to}" and ` +
-              `edge "${inverseEdge.name}" in table "${edge.to}" are marked ` +
-              `as references, choose one to store the edge by removing ` +
-              `the \`ref\` option.`,
+            `edge "${inverseEdge.name}" in table "${edge.to}" are marked ` +
+            `as references, choose one to store the edge by removing ` +
+            `the \`ref\` option.`
           );
         }
         if (
@@ -138,7 +138,7 @@ export function defineEntSchema<
           inverseEdge.type !== "field"
         ) {
           throw new Error(
-            `Unexpected inverse edge type ${edge.name}, ${inverseEdge?.name}`,
+            `Unexpected inverse edge type ${edge.name}, ${inverseEdge?.name}`
           );
         }
         if (edge.ref === null) {
@@ -157,10 +157,10 @@ export function defineEntSchema<
         ) {
           throw new Error(
             `Cannot specify soft deletion behavior for edge ` +
-              `"${edge.name}" in table "${tableName}" ` +
-              `because the target table "${otherTableName}" does not have ` +
-              `a "soft" or "scheduled" deletion behavior ` +
-              `configured.`,
+            `"${edge.name}" in table "${tableName}" ` +
+            `because the target table "${otherTableName}" does not have ` +
+            `a "soft" or "scheduled" deletion behavior ` +
+            `configured.`
           );
         }
       }
@@ -168,7 +168,7 @@ export function defineEntSchema<
         if (!isSelfDirected && inverseEdge === undefined) {
           throw new Error(
             `Missing inverse edge in table "${otherTableName}" ` +
-              `for edge "${edge.name}" in table "${tableName}"`,
+            `for edge "${edge.name}" in table "${tableName}"`
           );
         }
 
@@ -176,15 +176,15 @@ export function defineEntSchema<
           if (inverseEdge.type === "ref") {
             throw new Error(
               `The edge "${inverseEdge.name}" in table "${otherTableName}" ` +
-                `specified \`ref\`, but it must store the 1:many edge as a field. ` +
-                `Check the its inverse edge "${edge.name}" in table "${tableName}".`,
+              `specified \`ref\`, but it must store the 1:many edge as a field. ` +
+              `Check the its inverse edge "${edge.name}" in table "${tableName}".`
             );
           }
           if (edge.type === "ref") {
             throw new Error(
               `The edge "${inverseEdge.name}" in table "${otherTableName}" ` +
-                `cannot be singular, as the edge "${edge.name}" in table "${tableName}" did not ` +
-                `specify the \`ref\` option.`,
+              `cannot be singular, as the edge "${edge.name}" in table "${tableName}" did not ` +
+              `specify the \`ref\` option.`
             );
           }
           (edge as EdgeConfigMultipleField).type = "field";
@@ -195,15 +195,15 @@ export function defineEntSchema<
           if (!isSelfDirected && edge?.type === "field") {
             throw new Error(
               `The edge "${edge.name}" in table "${tableName}" ` +
-                `specified \`ref\`, but its inverse edge "${inverseEdge.name}" ` +
-                `in table "${otherTableName}" is not the singular end of a 1:many edge.`,
+              `specified \`ref\`, but its inverse edge "${inverseEdge.name}" ` +
+              `in table "${otherTableName}" is not the singular end of a 1:many edge.`
             );
           }
           if (inverseEdge?.type === "field") {
             throw new Error(
               `The edge "${inverseEdge.name}" in table "${otherTableName}" ` +
-                `specified \`ref\`, but its inverse edge "${edge.name}" ` +
-                `in table "${tableName}" is not the singular end of a 1:many edge.`,
+              `specified \`ref\`, but its inverse edge "${edge.name}" ` +
+              `in table "${tableName}" is not the singular end of a 1:many edge.`
             );
           }
 
@@ -239,19 +239,19 @@ export function defineEntSchema<
           // Add the table
           const edgeTable = defineEnt({
             [forwardId]: v.id(tableName),
-            [inverseId]: v.id(otherTableName),
+            [inverseId]: v.id(otherTableName)
           })
             .index(forwardId, [forwardId])
             .index(inverseId, [inverseId])
             .index(edgeCompoundIndexNameRaw(forwardId, inverseId), [
               forwardId,
-              inverseId,
+              inverseId
             ]);
           const isSymmetric = inverseEdge === undefined;
           if (!isSymmetric) {
             edgeTable.index(edgeCompoundIndexNameRaw(inverseId, forwardId), [
               inverseId,
-              forwardId,
+              forwardId
             ]);
           }
           (schema as Record<string, EntDefinition>)[edgeTableName] = edgeTable;
@@ -278,7 +278,7 @@ export function defineEntSchema<
 }
 
 export function edgeCompoundIndexName(
-  edgeDefinition: EdgeConfig & { cardinality: "multiple"; type: "ref" },
+  edgeDefinition: EdgeConfig & { cardinality: "multiple"; type: "ref" }
 ) {
   return edgeCompoundIndexNameRaw(edgeDefinition.field, edgeDefinition.ref);
 }
@@ -290,7 +290,7 @@ function edgeCompoundIndexNameRaw(idA: string, idB: string) {
 function canBeInverseEdge(
   tableName: string,
   edge: EdgeConfigBeforeDefineSchema,
-  isSelfDirected: boolean,
+  isSelfDirected: boolean
 ) {
   return (candidate: EdgeConfigBeforeDefineSchema) => {
     if (candidate.to !== tableName) {
@@ -364,7 +364,7 @@ function canBeInverseEdge(
 
 function edgeConfigsBeforeDefineSchema(table: EntDefinition) {
   return Object.values(
-    (table as any).edgeConfigs as Record<string, EdgeConfigBeforeDefineSchema>,
+    (table as any).edgeConfigs as Record<string, EdgeConfigBeforeDefineSchema>
   );
 }
 
@@ -373,7 +373,7 @@ function deletionConfigFromEntDefinition(table: EntDefinition) {
 }
 
 export function defineEnt<DocumentSchema extends PropertyValidators>(
-  documentSchema: DocumentSchema,
+  documentSchema: DocumentSchema
 ): EntDefinition<ObjectValidator<DocumentSchema>> {
   return new EntDefinitionImpl(documentSchema) as any;
 }
@@ -389,12 +389,12 @@ export function defineEntFromTable<
     Indexes,
     SearchIndexes,
     VectorIndexes
-  >,
+  >
 ): EntDefinition<DocumentType, Indexes, SearchIndexes, VectorIndexes> {
   const validator: DocumentType = definition.validator;
   if (validator.kind !== "object") {
     throw new Error(
-      "Only tables with object definition are supported in Ents, not unions",
+      "Only tables with object definition are supported in Ents, not unions"
     );
   }
 
@@ -412,11 +412,11 @@ type DefineEntFromTables<
   T extends { [key: string]: TableDefinition<any, any, any, any> },
 > = {
   [K in keyof T]: T[K] extends TableDefinition<
-    infer D,
-    infer I,
-    infer S,
-    infer V
-  >
+      infer D,
+      infer I,
+      infer S,
+      infer V
+    >
     ? EntDefinition<D, I, S, V>
     : never;
 };
@@ -442,9 +442,9 @@ export type GenericEdgeConfig = {
 };
 
 type ExtractFieldPaths<T extends Validator<any, any, any>> =
-  // Add in the system fields available in index definitions.
-  // This should be everything except for `_id` because thats added to indexes
-  // automatically.
+// Add in the system fields available in index definitions.
+// This should be everything except for `_id` because thats added to indexes
+// automatically.
   T["fieldPaths"] | keyof SystemFields;
 
 type ObjectFieldType<
@@ -459,20 +459,20 @@ type AddField<
   FieldName extends string,
   P extends GenericValidator,
 > =
-  // Note: We can't use the `AddField` type to add fields to a union type, but ents
-  // do not support schemas with top level unions
+// Note: We can't use the `AddField` type to add fields to a union type, but ents
+// do not support schemas with top level unions
   V extends VObject<
-    infer TypeScriptType,
-    infer Fields,
-    infer IsOptional,
-    infer FieldPaths
-  >
+      infer TypeScriptType,
+      infer Fields,
+      infer IsOptional,
+      infer FieldPaths
+    >
     ? VObject<
-        Expand<TypeScriptType & ObjectFieldType<FieldName, P>>,
-        Expand<Fields & { FieldName: P }>,
-        IsOptional,
-        FieldPaths | FieldName
-      >
+      Expand<TypeScriptType & ObjectFieldType<FieldName, P>>,
+      Expand<Fields & { FieldName: P }>,
+      IsOptional,
+      FieldPaths | FieldName
+    >
     : V extends VAny
       ? VAny
       : never;
@@ -504,20 +504,21 @@ export interface EntDefinition<
     RestFieldPaths extends ExtractFieldPaths<DocumentType>[],
   >(
     name: IndexName,
-    fields: [FirstFieldPath, ...RestFieldPaths],
+    fields: [FirstFieldPath, ...RestFieldPaths]
   ): EntDefinition<
     DocumentType,
     Expand<
       Indexes &
-        Record<IndexName, [FirstFieldPath, ...RestFieldPaths, "_creationTime"]>
+      Record<IndexName, [FirstFieldPath, ...RestFieldPaths, "_creationTime"]>
     >,
     SearchIndexes,
     VectorIndexes,
     Edges
   >;
+
   fieldOptions<FieldName extends string, T extends GenericValidator>(
     field: FieldName,
-    validator: T,
+    validator: T
   ): EntDefinition<
     AddField<DocumentType, FieldName, T>,
     Indexes,
@@ -525,10 +526,11 @@ export interface EntDefinition<
     VectorIndexes,
     Edges
   >;
+
   fieldOptions<FieldName extends string, T extends Validator<any, any, any>>(
     field: FieldName,
     validator: T,
-    options: { index: true },
+    options: { index: true }
   ): EntDefinition<
     AddField<DocumentType, FieldName, T>,
     Indexes & { [key in FieldName]: [FieldName, "_creationTime"] },
@@ -536,10 +538,11 @@ export interface EntDefinition<
     VectorIndexes,
     Edges
   >;
+
   fieldOptions<FieldName extends string, T extends Validator<any, any, any>>(
     field: FieldName,
     validator: T,
-    options: { unique: true },
+    options: { unique: true }
   ): EntDefinition<
     AddField<DocumentType, FieldName, T>,
     Indexes & { [key in FieldName]: [FieldName, "_creationTime"] },
@@ -547,10 +550,11 @@ export interface EntDefinition<
     VectorIndexes,
     Edges
   >;
+
   fieldOptions<FieldName extends string, T extends Validator<any, "required", any>>(
     field: FieldName,
     validator: T,
-    options: { default: T["type"] },
+    options: { default: T["type"] }
   ): EntDefinition<
     AddField<DocumentType, FieldName, T>,
     Indexes,
@@ -575,19 +579,19 @@ export interface EntDefinition<
     FilterFields extends ExtractFieldPaths<DocumentType> = never,
   >(
     name: IndexName,
-    indexConfig: Expand<SearchIndexConfig<SearchField, FilterFields>>,
+    indexConfig: Expand<SearchIndexConfig<SearchField, FilterFields>>
   ): EntDefinition<
     DocumentType,
     Indexes,
     Expand<
       SearchIndexes &
-        Record<
-          IndexName,
-          {
-            searchField: SearchField;
-            filterFields: FilterFields;
-          }
-        >
+      Record<
+        IndexName,
+        {
+          searchField: SearchField;
+          filterFields: FilterFields;
+        }
+      >
     >,
     VectorIndexes,
     Edges
@@ -608,61 +612,28 @@ export interface EntDefinition<
     FilterFields extends ExtractFieldPaths<DocumentType> = never,
   >(
     name: IndexName,
-    indexConfig: Expand<VectorIndexConfig<VectorField, FilterFields>>,
+    indexConfig: Expand<VectorIndexConfig<VectorField, FilterFields>>
   ): EntDefinition<
     DocumentType,
     Indexes,
     SearchIndexes,
     Expand<
       VectorIndexes &
-        Record<
-          IndexName,
-          {
-            vectorField: VectorField;
-            dimensions: number;
-            filterFields: FilterFields;
-          }
-        >
+      Record<
+        IndexName,
+        {
+          vectorField: VectorField;
+          dimensions: number;
+          filterFields: FilterFields;
+        }
+      >
     >,
     Edges
   >;
 
   field<FieldName extends string, T extends GenericValidator>(
     field: FieldName,
-    validator: T,
-  ): EntDefinition<
-    AddField<DocumentType, FieldName, T>,
-    Indexes,
-    SearchIndexes,
-    VectorIndexes,
-    Edges
-  >;
-  field<FieldName extends string, T extends Validator<any, any, any>>(
-    field: FieldName,
-    validator: T,
-    options: { index: true },
-  ): EntDefinition<
-    AddField<DocumentType, FieldName, T>,
-    Indexes & { [key in FieldName]: [FieldName, "_creationTime"] },
-    SearchIndexes,
-    VectorIndexes,
-    Edges
-  >;
-  field<FieldName extends string, T extends Validator<any, any, any>>(
-    field: FieldName,
-    validator: T,
-    options: { unique: true },
-  ): EntDefinition<
-    AddField<DocumentType, FieldName, T>,
-    Indexes & { [key in FieldName]: [FieldName, "_creationTime"] },
-    SearchIndexes,
-    VectorIndexes,
-    Edges
-  >;
-  field<FieldName extends string, T extends Validator<any, "required", any>>(
-    field: FieldName,
-    validator: T,
-    options: { default: T["type"] },
+    validator: T
   ): EntDefinition<
     AddField<DocumentType, FieldName, T>,
     Indexes,
@@ -671,53 +642,90 @@ export interface EntDefinition<
     Edges
   >;
 
+  field<FieldName extends string, T extends Validator<any, any, any>>(
+    field: FieldName,
+    validator: T,
+    options: { index: true }
+  ): EntDefinition<
+    AddField<DocumentType, FieldName, T>,
+    Indexes & { [key in FieldName]: [FieldName, "_creationTime"] },
+    SearchIndexes,
+    VectorIndexes,
+    Edges
+  >;
+
+  field<FieldName extends string, T extends Validator<any, any, any>>(
+    field: FieldName,
+    validator: T,
+    options: { unique: true }
+  ): EntDefinition<
+    AddField<DocumentType, FieldName, T>,
+    Indexes & { [key in FieldName]: [FieldName, "_creationTime"] },
+    SearchIndexes,
+    VectorIndexes,
+    Edges
+  >;
+
+  field<FieldName extends string, T extends Validator<any, "required", any>>(
+    field: FieldName,
+    validator: T,
+    options: { default: T["type"] }
+  ): EntDefinition<
+    AddField<DocumentType, FieldName, T>,
+    Indexes,
+    SearchIndexes,
+    VectorIndexes,
+    Edges
+  >;
 
 
   edge<EdgeName extends string>(
     edge: EdgeName,
-    options?: { deletion: "hard" | "soft" },
+    options?: { deletion: "hard" | "soft" }
   ): EntDefinition<
     AddField<DocumentType, `${EdgeName}Id`, VId<GenericId<`${EdgeName}s`>>>,
     Indexes & { [key in `${EdgeName}Id`]: [`${EdgeName}Id`, "_creationTime"] },
     SearchIndexes,
     VectorIndexes,
     Edges & {
-      [key in EdgeName]: {
-        name: EdgeName;
-        to: `${EdgeName}s`;
-        type: "field";
-        cardinality: "single";
-        optional: false;
-      };
-    }
+    [key in EdgeName]: {
+      name: EdgeName;
+      to: `${EdgeName}s`;
+      type: "field";
+      cardinality: "single";
+      optional: false;
+    };
+  }
   >;
+
   edge<EdgeName extends string, const FieldName extends string>(
     edge: EdgeName,
-    options: { field: FieldName; deletion?: "hard" | "soft" },
+    options: { field: FieldName; deletion?: "hard" | "soft" }
   ): EntDefinition<
     AddField<DocumentType, NoInfer<FieldName>, VId<GenericId<`${EdgeName}s`>>>,
     Indexes & {
-      [key in NoInfer<FieldName>]: [NoInfer<FieldName>, "_creationTime"];
-    },
+    [key in NoInfer<FieldName>]: [NoInfer<FieldName>, "_creationTime"];
+  },
     SearchIndexes,
     VectorIndexes,
     Edges & {
-      [key in EdgeName]: {
-        name: EdgeName;
-        to: `${EdgeName}s`;
-        type: "field";
-        cardinality: "single";
-        optional: false;
-      };
-    }
+    [key in EdgeName]: {
+      name: EdgeName;
+      to: `${EdgeName}s`;
+      type: "field";
+      cardinality: "single";
+      optional: false;
+    };
+  }
   >;
+
   edge<EdgeName extends string, const FieldName extends string>(
     edge: EdgeName,
     options: {
       field: FieldName;
       optional: true;
       deletion?: "hard" | "soft";
-    },
+    }
   ): EntDefinition<
     AddField<
       DocumentType,
@@ -725,20 +733,21 @@ export interface EntDefinition<
       VOptional<VId<GenericId<`${EdgeName}s`>>>
     >,
     Indexes & {
-      [key in NoInfer<FieldName>]: [NoInfer<FieldName>, "_creationTime"];
-    },
+    [key in NoInfer<FieldName>]: [NoInfer<FieldName>, "_creationTime"];
+  },
     SearchIndexes,
     VectorIndexes,
     Edges & {
-      [key in EdgeName]: {
-        name: EdgeName;
-        to: `${EdgeName}s`;
-        type: "field";
-        cardinality: "single";
-        optional: true;
-      };
-    }
+    [key in EdgeName]: {
+      name: EdgeName;
+      to: `${EdgeName}s`;
+      type: "field";
+      cardinality: "single";
+      optional: true;
+    };
+  }
   >;
+
   edge<
     EdgeName extends string,
     const FieldName extends string,
@@ -751,24 +760,25 @@ export interface EntDefinition<
       deletion?: ToTable extends "_storage" | "_scheduled_functions"
         ? "hard"
         : "hard" | "soft";
-    },
+    }
   ): EntDefinition<
     AddField<DocumentType, NoInfer<FieldName>, VId<GenericId<`${ToTable}`>>>,
     Indexes & {
-      [key in NoInfer<FieldName>]: [NoInfer<FieldName>, "_creationTime"];
-    },
+    [key in NoInfer<FieldName>]: [NoInfer<FieldName>, "_creationTime"];
+  },
     SearchIndexes,
     VectorIndexes,
     Edges & {
-      [key in EdgeName]: {
-        name: EdgeName;
-        to: ToTable;
-        type: "field";
-        cardinality: "single";
-        optional: false;
-      };
-    }
+    [key in EdgeName]: {
+      name: EdgeName;
+      to: ToTable;
+      type: "field";
+      cardinality: "single";
+      optional: false;
+    };
+  }
   >;
+
   edge<EdgeName extends string, const ToTable extends string>(
     edge: EdgeName,
     options: {
@@ -776,24 +786,25 @@ export interface EntDefinition<
       deletion?: ToTable extends "_storage" | "_scheduled_functions"
         ? "hard"
         : "hard" | "soft";
-    },
+    }
   ): EntDefinition<
     AddField<DocumentType, `${EdgeName}Id`, VId<GenericId<`${ToTable}`>>>,
     Indexes & {
-      [key in `${EdgeName}Id`]: [`${EdgeName}Id`, "_creationTime"];
-    },
+    [key in `${EdgeName}Id`]: [`${EdgeName}Id`, "_creationTime"];
+  },
     SearchIndexes,
     VectorIndexes,
     Edges & {
-      [key in EdgeName]: {
-        name: EdgeName;
-        to: ToTable;
-        type: "field";
-        cardinality: "single";
-        optional: false;
-      };
-    }
+    [key in EdgeName]: {
+      name: EdgeName;
+      to: ToTable;
+      type: "field";
+      cardinality: "single";
+      optional: false;
+    };
+  }
   >;
+
   edge<
     EdgeName extends string,
     const FieldName extends string,
@@ -807,7 +818,7 @@ export interface EntDefinition<
       deletion?: ToTable extends "_storage" | "_scheduled_functions"
         ? "hard"
         : "hard" | "soft";
-    },
+    }
   ): EntDefinition<
     AddField<
       DocumentType,
@@ -815,60 +826,62 @@ export interface EntDefinition<
       VOptional<VId<GenericId<ToTable>>>
     >,
     Indexes & {
-      [key in NoInfer<FieldName>]: [NoInfer<FieldName>, "_creationTime"];
-    },
+    [key in NoInfer<FieldName>]: [NoInfer<FieldName>, "_creationTime"];
+  },
     SearchIndexes,
     VectorIndexes,
     Edges & {
-      [key in EdgeName]: {
-        name: EdgeName;
-        to: ToTable;
-        type: "field";
-        cardinality: "single";
-        optional: true;
-      };
-    }
+    [key in EdgeName]: {
+      name: EdgeName;
+      to: ToTable;
+      type: "field";
+      cardinality: "single";
+      optional: true;
+    };
+  }
   >;
+
   edge<EdgeName extends string>(
     edge: EdgeName,
     options: {
       ref: true | string;
       deletion?: "soft";
-    },
+    }
   ): EntDefinition<
     DocumentType,
     Indexes,
     SearchIndexes,
     VectorIndexes,
     Edges & {
-      [key in EdgeName]: {
-        name: EdgeName;
-        to: `${EdgeName}s`;
-        type: "ref";
-        cardinality: "single";
-      };
-    }
+    [key in EdgeName]: {
+      name: EdgeName;
+      to: `${EdgeName}s`;
+      type: "ref";
+      cardinality: "single";
+    };
+  }
   >;
+
   edge<EdgeName extends string, const ToTable extends string>(
     edge: EdgeName,
     options: {
       to: ToTable;
       ref: true | string;
       deletion?: "soft";
-    },
+    }
   ): EntDefinition<
     DocumentType,
     Indexes,
     SearchIndexes,
     VectorIndexes,
     Edges & {
-      [key in EdgeName]: {
-        name: EdgeName;
-        to: NoInfer<ToTable>;
-        type: "ref";
-        cardinality: "single";
-      };
-    }
+    [key in EdgeName]: {
+      name: EdgeName;
+      to: NoInfer<ToTable>;
+      type: "ref";
+      cardinality: "single";
+    };
+  }
   >;
 
   /**
@@ -882,21 +895,22 @@ export interface EntDefinition<
     options: {
       ref: true | string;
       deletion?: "soft";
-    },
+    }
   ): EntDefinition<
     DocumentType,
     Indexes,
     SearchIndexes,
     VectorIndexes,
     Edges & {
-      [key in EdgesName]: {
-        name: EdgesName;
-        to: EdgesName;
-        type: "field";
-        cardinality: "multiple";
-      };
-    }
+    [key in EdgesName]: {
+      name: EdgesName;
+      to: EdgesName;
+      type: "field";
+      cardinality: "multiple";
+    };
+  }
   >;
+
   /**
    * Define many:1 edge to another table.
    * @param edge The name of the edge.
@@ -912,20 +926,20 @@ export interface EntDefinition<
       to: TableName;
       ref: true | string;
       deletion?: "soft";
-    },
+    }
   ): EntDefinition<
     DocumentType,
     Indexes,
     SearchIndexes,
     VectorIndexes,
     Edges & {
-      [key in EdgesName]: {
-        name: EdgesName;
-        to: NoInfer<TableName>;
-        type: "field";
-        cardinality: "multiple";
-      };
-    }
+    [key in EdgesName]: {
+      name: EdgesName;
+      to: NoInfer<TableName>;
+      type: "field";
+      cardinality: "multiple";
+    };
+  }
   >;
 
   /**
@@ -940,21 +954,22 @@ export interface EntDefinition<
     options?: {
       table?: string;
       field?: string;
-    },
+    }
   ): EntDefinition<
     DocumentType,
     Indexes,
     SearchIndexes,
     VectorIndexes,
     Edges & {
-      [key in EdgesName]: {
-        name: EdgesName;
-        to: EdgesName;
-        type: "ref";
-        cardinality: "multiple";
-      };
-    }
+    [key in EdgesName]: {
+      name: EdgesName;
+      to: EdgesName;
+      type: "ref";
+      cardinality: "multiple";
+    };
+  }
   >;
+
   /**
    * Define many:many edge to another table.
    * @param edge The name of the edge.
@@ -975,21 +990,22 @@ export interface EntDefinition<
       table?: string;
       field?: string;
       inverseField?: string;
-    },
+    }
   ): EntDefinition<
     DocumentType,
     Indexes,
     SearchIndexes,
     VectorIndexes,
     Edges & {
-      [key in EdgesName]: {
-        name: EdgesName;
-        to: NoInfer<TableName>;
-        type: "ref";
-        cardinality: "multiple";
-      };
-    }
+    [key in EdgesName]: {
+      name: EdgesName;
+      to: NoInfer<TableName>;
+      type: "ref";
+      cardinality: "multiple";
+    };
+  }
   >;
+
   /**
    * Define self-directed, assymetric, many:many edge.
    * @param edge The name of the edge.
@@ -1014,27 +1030,27 @@ export interface EntDefinition<
       table?: string;
       field?: string;
       inverseField?: string;
-    },
+    }
   ): EntDefinition<
     DocumentType,
     Indexes,
     SearchIndexes,
     VectorIndexes,
     Edges & {
-      [key in EdgesName]: {
-        name: EdgesName;
-        to: NoInfer<TableName>;
-        type: "ref";
-        cardinality: "multiple";
-      };
-    } & {
-      [key in NoInfer<InverseEdgesNames>]: {
-        name: NoInfer<InverseEdgesNames>;
-        to: NoInfer<TableName>;
-        type: "ref";
-        cardinality: "multiple";
-      };
-    }
+    [key in EdgesName]: {
+      name: EdgesName;
+      to: NoInfer<TableName>;
+      type: "ref";
+      cardinality: "multiple";
+    };
+  } & {
+    [key in NoInfer<InverseEdgesNames>]: {
+      name: NoInfer<InverseEdgesNames>;
+      to: NoInfer<TableName>;
+      type: "ref";
+      cardinality: "multiple";
+    };
+  }
   >;
 
   /**
@@ -1046,7 +1062,7 @@ export interface EntDefinition<
    * @param type `"soft"`
    */
   deletion(
-    type: "soft",
+    type: "soft"
   ): EntDefinition<
     AddField<DocumentType, "deletionTime", VOptional<VFloat64>>,
     Indexes,
@@ -1054,6 +1070,7 @@ export interface EntDefinition<
     VectorIndexes,
     Edges
   >;
+
   /**
    * Add the "scheduled" deletion behavior to this ent.
    *
@@ -1069,7 +1086,7 @@ export interface EntDefinition<
     type: "scheduled",
     options?: {
       delayMs: number;
-    },
+    }
   ): EntDefinition<
     AddField<DocumentType, "deletionTime", VOptional<VFloat64>>,
     Indexes,
@@ -1141,7 +1158,7 @@ class EntDefinitionImpl {
     this.searchIndexes.push({
       indexDescriptor: name,
       searchField: indexConfig.searchField,
-      filterFields: indexConfig.filterFields || [],
+      filterFields: indexConfig.filterFields || []
     });
     return this;
   }
@@ -1151,7 +1168,7 @@ class EntDefinitionImpl {
       indexDescriptor: name,
       vectorField: indexConfig.vectorField,
       dimensions: indexConfig.dimensions,
-      filterFields: indexConfig.filterFields || [],
+      filterFields: indexConfig.filterFields || []
     });
     return this;
   }
@@ -1167,21 +1184,26 @@ class EntDefinitionImpl {
       indexes: this.indexes,
       searchIndexes: this.searchIndexes,
       vectorIndexes: this.vectorIndexes,
-      documentType: (v.object(this.documentSchema) as any).json,
+      documentType: (v.object(this.documentSchema) as any).json
     };
   }
 
 
-  fieldOptions(name: string, validator: any, options?: FieldOptions): this {
-    const finalValidator =
-      options?.default !== undefined ? v.optional(validator) : validator;
+  fieldOptions(name: string, options?: FieldOptions): this {
+    // Check if field exists
+    const existingValidator = this.documentSchema[name];
+    if (!existingValidator) {
+      throw new Error(`Field "${name}" not found in schema`);
+    }
 
-    // Update or create the field in document schema
-    this.documentSchema[name] = finalValidator ;
+
+    // Create new field configuration using existing validator
+    if (options?.default) {
+      this.documentSchema[name] = v.optional(existingValidator);
+    }
 
     // Update or create index if needed
     if (options?.unique === true || options?.index === true) {
-      // Remove any existing index for this field
       this.indexes = this.indexes.filter(idx => idx.indexDescriptor !== name);
       // Add the new index
       this.indexes.push({ indexDescriptor: name, fields: [name] });
@@ -1190,17 +1212,11 @@ class EntDefinitionImpl {
     // Update or set default value
     if (options?.default !== undefined) {
       this.defaults[name] = options.default;
-    } else {
-      // Remove default if it existed before but is not specified now
-      delete this.defaults[name];
     }
 
     // Update or set unique configuration
     if (options?.unique === true) {
       this.fieldConfigs[name] = { name, unique: true };
-    } else {
-      // Remove unique config if it existed before but is not specified now
-      delete this.fieldConfigs[name];
     }
 
     return this;
@@ -1239,8 +1255,8 @@ class EntDefinitionImpl {
     if (options?.field !== undefined && options?.ref !== undefined) {
       throw new Error(
         `Cannot specify both \`field\` and \`ref\` for the same edge, ` +
-          `choose one to be the reference and the other to store ` +
-          `the foreign key.`,
+        `choose one to be the reference and the other to store ` +
+        `the foreign key.`
       );
     }
     if (options?.field !== undefined || options?.ref === undefined) {
@@ -1248,7 +1264,7 @@ class EntDefinitionImpl {
       this.documentSchema = {
         ...this.documentSchema,
         [fieldName]:
-          options?.optional === true ? v.optional(v.id(to)) : v.id(to),
+          options?.optional === true ? v.optional(v.id(to)) : v.id(to)
       };
       this.edgeConfigs[edgeName] = {
         name: edgeName,
@@ -1257,11 +1273,11 @@ class EntDefinitionImpl {
         type: "field",
         field: fieldName,
         optional: options?.optional === true,
-        deletion: options?.deletion,
+        deletion: options?.deletion
       };
       this.indexes.push({
         indexDescriptor: fieldName,
-        fields: [fieldName],
+        fields: [fieldName]
       });
       return this;
     }
@@ -1271,7 +1287,7 @@ class EntDefinitionImpl {
       cardinality: "single",
       type: "ref",
       ref: options.ref === true ? null : options.ref,
-      deletion: options.deletion as "soft" | undefined,
+      deletion: options.deletion as "soft" | undefined
     };
     return this;
   }
@@ -1286,8 +1302,8 @@ class EntDefinitionImpl {
     if (ref !== undefined && table !== undefined) {
       throw new Error(
         `Cannot specify both \`ref\` and \`table\` for the same edge, ` +
-          `as the former is for 1:many edges and the latter ` +
-          `for many:many edges. Config: \`${JSON.stringify(options)}\``,
+        `as the former is for 1:many edges and the latter ` +
+        `for many:many edges. Config: \`${JSON.stringify(options)}\``
       );
     }
     const field = options?.field;
@@ -1300,8 +1316,8 @@ class EntDefinitionImpl {
     ) {
       throw new Error(
         `Specify \`table\` if you're customizing the \`field\` or ` +
-          `\`inverseField\` for a many:many edge. ` +
-          `Config: \`${JSON.stringify(options)}\``,
+        `\`inverseField\` for a many:many edge. ` +
+        `Config: \`${JSON.stringify(options)}\``
       );
     }
     const inverseName = options?.inverse;
@@ -1317,7 +1333,7 @@ class EntDefinitionImpl {
         cardinality,
         type: "ref",
         inverse: name,
-        table,
+        table
       };
     }
     return this;
@@ -1328,7 +1344,7 @@ class EntDefinitionImpl {
       // TODO: Put the check where we know the table name.
       throw new Error(
         `Cannot enable "${type}" deletion because "deletionTime" field ` +
-          `was already defined.`,
+        `was already defined.`
       );
     }
     if (this.deletionConfig !== undefined) {
@@ -1337,7 +1353,7 @@ class EntDefinitionImpl {
     }
     this.documentSchema = {
       ...this.documentSchema,
-      deletionTime: v.optional(v.number()),
+      deletionTime: v.optional(v.number())
     };
     this.deletionConfig = { type, ...options };
     return this;
@@ -1349,39 +1365,39 @@ export type EdgeConfig = {
   to: string;
 } & (
   | ({
-      cardinality: "single";
-    } & (
-      | {
-          type: "field";
-          field: string;
-          unique: boolean;
-          optional: boolean;
-          deletion?: "soft" | "hard";
-        }
-      | {
-          type: "ref";
-          ref: string;
-          deletion?: "soft";
-        }
-    ))
+  cardinality: "single";
+} & (
+  | {
+  type: "field";
+  field: string;
+  unique: boolean;
+  optional: boolean;
+  deletion?: "soft" | "hard";
+}
+  | {
+  type: "ref";
+  ref: string;
+  deletion?: "soft";
+}
+  ))
   | ({
-      cardinality: "multiple";
-    } & (
-      | {
-          type: "field";
-          ref: string;
-          deletion?: "soft";
-        }
-      | {
-          type: "ref";
-          table: string;
-          field: string;
-          ref: string;
-          inverse: boolean;
-          symmetric: boolean;
-        }
-    ))
-);
+  cardinality: "multiple";
+} & (
+  | {
+  type: "field";
+  ref: string;
+  deletion?: "soft";
+}
+  | {
+  type: "ref";
+  table: string;
+  field: string;
+  ref: string;
+  inverse: boolean;
+  symmetric: boolean;
+}
+  ))
+  );
 
 type EdgeConfigSingleField = Extract<
   EdgeConfig,
@@ -1417,37 +1433,37 @@ type EdgeConfigBeforeDefineSchema = {
   to: string;
 } & (
   | ({
-      cardinality: "single";
-    } & (
-      | {
-          type: "field";
-          field: string;
-          optional: boolean;
-          deletion?: "soft" | "hard";
-        }
-      | {
-          type: "ref";
-          ref: null | string;
-          deletion?: "soft";
-        }
-    ))
+  cardinality: "single";
+} & (
+  | {
+  type: "field";
+  field: string;
+  optional: boolean;
+  deletion?: "soft" | "hard";
+}
+  | {
+  type: "ref";
+  ref: null | string;
+  deletion?: "soft";
+}
+  ))
   | ({
-      cardinality: "multiple";
-    } & (
-      | {
-          type: "field";
-          ref: true | string;
-          deletion?: "soft";
-        }
-      | {
-          type: "ref";
-          table?: string;
-          field?: string;
-          inverseField?: string;
-          inverse?: string;
-        }
-    ))
-);
+  cardinality: "multiple";
+} & (
+  | {
+  type: "field";
+  ref: true | string;
+  deletion?: "soft";
+}
+  | {
+  type: "ref";
+  table?: string;
+  field?: string;
+  inverseField?: string;
+  inverse?: string;
+}
+  ))
+  );
 
 export type FieldConfig = {
   name: string;
@@ -1457,8 +1473,8 @@ export type FieldConfig = {
 export type Expand<ObjectType extends Record<any, any>> =
   ObjectType extends Record<any, any>
     ? {
-        [Key in keyof ObjectType]: ObjectType[Key];
-      }
+      [Key in keyof ObjectType]: ObjectType[Key];
+    }
     : never;
 export type SystemFields = {
   _creationTime: number;
@@ -1479,27 +1495,27 @@ export type GenericEntModel = {
 
 export type DeletionConfig =
   | {
-      type: "soft";
-    }
+  type: "soft";
+}
   | {
-      type: "scheduled";
-      delayMs?: number;
-    };
+  type: "scheduled";
+  delayMs?: number;
+};
 
 export type EntDataModelFromSchema<
   SchemaDef extends SchemaDefinition<any, boolean>,
 > = DataModelFromSchemaDefinition<SchemaDef> & {
   [TableName in keyof SchemaDef["tables"] &
     string]: SchemaDef["tables"][TableName] extends EntDefinition<
-    any,
-    any,
-    any,
-    any,
-    infer Edges
-  >
+      any,
+      any,
+      any,
+      any,
+      infer Edges
+    >
     ? {
-        edges: Edges;
-      }
+      edges: Edges;
+    }
     : never;
 };
 
@@ -1520,15 +1536,15 @@ export function getEntDefinitions<
             acc[indexDescriptor] = fields;
             return acc;
           },
-          {} as Record<string, string[]>,
+          {} as Record<string, string[]>
         ),
         defaults: table.defaults,
         edges: table.edgeConfigs,
         fields: table.fieldConfigs,
-        deletionConfig: table.deletionConfig,
+        deletionConfig: table.deletionConfig
       };
       return acc;
     },
-    {} as Record<string, any>,
+    {} as Record<string, any>
   ) as any;
 }
