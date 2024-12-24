@@ -299,22 +299,23 @@ var EntDefinitionImpl = class {
       documentType: import_values.v.object(this.documentSchema).json
     };
   }
-  fieldOptions(name, validator, options) {
-    const finalValidator = options?.default !== void 0 ? import_values.v.optional(validator) : validator;
-    this.documentSchema[name] = finalValidator;
+  addFieldOptions(name, options) {
+    const existingValidator = this.documentSchema[name];
+    if (!existingValidator) {
+      throw new Error(`Field "${name}" not found in schema`);
+    }
+    if (options?.default) {
+      this.documentSchema[name] = import_values.v.optional(existingValidator);
+    }
     if (options?.unique === true || options?.index === true) {
       this.indexes = this.indexes.filter((idx) => idx.indexDescriptor !== name);
       this.indexes.push({ indexDescriptor: name, fields: [name] });
     }
     if (options?.default !== void 0) {
       this.defaults[name] = options.default;
-    } else {
-      delete this.defaults[name];
     }
     if (options?.unique === true) {
       this.fieldConfigs[name] = { name, unique: true };
-    } else {
-      delete this.fieldConfigs[name];
     }
     return this;
   }

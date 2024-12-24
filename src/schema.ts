@@ -516,48 +516,12 @@ export interface EntDefinition<
     Edges
   >;
 
-  fieldOptions<FieldName extends string, T extends GenericValidator>(
+  addFieldOptions<FieldName extends string>(
     field: FieldName,
-    validator: T
+    options: FieldOptions,
   ): EntDefinition<
-    AddField<DocumentType, FieldName, T>,
-    Indexes,
-    SearchIndexes,
-    VectorIndexes,
-    Edges
-  >;
-
-  fieldOptions<FieldName extends string, T extends Validator<any, any, any>>(
-    field: FieldName,
-    validator: T,
-    options: { index: true }
-  ): EntDefinition<
-    AddField<DocumentType, FieldName, T>,
+    AddField<DocumentType, FieldName, any>,
     Indexes & { [key in FieldName]: [FieldName, "_creationTime"] },
-    SearchIndexes,
-    VectorIndexes,
-    Edges
-  >;
-
-  fieldOptions<FieldName extends string, T extends Validator<any, any, any>>(
-    field: FieldName,
-    validator: T,
-    options: { unique: true }
-  ): EntDefinition<
-    AddField<DocumentType, FieldName, T>,
-    Indexes & { [key in FieldName]: [FieldName, "_creationTime"] },
-    SearchIndexes,
-    VectorIndexes,
-    Edges
-  >;
-
-  fieldOptions<FieldName extends string, T extends Validator<any, "required", any>>(
-    field: FieldName,
-    validator: T,
-    options: { default: T["type"] }
-  ): EntDefinition<
-    AddField<DocumentType, FieldName, T>,
-    Indexes,
     SearchIndexes,
     VectorIndexes,
     Edges
@@ -1189,7 +1153,7 @@ class EntDefinitionImpl {
   }
 
 
-  fieldOptions(name: string, options?: FieldOptions): this {
+  addFieldOptions(name: string, options?: FieldOptions): this {
     // Check if field exists
     const existingValidator = this.documentSchema[name];
     if (!existingValidator) {
