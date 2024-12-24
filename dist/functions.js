@@ -619,7 +619,7 @@ var PromiseTableImpl = class extends PromiseQueryOrNullImpl {
         );
         const doc = await this.ctx.db.query(this.table).withIndex(
           indexName,
-          (q) => values.reduce((q2, value, i) => q2.eq(fieldNames[i], value), q)
+          (q) => values.reduce((q2, value, i) => q2.eq(fieldNames?.[i], value), q)
         ).unique();
         if (throwIfNull && doc === null) {
           throw new Error(

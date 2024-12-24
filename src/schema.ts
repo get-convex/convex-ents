@@ -1209,6 +1209,8 @@ class EntDefinitionImpl {
   //
   //   return this;
   // }
+
+
   fieldOptions(name: string, options?: FieldOptions): this {
     // Check if field exists
     const existingValidator = this.documentSchema[name];
@@ -1221,7 +1223,7 @@ class EntDefinitionImpl {
       options?.default !== undefined ? v.optional(existingValidator) : existingValidator;
 
     // Remove existing field
-    delete this.documentSchema[name];
+    //delete this.documentSchema[name];
 
     // Add updated field to schema
     this.documentSchema[name] = finalValidator;

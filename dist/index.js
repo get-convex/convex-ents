@@ -343,7 +343,6 @@ var EntDefinitionImpl = class {
       throw new Error(`Field "${name}" not found in schema`);
     }
     const finalValidator = options?.default !== void 0 ? import_values.v.optional(existingValidator) : existingValidator;
-    delete this.documentSchema[name];
     this.documentSchema[name] = finalValidator;
     if (options?.unique === true || options?.index === true) {
       this.indexes = this.indexes.filter((idx) => idx.indexDescriptor !== name);
@@ -1071,7 +1070,7 @@ var PromiseTableImpl = class extends PromiseQueryOrNullImpl {
         );
         const doc = await this.ctx.db.query(this.table).withIndex(
           indexName,
-          (q) => values.reduce((q2, value, i) => q2.eq(fieldNames[i], value), q)
+          (q) => values.reduce((q2, value, i) => q2.eq(fieldNames?.[i], value), q)
         ).unique();
         if (throwIfNull && doc === null) {
           throw new Error(

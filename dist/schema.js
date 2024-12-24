@@ -339,7 +339,6 @@ var EntDefinitionImpl = class {
       throw new Error(`Field "${name}" not found in schema`);
     }
     const finalValidator = options?.default !== void 0 ? import_values.v.optional(existingValidator) : existingValidator;
-    delete this.documentSchema[name];
     this.documentSchema[name] = finalValidator;
     if (options?.unique === true || options?.index === true) {
       this.indexes = this.indexes.filter((idx) => idx.indexDescriptor !== name);
