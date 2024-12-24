@@ -742,7 +742,7 @@ class PromiseTableImpl<
             const doc = await this.ctx.db
               .query(this.table)
               .withIndex(indexName, (q) =>
-                values.reduce((q, value, i) => q.eq(fieldNames[i], value), q),
+                values.reduce((q, value, i) => q.eq(fieldNames?.[i], value), q),
               )
               .unique();
             if (throwIfNull && doc === null) {
