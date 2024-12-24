@@ -515,53 +515,49 @@ export interface EntDefinition<
     VectorIndexes,
     Edges
   >;
-
-
-  fieldOptions<FieldName extends string>(
+  fieldOptions<FieldName extends string, T extends GenericValidator>(
     field: FieldName,
-    options: { index?: boolean,unique?: boolean,default?: any["type"] },
+    validator: T,
   ): EntDefinition<
-    AddField<DocumentType, FieldName, any>,
+    AddField<DocumentType, FieldName, T>,
+    Indexes,
+    SearchIndexes,
+    VectorIndexes,
+    Edges
+  >;
+  fieldOptions<FieldName extends string, T extends Validator<any, any, any>>(
+    field: FieldName,
+    validator: T,
+    options: { index: true },
+  ): EntDefinition<
+    AddField<DocumentType, FieldName, T>,
     Indexes & { [key in FieldName]: [FieldName, "_creationTime"] },
     SearchIndexes,
     VectorIndexes,
     Edges
   >;
-
-
-  // fieldOptions<FieldName extends string, T extends Validator<any, any, any>>(
-  //   field: FieldName,
-  //   validator: T,
-  //   options: { index?: boolean,unique?: boolean,default?: T["type"] },
-  // ): EntDefinition<
-  //   AddField<DocumentType, FieldName, T>,
-  //   Indexes & { [key in FieldName]: [FieldName, "_creationTime"] },
-  //   SearchIndexes,
-  //   VectorIndexes,
-  //   Edges
-  // >;
-  // fieldOptions<FieldName extends string, T extends Validator<any, any, any>>(
-  //   field: FieldName,
-  //   validator: T,
-  //   options: { unique: true },
-  // ): EntDefinition<
-  //   AddField<DocumentType, FieldName, T>,
-  //   Indexes & { [key in FieldName]: [FieldName, "_creationTime"] },
-  //   SearchIndexes,
-  //   VectorIndexes,
-  //   Edges
-  // >;
-  // fieldOptions<FieldName extends string, T extends Validator<any, "required", any>>(
-  //   field: FieldName,
-  //   validator: T,
-  //   options: { default: T["type"] },
-  // ): EntDefinition<
-  //   AddField<DocumentType, FieldName, T>,
-  //   Indexes,
-  //   SearchIndexes,
-  //   VectorIndexes,
-  //   Edges
-  // >;
+  fieldOptions<FieldName extends string, T extends Validator<any, any, any>>(
+    field: FieldName,
+    validator: T,
+    options: { unique: true },
+  ): EntDefinition<
+    AddField<DocumentType, FieldName, T>,
+    Indexes & { [key in FieldName]: [FieldName, "_creationTime"] },
+    SearchIndexes,
+    VectorIndexes,
+    Edges
+  >;
+  fieldOptions<FieldName extends string, T extends Validator<any, "required", any>>(
+    field: FieldName,
+    validator: T,
+    options: { default: T["type"] },
+  ): EntDefinition<
+    AddField<DocumentType, FieldName, T>,
+    Indexes,
+    SearchIndexes,
+    VectorIndexes,
+    Edges
+  >;
 
 
   /**
@@ -1175,59 +1171,14 @@ class EntDefinitionImpl {
     };
   }
 
-  //
-  // updateField(name: string, validator: any, options?: FieldOptions): this {
-  //   const finalValidator =
-  //     options?.default !== undefined ? v.optional(validator) : validator;
-  //
-  //   // Update or create the field in document schema
-  //   this.documentSchema[name] = finalValidator ;
-  //
-  //   // Update or create index if needed
-  //   if (options?.unique === true || options?.index === true) {
-  //     // Remove any existing index for this field
-  //     this.indexes = this.indexes.filter(idx => idx.indexDescriptor !== name);
-  //     // Add the new index
-  //     this.indexes.push({ indexDescriptor: name, fields: [name] });
-  //   }
-  //
-  //   // Update or set default value
-  //   if (options?.default !== undefined) {
-  //     this.defaults[name] = options.default;
-  //   } else {
-  //     // Remove default if it existed before but is not specified now
-  //     delete this.defaults[name];
-  //   }
-  //
-  //   // Update or set unique configuration
-  //   if (options?.unique === true) {
-  //     this.fieldConfigs[name] = { name, unique: true };
-  //   } else {
-  //     // Remove unique config if it existed before but is not specified now
-  //     delete this.fieldConfigs[name];
-  //   }
-  //
-  //   return this;
-  // }
 
-
-  fieldOptions(name: string, options?: FieldOptions): this {
-    // Check if field exists
-    const existingValidator = this.documentSchema[name];
-    if (!existingValidator) {
-      throw new Error(`Field "${name}" not found in schema`);
-    }
-    delete this.documentSchema[name];
-    // Create new field configuration using existing validator
+  fieldOptions(name: string, validator: any, options?: FieldOptions): this {
     const finalValidator =
-      options?.default !== undefined ? v.optional(existingValidator) : existingValidator;
+      options?.default !== undefined ? v.optional(validator) : validator;
 
-    // Remove existing field
-    //delete this.documentSchema[name];
+    // Update or create the field in document schema
+    this.documentSchema[name] = finalValidator ;
 
-    // Add updated field to schema
-    //this.documentSchema[name] = finalValidator;
-    this.documentSchema = { ...this.documentSchema, [name]: finalValidator };
     // Update or create index if needed
     if (options?.unique === true || options?.index === true) {
       // Remove any existing index for this field
@@ -1254,7 +1205,6 @@ class EntDefinitionImpl {
 
     return this;
   }
-
 
   field(name: string, validator: any, options?: FieldOptions): this {
     if (this.documentSchema[name] !== undefined) {
