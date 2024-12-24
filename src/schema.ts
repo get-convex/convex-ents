@@ -515,6 +515,7 @@ export interface EntDefinition<
     VectorIndexes,
     Edges
   >;
+
   updateField<FieldName extends string, T extends GenericValidator>(
     field: FieldName,
     validator: T,
