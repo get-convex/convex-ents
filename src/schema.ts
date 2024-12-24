@@ -1217,7 +1217,7 @@ class EntDefinitionImpl {
     if (!existingValidator) {
       throw new Error(`Field "${name}" not found in schema`);
     }
-
+    delete this.documentSchema[name];
     // Create new field configuration using existing validator
     const finalValidator =
       options?.default !== undefined ? v.optional(existingValidator) : existingValidator;
@@ -1226,8 +1226,8 @@ class EntDefinitionImpl {
     //delete this.documentSchema[name];
 
     // Add updated field to schema
-    this.documentSchema[name] = finalValidator;
-
+    //this.documentSchema[name] = finalValidator;
+    this.documentSchema = { ...this.documentSchema, [name]: finalValidator };
     // Update or create index if needed
     if (options?.unique === true || options?.index === true) {
       // Remove any existing index for this field
