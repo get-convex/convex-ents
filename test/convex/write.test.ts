@@ -140,6 +140,20 @@ test("insert and delete many:many duplicates", async ({ ctx }) => {
   ).toHaveLength(1);
 });
 
+test("patch to remove field", async ({ ctx }) => {
+  const someUserId = await ctx.table("users").insert({
+    name: "Gates",
+    email: "bill@gates.com",
+    height: 1.8,
+  });
+  expect((await ctx.table("users").getX(someUserId)).height).toEqual(1.8);
+
+  await ctx.table("users").getX(someUserId).patch({
+    height: undefined,
+  });
+  expect((await ctx.table("users").getX(someUserId)).height).toBeUndefined();
+});
+
 test("patch to remove many:many", async ({ ctx }) => {
   const someUserId = await ctx.table("users").insert({
     name: "Gates",
