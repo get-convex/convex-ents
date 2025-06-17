@@ -70,7 +70,7 @@ export const acceptInvite = mutation({
     const invite = await ctx.table("invites").getX(inviteId);
     await ctx.table("members").insert({
       teamId: invite.teamId,
-      userId: ctx.viewerX()._id,
+      userId: ctx.viewerId,
       roleId: invite.roleId,
     });
     await invite.delete();

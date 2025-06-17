@@ -38,14 +38,14 @@ import { entDefinitions } from "./schema";
 import { QueryCtx } from "./types";
 
 export function getEntDefinitionsWithRules(
-  ctx: QueryCtx,
+  ctx: QueryCtx
 ): typeof entDefinitions {
   return addEntRules(entDefinitions, {
     // "secrets" is one of our tables
     secrets: {
       read: async (secret) => {
         // Example: Only the viewer can see their secret
-        return ctx.viewer?._id === secret.userId;
+        return ctx.viewerId === secret.userId;
       },
     },
   });
@@ -53,7 +53,7 @@ export function getEntDefinitionsWithRules(
 
 // Example: Retrieve viewer ID using `ctx.auth`:
 export async function getViewerId(
-  ctx: Omit<QueryCtx, "table" | "viewerId" | "viewer" | "viewerX">,
+  ctx: Omit<QueryCtx, "table" | "viewerId" | "viewer" | "viewerX">
 ): Promise<Id<"users"> | null> {
   const user = await ctx.auth.getUserIdentity();
   if (user === null) {
@@ -101,28 +101,28 @@ export const query = customQuery(
   baseQuery,
   customCtx(async (baseCtx) => {
     return await queryCtx(baseCtx);
-  }),
+  })
 );
 
 export const internalQuery = customQuery(
   baseInternalQuery,
   customCtx(async (baseCtx) => {
     return await queryCtx(baseCtx);
-  }),
+  })
 );
 
 export const mutation = customMutation(
   baseMutation,
   customCtx(async (baseCtx) => {
     return await mutationCtx(baseCtx);
-  }),
+  })
 );
 
 export const internalMutation = customMutation(
   baseInternalMutation,
   customCtx(async (baseCtx) => {
     return await mutationCtx(baseCtx);
-  }),
+  })
 );
 
 async function queryCtx(baseCtx: QueryCtx) {
@@ -313,7 +313,7 @@ return addEntRules(entDefinitions, {
     // Note: The read rule is always checked for existing ents
     // for any updates or deletions
     read: async (secret) => {
-      return ctx.viewer?._id === secret.userId;
+      return ctx.viewerId === secret.userId;
     },
     write: async ({ operation, ent: secret, value }) => {
       if (operation === "delete") {
@@ -322,7 +322,7 @@ return addEntRules(entDefinitions, {
       }
       if (operation === "create") {
         // Example: Only the viewer can create secrets
-        return ctx.viewer?._id === value.ownerId;
+        return ctx.viewerId === value.ownerId;
       }
       // Example: secret's user edge is immutable
       return value.ownerId === undefined || value.ownerId === secret.ownerId;
