@@ -2696,6 +2696,9 @@ class PromiseEntWriterImpl<
           ).map(async (edgeDefinition) => {
             const key = edgeDefinition.name;
             const idOrIds = value[key];
+            if (idOrIds === undefined) {
+              return;
+            }
             if (edgeDefinition.cardinality === "single") {
               if (edgeDefinition.type === "ref") {
                 const oldDoc = (await this.ctx.db.get(docId))!;
@@ -2714,23 +2717,21 @@ class PromiseEntWriterImpl<
               }
             } else {
               if (edgeDefinition.type === "field") {
-                if (idOrIds !== undefined) {
-                  throw new Error("Cannot set 1:many edge from many end.");
-                  // const existing = (
-                  //   await this.ctx.db
-                  //     .query(edgeDefinition.to)
-                  //     .withIndex(edgeDefinition.ref, (q) =>
-                  //       q.eq(edgeDefinition.ref, docId as any)
-                  //     )
-                  //     .collect()
-                  // ).map((doc) => doc._id);
-                  // edges[key] = {
-                  //   add: idOrIds as GenericId<any>[],
-                  //   remove: { remove: true },
-                  // };
-                }
+                throw new Error("Cannot set 1:many edge from many end.");
+                // const existing = (
+                //   await this.ctx.db
+                //     .query(edgeDefinition.to)
+                //     .withIndex(edgeDefinition.ref, (q) =>
+                //       q.eq(edgeDefinition.ref, docId as any)
+                //     )
+                //     .collect()
+                // ).map((doc) => doc._id);
+                // edges[key] = {
+                //   add: idOrIds as GenericId<any>[],
+                //   remove: { remove: true },
+                // };
               } else {
-                const requested = new Set(idOrIds ?? []);
+                const requested = new Set(idOrIds);
                 const removeEdges = (
                   await this.ctx.db
                     .query(edgeDefinition.table)
@@ -2764,7 +2765,7 @@ class PromiseEntWriterImpl<
                   })
                   .map(([edgeId]) => edgeId as GenericId<any>);
                 edges[key] = {
-                  add: (idOrIds ?? []) as GenericId<any>[],
+                  add: idOrIds as GenericId<any>[],
                   removeEdges,
                 };
               }

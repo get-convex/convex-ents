@@ -82,13 +82,13 @@ await task.delete();
 See the [Cascading Deletes](/schema/deletes) page for how to configure how
 deleting an ent affects its edges and other ents connected to it.
 
-## Creating edges
+## Writing edges
 
 Edges can be created together with ents using the `insert` and `insertMany`
-methods, or they can be created for two existing ents using the `replace` and
-`patch` methods.
+methods, or they can be created and deleted for two existing ents using the
+`replace` and `patch` methods.
 
-### Creating 1:1 and 1:many edges
+### Writing 1:1 and 1:many edges
 
 A 1:1 or 1:many edge can be created by specifying the ID of the other ent on
 [the ent which stores the edge](/schema#understanding-how-edges-are-stored),
@@ -119,7 +119,7 @@ with the addition of checking that `profileId` belongs to `"profiles"`.
 
 </Aside>
 
-### Creating many:many edges
+### Writing many:many edges
 
 Many:many edges can be created by listing the IDs of the other ents when
 inserting ents on either side of the edge:
@@ -136,7 +136,7 @@ const messageId = await ctx
 But we could have equally created a message first, and then created a tag with a
 list of message IDs.
 
-The `replace` method also expects a list of IDs:
+The `replace` method can be used to create and delete many:many edges:
 
 ```ts
 await ctx
@@ -145,9 +145,16 @@ await ctx
   .replace({ text: "Changed message", tags: [tagID, otherTagID] });
 ```
 
-Because `replace` essentially behaves like a `delete` + `insert` but preserves
-the `_id` and `_creationTime` fields of the replaced ent, any edges which are
-not listed will be deleted.
+If a list is specified, the edges that need to be created are created, and all
+other existing edges are deleted. If the edge name is ommited entirely, the
+edges are left unchanged:
+
+```ts
+await ctx
+  .table("messages")
+  .getX(messageId)
+  .replace({ text: "Changed message" /* no `tags:`, so tags don't change */ });
+```
 
 The `patch` method on the other hand expects a description of the changes that
 should be made, a list of IDs to `add` and `remove` edges for:

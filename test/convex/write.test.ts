@@ -263,6 +263,28 @@ test("replace to remove many:many", async ({ ctx }) => {
   ).toHaveLength(0);
 });
 
+test("replace only patches edges", async ({ ctx }) => {
+  const someUserId = await ctx.table("users").insert({
+    name: "Gates",
+    email: "bill@gates.com",
+  });
+  const newMessageId = await ctx.table("messages").insert({
+    text: "Hello world",
+    userId: someUserId,
+  });
+  const newTag = await ctx
+    .table("tags")
+    .insert({ name: "Blue", messages: [newMessageId] })
+    .get();
+
+  await newTag.replace({ name: "Green" });
+
+  // Test the edge is not deleted
+  expect(
+    await (ctx.db as any).query("messages_to_tags").collect(),
+  ).toHaveLength(1);
+});
+
 test("patch doesn't readd many:many edge", async ({ ctx }) => {
   const someUserId = await ctx.table("users").insert({
     name: "Gates",
@@ -322,7 +344,7 @@ test("symmetric many:many", async ({ ctx }) => {
 
   // Test correct deletion
   const updatedFriends = await newUser
-    .replace({ name: "Gates", email: "bill@gates.com" })
+    .replace({ name: "Gates", email: "bill@gates.com", friends: [] })
     .get()
     .edge("friends");
   expect(updatedFriends.length).toEqual(0);
