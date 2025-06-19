@@ -130,6 +130,30 @@ defineEntSchema({
 but for this schema the `contentType` field missing must be handled by the code
 reading the ent.
 
+### Adding fields to all union variants
+
+If you use a [union](https://docs.convex.dev/database/schemas#unions) as an
+ent's schema, you can add a field to all the variants:
+
+```ts
+defineEntSchema({
+  posts: defineEnt(
+    v.union(
+      v.object({
+        type: v.literal("text"),
+        content: v.string(),
+      }),
+      v.object({
+        type: v.literal("video"),
+        link: v.string(),
+      }),
+    ),
+  ).field("author", v.id("users")),
+});
+```
+
+adds an `author` field to both text and video posts.
+
 ## Edges
 
 An edge is a representation of some business logic modeled by the database. Some
