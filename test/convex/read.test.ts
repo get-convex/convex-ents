@@ -713,3 +713,24 @@ test("_scheduled_functions get", async ({ ctx }) => {
 
   vi.useRealTimers();
 });
+
+test("union shape", async ({ ctx }) => {
+  const ent = await ctx
+    .table("imported")
+    .insert({ id: "hey", type: "num", num: 1 })
+    .get();
+  expect(ent.id).toEqual("hey");
+  expect(ent.type).toEqual("num");
+  if (ent.type === "num") {
+    expect(ent.num).toEqual(1);
+  } else {
+    expect(ent.str).toEqual("hello");
+  }
+});
+
+test("union shape index", async ({ ctx }) => {
+  await ctx.table("imported").insert({ id: "hey", type: "num", num: 1 }).get();
+  await ctx
+    .table("imported", "typeAndId", (q) => q.eq("type", "num").eq("id", "hey"))
+    .firstX();
+});

@@ -21,7 +21,9 @@ import {
   VId,
   VObject,
   VOptional,
+  VUnion,
   Validator,
+  asObjectValidator,
   v,
 } from "convex/values";
 
@@ -372,10 +374,37 @@ function deletionConfigFromEntDefinition(table: EntDefinition) {
   return (table as any).deletionConfig as DeletionConfig | undefined;
 }
 
-export function defineEnt<DocumentSchema extends PropertyValidators>(
+export function defineEnt<
+  DocumentSchema extends Validator<Record<string, any>, "required", any>,
+>(documentSchema: DocumentSchema): EntDefinition<DocumentSchema>;
+
+export function defineEnt<
+  DocumentSchema extends Record<string, GenericValidator>,
+>(
   documentSchema: DocumentSchema,
-): EntDefinition<ObjectValidator<DocumentSchema>> {
-  return new EntDefinitionImpl(documentSchema) as any;
+): EntDefinition<VObject<ObjectType<DocumentSchema>, DocumentSchema>>;
+
+export function defineEnt<
+  DocumentSchema extends
+    | Validator<Record<string, any>, "required", any>
+    | Record<string, GenericValidator>,
+>(documentSchema: DocumentSchema): EntDefinition<any> {
+  if (isValidator(documentSchema)) {
+    if (
+      !(
+        documentSchema.kind === "object" ||
+        (documentSchema.kind === "union" &&
+          documentSchema.members.every((member) => member.kind === "object"))
+      )
+    ) {
+      throw new Error("Ent shape must be an object or a union of objects");
+    }
+  }
+  return new EntDefinitionImpl(asObjectValidator(documentSchema)) as any;
+}
+
+function isValidator(v: any): v is GenericValidator {
+  return !!v.isConvexValidator;
 }
 
 export function defineEntFromTable<
@@ -476,9 +505,21 @@ type AddField<
         IsOptional,
         FieldPaths | FieldName
       >
-    : V extends VAny
-      ? VAny
-      : never;
+    : V extends VUnion<
+          infer TypeScriptType,
+          infer Members,
+          infer IsOptional,
+          infer FieldPaths
+        >
+      ? VUnion<
+          Expand<TypeScriptType & ObjectFieldType<FieldName, P>>,
+          { [key in keyof Members]: AddField<Members[key], FieldName, P> },
+          IsOptional,
+          FieldPaths | FieldName
+        >
+      : V extends VAny
+        ? VAny
+        : never;
 
 export interface EntDefinition<
   DocumentType extends Validator<any, any, any> = Validator<any, any, any>,
@@ -1063,7 +1104,7 @@ type EdgesOptions = {
 };
 
 class EntDefinitionImpl {
-  validator: GenericValidator;
+  validator: Validator<Record<string, any>, "required", any>;
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
   // @ts-ignore
   private indexes: Index[] = [];
@@ -1074,8 +1115,6 @@ class EntDefinitionImpl {
   // @ts-ignore
   private vectorIndexes: VectorIndex[] = [];
 
-  private documentSchema: Record<string, Validator<any, any, any>>;
-
   private edgeConfigs: Record<string, EdgeConfigBeforeDefineSchema> = {};
 
   private fieldConfigs: Record<string, FieldConfig> = {};
@@ -1084,9 +1123,8 @@ class EntDefinitionImpl {
 
   private deletionConfig: DeletionConfig | undefined;
 
-  constructor(documentSchema: Record<string, Validator<any, any, any>>) {
-    this.documentSchema = documentSchema;
-    this.validator = v.object(documentSchema);
+  constructor(documentSchema: Validator<Record<string, any>, "required", any>) {
+    this.validator = documentSchema;
   }
 
   index(name: any, fields: any) {
@@ -1124,12 +1162,12 @@ class EntDefinitionImpl {
       indexes: this.indexes,
       searchIndexes: this.searchIndexes,
       vectorIndexes: this.vectorIndexes,
-      documentType: (v.object(this.documentSchema) as any).json,
+      documentType: (this.validator as any).json,
     };
   }
 
   field(name: string, validator: any, options?: FieldOptions): this {
-    if (this.documentSchema[name] !== undefined) {
+    if (this._has(name)) {
       // TODO: Store the fieldConfigs in an array so that we can
       // do the uniqueness check in defineEntSchema where we
       // know the table name.
@@ -1137,7 +1175,7 @@ class EntDefinitionImpl {
     }
     const finalValidator =
       options?.default !== undefined ? v.optional(validator) : validator;
-    this.documentSchema = { ...this.documentSchema, [name]: finalValidator };
+    this._expand(name, finalValidator);
     if (options?.unique === true || options?.index === true) {
       this.indexes.push({ indexDescriptor: name, fields: [name] });
     }
@@ -1167,11 +1205,10 @@ class EntDefinitionImpl {
     }
     if (options?.field !== undefined || options?.ref === undefined) {
       const fieldName = options?.field ?? edgeName + "Id";
-      this.documentSchema = {
-        ...this.documentSchema,
-        [fieldName]:
-          options?.optional === true ? v.optional(v.id(to)) : v.id(to),
-      };
+      this._expand(
+        fieldName,
+        options?.optional === true ? v.optional(v.id(to)) : v.id(to),
+      );
       this.edgeConfigs[edgeName] = {
         name: edgeName,
         to,
@@ -1246,7 +1283,7 @@ class EntDefinitionImpl {
   }
 
   deletion(type: "soft" | "scheduled", options?: { delayMs: number }): this {
-    if (this.documentSchema.deletionTime !== undefined) {
+    if (this._has("deletionTime")) {
       // TODO: Put the check where we know the table name.
       throw new Error(
         `Cannot enable "${type}" deletion because "deletionTime" field ` +
@@ -1257,12 +1294,35 @@ class EntDefinitionImpl {
       // TODO: Put the check where we know the table name.
       throw new Error(`Deletion behavior can only be specified once.`);
     }
-    this.documentSchema = {
-      ...this.documentSchema,
-      deletionTime: v.optional(v.number()),
-    };
+    this._expand("deletionTime", v.optional(v.number()));
     this.deletionConfig = { type, ...options };
     return this;
+  }
+
+  private _has(name: string): boolean {
+    if (this.validator.kind === "object") {
+      return this.validator.fields[name] !== undefined;
+    }
+    if (this.validator.kind === "union") {
+      return this.validator.members.some(
+        (member) =>
+          member.kind === "object" && member.fields[name] !== undefined,
+      );
+    }
+    return false;
+  }
+
+  private _expand(name: string, validator: GenericValidator) {
+    if (this.validator.kind === "object") {
+      this.validator.fields[name] = validator;
+    }
+    if (this.validator.kind === "union") {
+      this.validator.members.forEach((member) => {
+        if (member.kind === "object") {
+          member.fields[name] = validator;
+        }
+      });
+    }
   }
 }
 

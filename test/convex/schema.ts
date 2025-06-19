@@ -144,6 +144,21 @@ const schema = defineEntSchema(
     datas: defineEnt({}).edge("member"),
 
     badges: defineEnt({}).edge("member", { field: "memberId", optional: true }),
+
+    imported: defineEnt(
+      v.union(
+        v.object({
+          type: v.literal("num"),
+          num: v.number(),
+        }),
+        v.object({
+          type: v.literal("str"),
+          str: v.string(),
+        }),
+      ),
+    )
+      .field("id", v.string(), { unique: true })
+      .index("typeAndId", ["type", "id"]),
   },
   { schemaValidation: true },
 );
