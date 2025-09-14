@@ -1,6 +1,21 @@
+# 0.15.0
+
+**Breaking** runtime change:
+
+The replace method no longer erases all edges when the edge list isn't specified
+at all. This was a bug.
+
+Before: `user.replace({name: "Foo"})` and
+`user.replace({name: "Foo", friends: []})` behaved the same. From now on the
+first version doesn't delete the existing `friends` edges.
+
+# 0.14.0
+
+`v.union` is now supported at the top level of an ent definition.
+
 # 0.13.0
 
-Breaking schema change:
+**Breaking** schema change:
 
 - The syntax for 1:1 edge declaration has been aligned with 1:many edges.
   Before:
