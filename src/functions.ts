@@ -2574,7 +2574,7 @@ class PromiseEntWriterImpl<
         await this.base.checkReadAndWriteRule("update", id, value);
         await this.base.checkUniqueness(value, id);
         const fields = this.base.fieldsOnly(value);
-        await this.ctx.db.patch(id, fields);
+        await this.ctx.db.patch(id, fields as any);
 
         const edges: EdgeChanges = {};
         await Promise.all(

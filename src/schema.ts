@@ -5,6 +5,7 @@ import {
   GenericTableIndexes,
   GenericTableSearchIndexes,
   GenericTableVectorIndexes,
+  IndexTiebreakerField,
   SchemaDefinition,
   SearchIndexConfig,
   TableDefinition,
@@ -15,7 +16,6 @@ import {
   GenericId,
   GenericValidator,
   ObjectType,
-  PropertyValidators,
   VAny,
   VFloat64,
   VId,
@@ -538,6 +538,38 @@ export interface EntDefinition<
    * To learn about indexes, see [Defining Indexes](https://docs.convex.dev/using/indexes).
    *
    * @param name - The name of the index.
+   * @param indexConfig - The index configuration object.
+   * @returns A {@link TableDefinition} with this index included.
+   */
+  index<
+    IndexName extends string,
+    FirstFieldPath extends ExtractFieldPaths<DocumentType>,
+    RestFieldPaths extends ExtractFieldPaths<DocumentType>[],
+  >(
+    name: IndexName,
+    indexConfig: Expand<
+      DbIndexConfig<FirstFieldPath, RestFieldPaths> &
+        IndexOptions & { staged?: false }
+    >,
+  ): TableDefinition<
+    DocumentType,
+    Expand<
+      Indexes &
+        Record<
+          IndexName,
+          [FirstFieldPath, ...RestFieldPaths, IndexTiebreakerField]
+        >
+    >,
+    SearchIndexes,
+    VectorIndexes
+  >;
+
+  /**
+   * Define an index on this table.
+   *
+   * To learn about indexes, see [Defining Indexes](https://docs.convex.dev/using/indexes).
+   *
+   * @param name - The name of the index.
    * @param fields - The fields to index, in order. Must specify at least one
    * field.
    * @returns A {@link TableDefinition} with this index included.
@@ -559,6 +591,34 @@ export interface EntDefinition<
     VectorIndexes,
     Edges
   >;
+
+  /**
+   * Define a staged index on this table.
+   *
+   * For large tables, index backfill can be slow. Staging an index allows you
+   * to push the schema and enable the index later.
+   *
+   * If `staged` is `true`, the index will be staged and will not be enabled
+   * until the staged flag is removed. Staged indexes do not block push
+   * completion. Staged indexes cannot be used in queries.
+   *
+   * To learn about indexes, see [Defining Indexes](https://docs.convex.dev/using/indexes).
+   *
+   * @param name - The name of the index.
+   * @param indexConfig - The index configuration object.
+   * @returns A {@link TableDefinition} with this index included.
+   */
+  index<
+    IndexName extends string,
+    FirstFieldPath extends ExtractFieldPaths<DocumentType>,
+    RestFieldPaths extends ExtractFieldPaths<DocumentType>[],
+  >(
+    name: IndexName,
+    indexConfig: Expand<
+      DbIndexConfig<FirstFieldPath, RestFieldPaths> &
+        IndexOptions & { staged: true }
+    >,
+  ): TableDefinition<DocumentType, Indexes, SearchIndexes, VectorIndexes>;
 
   /**
    * Define a search index on this table.
@@ -1446,11 +1506,29 @@ export type SystemFields = {
   _creationTime: number;
 };
 
-type ObjectValidator<Validators extends PropertyValidators> = VObject<
-  // Compute the TypeScript type this validator refers to.
-  ObjectType<Validators>,
-  Validators
->;
+interface IndexOptions {
+  /**
+   * Whether the index should be staged.
+   *
+   * For large tables, index backfill can be slow. Staging an index allows you
+   * to push the schema and enable the index later.
+   *
+   * If `staged` is `true`, the index will be staged and will not be enabled
+   * until the staged flag is removed. Staged indexes do not block push
+   * completion. Staged indexes cannot be used in queries.
+   */
+  staged?: boolean;
+}
+
+interface DbIndexConfig<
+  FirstFieldPath extends string,
+  RestFieldPaths extends string[],
+> {
+  /**
+   * The fields to index, in order. Must specify at least one field.
+   */
+  fields: [FirstFieldPath, ...RestFieldPaths];
+}
 
 export type GenericEntsDataModel = GenericDataModel &
   Record<string, GenericEntModel>;
