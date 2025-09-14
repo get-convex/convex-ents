@@ -1,3 +1,9 @@
+# 0.16.0
+
+Fixes typechecking for `convex` version `1.27.0` and above, by supporting
+[staged table indexes](https://docs.convex.dev/database/reading-data/indexes/#staged-indexes)
+configuration.
+
 # 0.15.0
 
 **Breaking** runtime change:
