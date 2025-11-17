@@ -118,7 +118,7 @@ export class WriterImplBase<
     } else {
       try {
         await this.ctx.db.delete(id);
-      } catch (e) {
+      } catch {
         // TODO:
         // For now we're gonna ignore errors here,
         // because we assume that the only error
@@ -242,7 +242,7 @@ export class WriterImplBase<
                 idOrIds.removeEdges!.map(async (id) => {
                   try {
                     await this.ctx.db.delete(id);
-                  } catch (e) {
+                  } catch {
                     // TODO:
                     // For now we're gonna ignore errors here,
                     // because we assume that the only error
