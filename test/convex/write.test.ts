@@ -58,6 +58,7 @@ test("uniqueness check", async ({ ctx }) => {
 // Insert 1:1 from ref side is not possible, because the required side of
 // the edge cannot be removed.
 test("insert 1:1 from ref side", async ({ ctx }) => {
+  // eslint-disable-next-line @typescript-eslint/no-unused-expressions
   async () => {
     const someProfile = await ctx.table("profiles").firstX();
     await ctx.table("users").insert({
@@ -365,12 +366,12 @@ test("patch 1:1 from ref side", async ({ ctx }) => {
     .table("profiles")
     .insert({ bio: "Hello world", userId: someUserId });
 
-  async () => {
+  await expect(async () => {
     await ctx.table("users").getX(someUserId).patch({
       // @ts-expect-error This is not allowed
       profile: someProfile._id,
     });
-  };
+  }).rejects.toThrow();
 });
 
 // Patch 1:many from ref side is not possible, because the required side of
@@ -383,12 +384,12 @@ test("patch 1:many from ref side", async ({ ctx }) => {
     .table("messages")
     .insert({ text: "Hello world", userId: someUserId });
 
-  async () => {
+  await expect(async () => {
     await ctx.table("users").getX(someUserId).patch({
       // @ts-expect-error This is not allowed
       message: message._id,
     });
-  };
+  }).rejects.toThrow();
 });
 
 // Replace 1:1 from ref side is not possible, because the required side of
@@ -401,14 +402,14 @@ test("replace 1:1 from ref side", async ({ ctx }) => {
     .table("profiles")
     .insert({ bio: "Hello world", userId: someUserId });
 
-  async () => {
+  await expect(async () => {
     await ctx.table("users").getX(someUserId).replace({
       name: "foo",
       email: "bar",
       // @ts-expect-error This is not allowed
       profile: someProfile._id,
     });
-  };
+  }).rejects.toThrow();
 });
 
 // Replace 1:many from ref side is not possible, because the required side of
@@ -421,14 +422,14 @@ test("replace 1:many from ref side", async ({ ctx }) => {
     .table("messages")
     .insert({ text: "Hello world", userId: someUserId });
 
-  async () => {
+  await expect(async () => {
     await ctx.table("users").getX(someUserId).replace({
       name: "foo",
       email: "bar",
       // @ts-expect-error This is not allowed
       message: message._id,
     });
-  };
+  }).rejects.toThrow();
 });
 
 test("simple patch", async ({ ctx }) => {
