@@ -3,6 +3,7 @@ import { defineConfig, globalIgnores } from "eslint/config";
 import globals from "globals";
 import tsParser from "@typescript-eslint/parser";
 import js from "@eslint/js";
+import { join } from "node:path";
 
 import { FlatCompat } from "@eslint/eslintrc";
 
@@ -24,7 +25,7 @@ export default defineConfig([
 
       parserOptions: {
         project: true,
-        tsconfigRootDir: import.meta.dirname,
+        tsconfigRootDir: join(import.meta.dirname, ".."),
       },
     },
 
