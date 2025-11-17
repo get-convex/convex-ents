@@ -409,11 +409,11 @@ function isValidator(v: any): v is GenericValidator {
 
 export function defineEntFromTable<
   DocumentType extends GenericValidator = GenericValidator,
-  // eslint-disable-next-line @typescript-eslint/ban-types
+  // eslint-disable-next-line @typescript-eslint/no-empty-object-type
   Indexes extends GenericTableIndexes = {},
-  // eslint-disable-next-line @typescript-eslint/ban-types
+  // eslint-disable-next-line @typescript-eslint/no-empty-object-type
   SearchIndexes extends GenericTableSearchIndexes = {},
-  // eslint-disable-next-line @typescript-eslint/ban-types
+  // eslint-disable-next-line @typescript-eslint/no-empty-object-type
   VectorIndexes extends GenericTableVectorIndexes = {},
 >(
   definition: TableDefinition<
@@ -523,13 +523,13 @@ type AddField<
 
 export interface EntDefinition<
   DocumentType extends Validator<any, any, any> = Validator<any, any, any>,
-  // eslint-disable-next-line @typescript-eslint/ban-types
+  // eslint-disable-next-line @typescript-eslint/no-empty-object-type
   Indexes extends GenericTableIndexes = {},
-  // eslint-disable-next-line @typescript-eslint/ban-types
+  // eslint-disable-next-line @typescript-eslint/no-empty-object-type
   SearchIndexes extends GenericTableSearchIndexes = {},
-  // eslint-disable-next-line @typescript-eslint/ban-types
+  // eslint-disable-next-line @typescript-eslint/no-empty-object-type
   VectorIndexes extends GenericTableVectorIndexes = {},
-  // eslint-disable-next-line @typescript-eslint/ban-types
+  // eslint-disable-next-line @typescript-eslint/no-empty-object-type
   Edges extends GenericEdges = {},
 > extends TableDefinition<DocumentType, Indexes, SearchIndexes, VectorIndexes> {
   /**

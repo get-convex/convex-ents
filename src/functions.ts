@@ -518,12 +518,8 @@ class PromiseQueryOrNullImpl<
             | Ent<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel>[]
             | null,
         ) => TResult1 | PromiseLike<TResult1>)
-      | undefined
       | null,
-    onrejected?:
-      | ((reason: any) => TResult2 | PromiseLike<TResult2>)
-      | undefined
-      | null,
+    onrejected?: ((reason: any) => TResult2 | PromiseLike<TResult2>) | null,
   ): Promise<TResult1 | TResult2> {
     return this.docs()
       .then((documents) =>
@@ -652,12 +648,8 @@ class PromisePaginationResultOrNullImpl<
             Ent<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel>
           > | null,
         ) => TResult1 | PromiseLike<TResult1>)
-      | undefined
       | null,
-    onrejected?:
-      | ((reason: any) => TResult2 | PromiseLike<TResult2>)
-      | undefined
-      | null,
+    onrejected?: ((reason: any) => TResult2 | PromiseLike<TResult2>) | null,
   ): Promise<TResult1 | TResult2> {
     return this.docs()
       .then((result) =>
@@ -1096,12 +1088,8 @@ class PromiseEntsOrNullImpl<
             | Ent<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel>[]
             | null,
         ) => TResult1 | PromiseLike<TResult1>)
-      | undefined
       | null,
-    onrejected?:
-      | ((reason: any) => TResult2 | PromiseLike<TResult2>)
-      | undefined
-      | null,
+    onrejected?: ((reason: any) => TResult2 | PromiseLike<TResult2>) | null,
   ): Promise<TResult1 | TResult2> {
     return this.docs()
       .then((docs) =>
@@ -1122,6 +1110,7 @@ class PromiseEntsOrNullImpl<
 // lazy promise performs one operation for each
 // retrieved document in JavaScript, basically as if using
 // `Promise.all()`.
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
 export interface PromiseEntsOrNulls<
   EntsDataModel extends GenericEntsDataModel,
   Table extends TableNamesInDataModel<EntsDataModel>,
@@ -1678,12 +1667,8 @@ class PromiseEntOrNullImpl<
             EntsDataModel
           > | null,
         ) => TResult1 | PromiseLike<TResult1>)
-      | undefined
       | null,
-    onrejected?:
-      | ((reason: any) => TResult2 | PromiseLike<TResult2>)
-      | undefined
-      | null,
+    onrejected?: ((reason: any) => TResult2 | PromiseLike<TResult2>) | null,
   ): Promise<TResult1 | TResult2> {
     return this.doc()
       .then((doc) =>
@@ -1858,12 +1843,8 @@ class PromiseArrayImpl<T>
   then<TResult1 = T[] | null, TResult2 = never>(
     onfulfilled?:
       | ((value: T[] | null) => TResult1 | PromiseLike<TResult1>)
-      | undefined
       | null,
-    onrejected?:
-      | ((reason: any) => TResult2 | PromiseLike<TResult2>)
-      | undefined
-      | null,
+    onrejected?: ((reason: any) => TResult2 | PromiseLike<TResult2>) | null,
   ): Promise<TResult1 | TResult2> {
     return this.retrieve().then(onfulfilled, onrejected);
   }
@@ -2885,12 +2866,8 @@ class PromiseEntIdImpl<
   then<TResult1 = GenericId<Table>, TResult2 = never>(
     onfulfilled?:
       | ((value: GenericId<Table>) => TResult1 | PromiseLike<TResult1>)
-      | undefined
       | null,
-    onrejected?:
-      | ((reason: any) => TResult2 | PromiseLike<TResult2>)
-      | undefined
-      | null,
+    onrejected?: ((reason: any) => TResult2 | PromiseLike<TResult2>) | null,
   ): Promise<TResult1 | TResult2> {
     return this.retrieve().then(onfulfilled, onrejected);
   }

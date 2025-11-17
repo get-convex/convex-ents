@@ -85,9 +85,10 @@ test("1:1 optional edge missing", async ({ ctx }) => {
   const photo = await ctx.table("photos").insert({ url: "https://a.b" }).get();
 
   const user = await photo.edge("user");
-  // Check that the edge is nullable
+  // eslint-disable-next-line no-constant-condition -- typecheck test only
   if (false) {
-    // @ts-expect-error
+    // @ts-expect-error -- edge must be nullable
+    // eslint-disable-next-line @typescript-eslint/no-unused-expressions -- typecheck test only
     user._id;
   }
 
@@ -156,9 +157,10 @@ test("1:many optional edge missing", async ({ ctx }) => {
   const photo = await ctx.table("photos").insert({ url: "https://a.b" }).get();
 
   const user = await photo.edge("owner");
-  // Check that the edge is nullable
+  // eslint-disable-next-line no-constant-condition -- typecheck test only
   if (false) {
-    // @ts-expect-error
+    // @ts-expect-error -- edge must be nullable
+    // eslint-disable-next-line @typescript-eslint/no-unused-expressions -- typecheck test only
     user._id;
   }
 
@@ -249,8 +251,13 @@ test("table using index", async ({ ctx }) => {
 });
 
 test("cannot order by index after using index", async ({ ctx }) => {
-  // @ts-expect-error
-  ctx.table("users", "height").order("asc", "email");
+  await expect(
+    ctx.table("users", "height").order(
+      "asc",
+      // @ts-expect-error -- has already used an index
+      "email",
+    ),
+  ).rejects.toThrow();
 });
 
 test("search", async ({ ctx }) => {
@@ -353,10 +360,10 @@ test("types: Ent", async ({ ctx }) => {
 
   const firstMessage: Ent<"messages"> = await ctx.table("messages").firstX();
   const message = { ...firstMessage };
-  async () => {
+  await expect(async () => {
     // @ts-expect-error edge should not be available on the spreaded object
     await message.edge("user");
-  };
+  }).rejects.toThrow();
   expect(message.text).toEqual("Hello world");
 });
 
@@ -370,10 +377,10 @@ test("types: EntWriter", async ({ ctx }) => {
     .table("messages")
     .firstX();
   const message = { ...firstMessage };
-  async () => {
+  await expect(async () => {
     // @ts-expect-error edge should not be available on the spreaded object
     await message.edge("user");
-  };
+  }).rejects.toThrow();
   expect(message.text).toEqual("Hello world");
 });
 
