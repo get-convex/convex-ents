@@ -15,12 +15,14 @@
     "convex-helpers": "file:../node_modules/convex-helpers"
   },
   "devDependencies": {
+    "@eslint/eslintrc": "^3.3.1",
+    "@eslint/js": "^9.39.1",
     "@edge-runtime/vm": "^3.2.0",
-    "@typescript-eslint/eslint-plugin": "^6.16.0",
-    "@vitest/coverage-v8": "^1.6.0",
-    "convex-test": "^0.0.37",
-    "eslint": "8.49.0",
+    "@typescript-eslint/eslint-plugin": "^8.47.0",
+    "@vitest/coverage-v8": "^4.0.10",
+    "convex-test": "^0.0.38",
+    "eslint": "^9.39.1",
     "typescript": "^5.4.5",
-    "vitest": "^1.5.2"
+    "vitest": "^4.0.10"
   }
 }

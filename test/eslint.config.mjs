@@ -66,5 +66,9 @@ export default defineConfig([
       "@typescript-eslint/require-await": "off",
     },
   },
-  globalIgnores(["**/.eslintrc.cjs", "**/test", "**/docs", "**/dist"]),
+  globalIgnores([
+    "**/.eslintrc.cjs",
+    "convex/_generated",
+    "**/vitest.config.mts",
+  ]),
 ]);
