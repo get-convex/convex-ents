@@ -1110,6 +1110,7 @@ class PromiseEntsOrNullImpl<
 // lazy promise performs one operation for each
 // retrieved document in JavaScript, basically as if using
 // `Promise.all()`.
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
 export interface PromiseEntsOrNulls<
   EntsDataModel extends GenericEntsDataModel,
   Table extends TableNamesInDataModel<EntsDataModel>,
