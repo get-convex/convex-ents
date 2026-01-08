@@ -667,6 +667,29 @@ test("write after many:many edge traversal", async ({ ctx }) => {
   expect(updatedTag.name).toEqual("Green");
 });
 
+test("edge write doesn't trigger document patch", async ({ ctx }) => {
+  const userId = await ctx.table("users").insert({
+    name: "Gates",
+    email: "bill@gates.com",
+  });
+  const messageId = await ctx
+    .table("messages")
+    .insert({ text: "Hello world", userId });
+  const tagId = await ctx.table("tags").insert({ name: "Blue" });
+
+  const dbPatchSpy = vi.spyOn(ctx.db as any, "patch");
+
+  await ctx
+    .table("messages")
+    .getX(messageId)
+    .patch({ tags: { add: [tagId] } });
+
+  expect(dbPatchSpy).not.toHaveBeenCalled();
+  expect(
+    (await ctx.table("messages").getX(messageId).edge("tags").firstX()).name,
+  ).toBe("Blue");
+});
+
 test("cascading deletes", async ({ ctx }) => {
   const userId = await ctx
     .table("users")
