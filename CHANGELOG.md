@@ -1,3 +1,8 @@
+# 0.17.0
+
+When patching only edges, the document itself is left untouched. See
+[#55](https://github.com/get-convex/convex-ents/pull/55).
+
 # 0.16.0
 
 Fixes typechecking for `convex` version `1.27.0` and above, by supporting
