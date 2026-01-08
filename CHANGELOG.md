@@ -1,3 +1,7 @@
+# 0.18.1
+
+Fixes installation (removed `postinstall` script).
+
 # 0.18.0
 
 Uses the new `ctx.db.get`, `ctx.db.patch`, `ctx.db.delete` and `ctx.db.replace`

@@ -1,6 +1,6 @@
 {
   "name": "convex-ents",
-  "version": "0.18.0",
+  "version": "0.18.1",
   "description": "Relations, default values, unique fields, RLS for Convex",
   "keywords": [
     "relations",
@@ -20,7 +20,7 @@
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "scripts": {
-    "postinstall": "cd test && npm install",
+    "setup": "npm install && cd test && npm install",
     "build": "npx tsup src --dts --sourcemap --clean",
     "docs": "cd docs && npm run dev",
     "lint": "tsc && eslint . && cd test && npm run lint",
