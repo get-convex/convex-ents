@@ -114,10 +114,10 @@ export class WriterImplBase<
     );
     const deletionTime = +new Date();
     if (isDeletingSoftly) {
-      await this.ctx.db.patch(id, { deletionTime });
+      await this.ctx.db.patch(this.table, id, { deletionTime });
     } else {
       try {
-        await this.ctx.db.delete(id);
+        await this.ctx.db.delete(this.table, id);
       } catch {
         // TODO:
         // For now we're gonna ignore errors here,
@@ -214,7 +214,7 @@ export class WriterImplBase<
             if (idOrIds.add !== undefined && idOrIds.add.length > 0) {
               await Promise.all(
                 idOrIds.add.map(async (id) =>
-                  this.ctx.db.patch(id, {
+                  this.ctx.db.patch(edgeDefinition.to, id, {
                     [edgeDefinition.ref]: docId,
                   } as any),
                 ),
@@ -241,7 +241,7 @@ export class WriterImplBase<
               await Promise.all(
                 idOrIds.removeEdges!.map(async (id) => {
                   try {
-                    await this.ctx.db.delete(id);
+                    await this.ctx.db.delete(edgeDefinition.table, id);
                   } catch {
                     // TODO:
                     // For now we're gonna ignore errors here,

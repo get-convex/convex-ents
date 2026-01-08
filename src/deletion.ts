@@ -203,7 +203,7 @@ async function progressScheduledDeletion(
   if ("id" in last) {
     const edgeArgs = last.edges[0];
     if (edgeArgs === undefined) {
-      await ctx.db.delete(last.id as GenericId<any>);
+      await ctx.db.delete(last.table, last.id as GenericId<any>);
       if (stack.length > 1) {
         await continueOrSchedule(cascade, counter, stack.slice(0, -1));
       }
@@ -274,7 +274,7 @@ async function paginateOrCascade(
             : [updated],
         );
   if (approach === "paginate") {
-    await Promise.all(page.map((doc) => ctx.db.delete(doc._id)));
+    await Promise.all(page.map((doc) => ctx.db.delete(table, doc._id)));
   }
   await continueOrSchedule(cascade, updatedCounter, updatedStack);
 }

@@ -20,7 +20,7 @@
     "@edge-runtime/vm": "^3.2.0",
     "@typescript-eslint/eslint-plugin": "^8.47.0",
     "@vitest/coverage-v8": "^4.0.10",
-    "convex-test": "^0.0.38",
+    "convex-test": "^0.0.39",
     "eslint": "^9.39.1",
     "typescript": "^5.4.5",
     "vitest": "^4.0.10"

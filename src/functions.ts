@@ -2556,7 +2556,7 @@ class PromiseEntWriterImpl<
         await this.base.checkUniqueness(value, id);
         const fields = this.base.fieldsOnly(value);
         if (Object.keys(fields).length > 0) {
-          await this.ctx.db.patch(id, fields as any);
+          await this.ctx.db.patch(this.table, id, fields as any);
         }
 
         const edges: EdgeChanges = {};
@@ -2669,7 +2669,7 @@ class PromiseEntWriterImpl<
         await this.base.checkReadAndWriteRule("update", docId, value);
         await this.base.checkUniqueness(value, docId);
         const fields = this.base.fieldsOnly(value as any);
-        await this.ctx.db.replace(docId, fields as any);
+        await this.ctx.db.replace(this.table, docId, fields as any);
 
         const edges: EdgeChanges = {};
 
