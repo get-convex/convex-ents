@@ -1,3 +1,10 @@
+# 0.18.0
+
+Uses the new `ctx.db.get`, `ctx.db.patch`, `ctx.db.delete` and `ctx.db.replace`
+APIs under the hood, with explicit table name argument. This future-proofs the
+library against the old APIs being deprecated in the future. See
+[Convex News announcement](https://news.convex.dev/db-table-name/).
+
 # 0.17.0
 
 When patching only edges, the document itself is left untouched. See
