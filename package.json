@@ -20,15 +20,17 @@
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "scripts": {
+    "postinstall": "cd test && npm install",
     "build": "npx tsup src --dts --sourcemap --clean",
     "docs": "cd docs && npm run dev",
     "lint": "tsc && eslint . && cd test && npm run lint",
     "prepublishOnly": "npm run build && npm run test:once",
+    "typecheck": "tsc --noEmit && cd test && npm run typecheck",
     "test": "cd test && npm run test",
     "test:once": "cd test && npm run test:once"
   },
   "peerDependencies": {
-    "convex": "^1.27.0"
+    "convex": "^1.31.3"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.3.1",

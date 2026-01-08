@@ -4,13 +4,13 @@
   "version": "0.1.0",
   "scripts": {
     "lint": "tsc && eslint .",
+    "typecheck": "tsc --noEmit",
     "test": "vitest",
     "test:once": "vitest run",
     "test:debug": "vitest --inspect-brk --no-file-parallelism",
     "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
-    "@storybook/expect": "^28.1.3-5",
     "convex": "file:../node_modules/convex",
     "convex-helpers": "file:../node_modules/convex-helpers"
   },
