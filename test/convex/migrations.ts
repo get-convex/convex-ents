@@ -26,7 +26,7 @@ export const usersTallUpdateProfile = migration({
           .table("profiles")
           .insert({ bio: "I'm tall", userId: user._id });
       } else {
-        // See https://github.com/xixixao/convex-ents/issues/8
+        // See https://github.com/get-convex/convex-ents/issues/8
         // await profile.patch({ bio: "I'm tall" });
         await ctx
           .table("profiles")
