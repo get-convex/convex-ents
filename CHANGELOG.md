@@ -1,3 +1,12 @@
+# 0.19.0
+
+Adds `exports` field to package.json for all modules, enabling direct imports:
+- `convex-ents/deletion`
+- `convex-ents/functions`
+- `convex-ents/schema`
+- `convex-ents/shared`
+- `convex-ents/writer`
+
 # 0.18.1
 
 Fixes installation (removed `postinstall` script).
