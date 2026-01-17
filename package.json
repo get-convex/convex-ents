@@ -9,6 +9,32 @@
     "schema",
     "convex"
   ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./deletion": {
+      "types": "./dist/deletion.d.ts",
+      "default": "./dist/deletion.js"
+    },
+    "./functions": {
+      "types": "./dist/functions.d.ts",
+      "default": "./dist/functions.js"
+    },
+    "./schema": {
+      "types": "./dist/schema.d.ts",
+      "default": "./dist/schema.js"
+    },
+    "./shared": {
+      "types": "./dist/shared.d.ts",
+      "default": "./dist/shared.js"
+    },
+    "./writer": {
+      "types": "./dist/writer.d.ts",
+      "default": "./dist/writer.js"
+    }
+  },
   "homepage": "https://labs.convex.dev/convex-ents",
   "bugs": "https://github.com/xixixao/convex-ents/issues",
   "repository": "https://github.com/xixixao/convex-ents",
