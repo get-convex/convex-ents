@@ -80,13 +80,9 @@ export function scheduledDeleteFactory<
       inProgress: v.boolean(),
     },
     handler: async (ctx, { origin, stack, inProgress }) => {
-      const originId = ctx.db.normalizeId(origin.table, origin.id);
-      if (originId === null) {
-        throw new Error(`Invalid ID "${origin.id}" for table ${origin.table}`);
-      }
       // Check that we still want to delete
       // Note: Doesn't support scheduled deletion starting with system table
-      const doc = await ctx.db.get(originId);
+      const doc = await ctx.db.get(origin.table, origin.id as GenericId<any>);
       if (doc.deletionTime !== origin.deletionTime) {
         if (inProgress) {
           console.error(
@@ -106,7 +102,7 @@ export function scheduledDeleteFactory<
           ? stack
           : [
               {
-                id: originId,
+                id: origin.id,
                 table: origin.table,
                 edges: getEdgeArgs(entDefinitions, origin.table),
               },

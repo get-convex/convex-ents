@@ -1,10 +1,14 @@
 import {
   DocumentByName,
   FieldTypeFromFieldPath,
+  GenericDatabaseReader,
+  GenericDataModel,
   SystemDataModel,
+  SystemTableNames,
   TableNamesInDataModel,
 } from "convex/server";
 import { EdgeConfig, GenericEdgeConfig, GenericEntsDataModel } from "./schema";
+import { GenericId } from "convex/values";
 
 export type EntsSystemDataModel = {
   [key in keyof SystemDataModel]: SystemDataModel[key] & {
@@ -52,3 +56,18 @@ export function getEdgeDefinitions<
     EdgeConfig
   >;
 }
+export function isSystemTable(table: string): table is SystemTableNames {
+  return table.startsWith("_");
+}
+
+export function systemAwareGet<DataModel extends GenericDataModel, Table extends TableNamesInDataModel<DataModel>>(db: GenericDatabaseReader<DataModel>, table: Table, id: GenericId<Table>) {
+  return isSystemTable(table)
+    ? db.system.get(table, id as any)
+    : db.get(table, id);
+}
+// TODO: make more queries system-aware
+// export function systemAwareQuery<DataModel extends GenericDataModel, Table extends TableNamesInDataModel<DataModel>>(db: GenericDatabaseReader<DataModel>, table: Table): QueryInitializer<NamedTableInfo<DataModel, Table>> {
+//   return isSystemTable(table)
+//     ? db.system.query(table) as any
+//     : db.query(table);
+// }
