@@ -32,14 +32,8 @@ const task = await ctx.table("tasks").get(taskId);
 <Aside title="This is equivalent to the built-in:">
 
 ```ts
-const id = ctx.db.normalize("tasks", taskId);
-if (id === null) {
-  return null;
-}
-const task = await ctx.db.get(id);
+const task = await ctx.db.get("tasks", taskId);
 ```
-
-with the addition of checking that `taskId` belongs to `"tasks"`.
 
 </Aside>
 
@@ -101,7 +95,8 @@ const tasks = await ctx.table("tasks").getMany([taskId1, taskId2]);
 <Aside title="This is equivalent to the built-in:">
 
 ```ts
-const task = await Promise.all([taskId1, taskId2].map(ctx.db.get));
+const taskIds = [taskId1, taskId2];
+const tasks = await Promise.all(taskIds.map(id => ctx.db.get("tasks", id)));
 ```
 
 </Aside>
@@ -393,7 +388,7 @@ const tags = await Promise.all(
       .query("messages_to_tags")
       .withIndex("messagesId", (q) => q.eq("messagesId", messageId))
       .collect()
-  ).map((edge) => ctx.db.get(edge.tagsId)),
+  ).map((edge) => ctx.db.get("tags", edge.tagsId)),
 );
 ```
 
