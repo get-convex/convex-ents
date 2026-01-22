@@ -1371,7 +1371,11 @@ class PromiseEdgeOrNullImpl<
     ) => Promise<DocumentByName<EntsDataModel, Table>> = async (edgeDoc) => {
       const sourceId = edgeDoc[edgeDefinition.field] as string;
       const targetId = edgeDoc[edgeDefinition.ref] as GenericId<Table>;
-      const doc = await systemAwareGet(this.ctx.db, edgeDefinition.to, targetId);
+      const doc = await systemAwareGet(
+        this.ctx.db,
+        edgeDefinition.to,
+        targetId,
+      );
       if (doc === null) {
         throw new Error(
           `Dangling reference for edge "${edgeDefinition.name}" in ` +
@@ -1776,7 +1780,11 @@ class PromiseEntOrNullImpl<
                   `Expected an ID for a document in table "${edgeDefinition.to}".`,
               );
             }
-            const otherDoc = await systemAwareGet(this.ctx.db, edgeDefinition.to, otherId);
+            const otherDoc = await systemAwareGet(
+              this.ctx.db,
+              edgeDefinition.to,
+              otherId,
+            );
             // _scheduled_functions cannot be made dangling-reference-free,
             // because they are deleted by Convex automatically.
             if (
@@ -2681,7 +2689,7 @@ class PromiseEntWriterImpl<
             }
             if (edgeDefinition.cardinality === "single") {
               if (edgeDefinition.type === "ref") {
-                const oldDoc = (await this.ctx.db.get(this.table,docId))!;
+                const oldDoc = (await this.ctx.db.get(this.table, docId))!;
                 if (oldDoc[key] !== undefined && oldDoc[key] !== idOrIds) {
                   // This would be only allowed if the edge is optional
                   // on the field side, which is not supported
@@ -2856,7 +2864,10 @@ class PromiseEntIdImpl<
       this.table,
       async () => {
         const id = await this.retrieve();
-        return { id, doc: async () => systemAwareGet(this.ctx.db, this.table, id) };
+        return {
+          id,
+          doc: async () => systemAwareGet(this.ctx.db, this.table, id),
+        };
       },
       true,
     ) as any;
