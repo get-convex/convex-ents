@@ -30,7 +30,7 @@ const task = await ctx.table("tasks").insert({ text: "Win at life" }).get();
 
 ```ts
 const taskId = await ctx.db.insert("tasks", { text: "Win at life" });
-const task = (await ctx.db.get(taskId))!;
+const task = (await ctx.db.get("tasks", taskId))!;
 ```
 
 </Aside>
