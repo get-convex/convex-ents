@@ -60,7 +60,10 @@ export function isSystemTable(table: string): table is SystemTableNames {
   return table.startsWith("_");
 }
 
-export function systemAwareGet<DataModel extends GenericDataModel, Table extends TableNamesInDataModel<DataModel>>(db: GenericDatabaseReader<DataModel>, table: Table, id: GenericId<Table>) {
+export function systemAwareGet<
+  DataModel extends GenericDataModel,
+  Table extends TableNamesInDataModel<DataModel>,
+>(db: GenericDatabaseReader<DataModel>, table: Table, id: GenericId<Table>) {
   return isSystemTable(table)
     ? db.system.get(table, id as any)
     : db.get(table, id);

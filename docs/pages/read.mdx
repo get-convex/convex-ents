@@ -98,7 +98,7 @@ const tasks = await ctx.table("tasks").getMany([taskId1, taskId2]);
 
 ```ts
 const taskIds = [taskId1, taskId2];
-const tasks = await Promise.all(taskIds.map(id => ctx.db.get("tasks", id)));
+const tasks = await Promise.all(taskIds.map((id) => ctx.db.get("tasks", id)));
 ```
 
 </Aside>
