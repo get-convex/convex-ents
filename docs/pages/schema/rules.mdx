@@ -38,7 +38,7 @@ import { entDefinitions } from "./schema";
 import { QueryCtx } from "./types";
 
 export function getEntDefinitionsWithRules(
-  ctx: QueryCtx
+  ctx: QueryCtx,
 ): typeof entDefinitions {
   return addEntRules(entDefinitions, {
     // "secrets" is one of our tables
@@ -53,7 +53,7 @@ export function getEntDefinitionsWithRules(
 
 // Example: Retrieve viewer ID using `ctx.auth`:
 export async function getViewerId(
-  ctx: Omit<QueryCtx, "table" | "viewerId" | "viewer" | "viewerX">
+  ctx: Omit<QueryCtx, "table" | "viewerId" | "viewer" | "viewerX">,
 ): Promise<Id<"users"> | null> {
   const user = await ctx.auth.getUserIdentity();
   if (user === null) {
@@ -101,28 +101,28 @@ export const query = customQuery(
   baseQuery,
   customCtx(async (baseCtx) => {
     return await queryCtx(baseCtx);
-  })
+  }),
 );
 
 export const internalQuery = customQuery(
   baseInternalQuery,
   customCtx(async (baseCtx) => {
     return await queryCtx(baseCtx);
-  })
+  }),
 );
 
 export const mutation = customMutation(
   baseMutation,
   customCtx(async (baseCtx) => {
     return await mutationCtx(baseCtx);
-  })
+  }),
 );
 
 export const internalMutation = customMutation(
   baseInternalMutation,
   customCtx(async (baseCtx) => {
     return await mutationCtx(baseCtx);
-  })
+  }),
 );
 
 async function queryCtx(baseCtx: QueryCtx) {

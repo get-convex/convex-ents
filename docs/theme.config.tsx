@@ -32,7 +32,8 @@ const config: DocsThemeConfig = {
       </>
     );
   },
-  docsRepositoryBase: "https://github.com/get-convex/convex-ents/tree/main/docs",
+  docsRepositoryBase:
+    "https://github.com/get-convex/convex-ents/tree/main/docs",
   gitTimestamp() {
     return <></>;
   },

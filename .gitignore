@@ -4,6 +4,7 @@
 
 # dependencies
 /node_modules
+/*/node_modules
 /.pnp
 .pnp.js
 
@@ -12,7 +13,9 @@
 
 # next.js
 /.next/
+/*/.next/
 /out/
+/*/out/
 
 # production
 /build
@@ -30,7 +33,7 @@ yarn-error.log*
 .env*.local
 
 # vercel
-.vercel
+*/.vercel
 
 # typescript
 *.tsbuildinfo

@@ -14,7 +14,7 @@ import {
 import cn from "clsx";
 
 const DetailsContext = createContext<Dispatch<SetStateAction<boolean>>>(
-  (v) => v
+  (v) => v,
 );
 
 export const useDetails = () => useContext(DetailsContext);
@@ -94,7 +94,7 @@ export const Summary = (props: ComponentProps<"summary">): ReactElement => {
       className={cn(
         "nx-flex nx-items-center nx-cursor-pointer nx-list-none nx-p-1 nx-transition-colors hover:nx-bg-gray-100 dark:hover:nx-bg-neutral-800",
         "before:nx-mr-1 before:nx-inline-block before:nx-transition-transform before:nx-content-[''] dark:before:nx-invert before:nx-shrink-0",
-        "rtl:before:nx-rotate-180 [[data-expanded]>&]:before:nx-rotate-90"
+        "rtl:before:nx-rotate-180 [[data-expanded]>&]:before:nx-rotate-90",
       )}
       {...props}
       onClick={(e) => {

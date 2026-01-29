@@ -56,8 +56,8 @@ export interface PromiseOrderedQueryOrNull<
   EntsDataModel extends GenericEntsDataModel,
   Table extends TableNamesInDataModel<EntsDataModel>,
 > extends Promise<
-    Ent<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel>[] | null
-  > {
+  Ent<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel>[] | null
+> {
   filter(
     predicate: (
       q: FilterBuilder<NamedTableInfo<EntsDataModel, Table>>,
@@ -89,8 +89,8 @@ export interface PromiseOrderedQueryWriterOrNull<
   EntsDataModel extends GenericEntsDataModel,
   Table extends TableNamesInDataModel<EntsDataModel>,
 > extends Promise<
-    Ent<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel>[] | null
-  > {
+  Ent<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel>[] | null
+> {
   filter(
     predicate: (
       q: FilterBuilder<NamedTableInfo<EntsDataModel, Table>>,
@@ -185,7 +185,9 @@ export interface PromiseTableBase<
 export interface PromiseTable<
   EntsDataModel extends GenericEntsDataModel,
   Table extends TableNamesInDataModel<EntsDataModel>,
-> extends PromiseQuery<EntsDataModel, Table>,
+>
+  extends
+    PromiseQuery<EntsDataModel, Table>,
     PromiseTableBase<EntsDataModel, Table> {
   get<
     Indexes extends EntsDataModel[Table]["indexes"],
@@ -267,9 +269,9 @@ export interface PromiseOrderedQueryBase<
 export interface PromiseOrderedQuery<
   EntsDataModel extends GenericEntsDataModel,
   Table extends TableNamesInDataModel<EntsDataModel>,
-> extends Promise<
-      Ent<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel>[]
-    >,
+>
+  extends
+    Promise<Ent<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel>[]>,
     PromiseOrderedQueryBase<EntsDataModel, Table> {
   map<TOutput>(
     callbackFn: (
@@ -302,9 +304,9 @@ export interface PromiseQuery<
 }
 
 class PromiseQueryOrNullImpl<
-    EntsDataModel extends GenericEntsDataModel,
-    Table extends TableNamesInDataModel<EntsDataModel>,
-  >
+  EntsDataModel extends GenericEntsDataModel,
+  Table extends TableNamesInDataModel<EntsDataModel>,
+>
   extends Promise<
     Ent<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel>[] | null
   >
@@ -548,8 +550,8 @@ export interface PromisePaginationResultOrNull<
   EntsDataModel extends GenericEntsDataModel,
   Table extends TableNamesInDataModel<EntsDataModel>,
 > extends Promise<PaginationResult<
-    Ent<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel>
-  > | null> {
+  Ent<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel>
+> | null> {
   docs(): Promise<PaginationResult<
     DocumentByName<EntsDataModel, Table>
   > | null>;
@@ -567,10 +569,10 @@ export interface PromisePaginationResult<
   EntsDataModel extends GenericEntsDataModel,
   Table extends TableNamesInDataModel<EntsDataModel>,
 > extends Promise<
-    PaginationResult<
-      Ent<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel>
-    >
-  > {
+  PaginationResult<
+    Ent<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel>
+  >
+> {
   docs(): Promise<PaginationResult<DocumentByName<EntsDataModel, Table>>>;
 
   map<TOutput>(
@@ -583,9 +585,9 @@ export interface PromisePaginationResult<
 }
 
 class PromisePaginationResultOrNullImpl<
-    EntsDataModel extends GenericEntsDataModel,
-    Table extends TableNamesInDataModel<EntsDataModel>,
-  >
+  EntsDataModel extends GenericEntsDataModel,
+  Table extends TableNamesInDataModel<EntsDataModel>,
+>
   extends Promise<PaginationResult<
     Ent<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel>
   > | null>
@@ -871,8 +873,8 @@ export interface PromiseEntsOrNull<
   EntsDataModel extends GenericEntsDataModel,
   Table extends TableNamesInDataModel<EntsDataModel>,
 > extends Promise<
-    Ent<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel>[] | null
-  > {
+  Ent<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel>[] | null
+> {
   // TODO: At this point there is nothing query specific here, and we can either:
   //   1. Return a generic lazy promise of the list.
   //   2. Not give any methods, because they might lead devs down the wrong path.
@@ -898,9 +900,8 @@ export interface PromiseEntsWriterOrNull<
   EntsDataModel extends GenericEntsDataModel,
   Table extends TableNamesInDataModel<EntsDataModel>,
 > extends Promise<
-    | EntWriter<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel>[]
-    | null
-  > {
+  EntWriter<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel>[] | null
+> {
   map<TOutput>(
     callbackFn: (
       value: Ent<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel>,
@@ -920,8 +921,8 @@ export interface PromiseEnts<
   EntsDataModel extends GenericEntsDataModel,
   Table extends TableNamesInDataModel<EntsDataModel>,
 > extends Promise<
-    Ent<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel>[]
-  > {
+  Ent<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel>[]
+> {
   // TODO: At this point there is nothing query specific here, and we can either:
   //   1. Return a generic lazy promise of the list.
   //   2. Not give any methods, because they might lead devs down the wrong path.
@@ -952,9 +953,9 @@ export interface PromiseEnts<
 
 // Also implements `PromiseEntsOrNulls`, so individual docs can be null
 class PromiseEntsOrNullImpl<
-    EntsDataModel extends GenericEntsDataModel,
-    Table extends TableNamesInDataModel<EntsDataModel>,
-  >
+  EntsDataModel extends GenericEntsDataModel,
+  Table extends TableNamesInDataModel<EntsDataModel>,
+>
   extends Promise<
     Ent<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel>[] | null
   >
@@ -1115,8 +1116,8 @@ export interface PromiseEntsOrNulls<
   EntsDataModel extends GenericEntsDataModel,
   Table extends TableNamesInDataModel<EntsDataModel>,
 > extends Promise<
-    (Ent<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel> | null)[]
-  > {}
+  (Ent<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel> | null)[]
+> {}
 
 export interface PromiseEdgeOrderedEntsOrNull<
   EntsDataModel extends GenericEntsDataModel,
@@ -1353,9 +1354,9 @@ export interface PromiseEdgeEntsWriter<
 }
 
 class PromiseEdgeOrNullImpl<
-    EntsDataModel extends GenericEntsDataModel,
-    Table extends TableNamesInDataModel<EntsDataModel>,
-  >
+  EntsDataModel extends GenericEntsDataModel,
+  Table extends TableNamesInDataModel<EntsDataModel>,
+>
   extends PromiseEntsOrNullImpl<EntsDataModel, Table>
   implements PromiseEdgeEntsOrNull<EntsDataModel, Table>
 {
@@ -1573,10 +1574,10 @@ export interface PromiseEntOrNull<
   EntsDataModel extends GenericEntsDataModel,
   Table extends TableNamesInDataModel<EntsDataModel>,
 > extends Promise<Ent<
-    Table,
-    DocumentByName<EntsDataModel, Table>,
-    EntsDataModel
-  > | null> {
+  Table,
+  DocumentByName<EntsDataModel, Table>,
+  EntsDataModel
+> | null> {
   edge<Edge extends keyof EntsDataModel[Table]["edges"]>(
     edge: Edge,
   ): PromiseEdgeOrNull<EntsDataModel, Table, Edge>;
@@ -1588,8 +1589,8 @@ export interface PromiseEnt<
   EntsDataModel extends GenericEntsDataModel,
   Table extends TableNamesInDataModel<EntsDataModel>,
 > extends Promise<
-    Ent<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel>
-  > {
+  Ent<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel>
+> {
   edge<Edge extends keyof EntsDataModel[Table]["edges"]>(
     edge: Edge,
   ): PromiseEdge<EntsDataModel, Table, Edge>;
@@ -1602,9 +1603,9 @@ export interface PromiseEnt<
 }
 
 class PromiseEntOrNullImpl<
-    EntsDataModel extends GenericEntsDataModel,
-    Table extends TableNamesInDataModel<EntsDataModel>,
-  >
+  EntsDataModel extends GenericEntsDataModel,
+  Table extends TableNamesInDataModel<EntsDataModel>,
+>
   extends Promise<Ent<
     Table,
     DocumentByName<EntsDataModel, Table>,
@@ -2056,8 +2057,8 @@ export type PromiseEdge<
   Table extends TableNamesInDataModel<EntsDataModel>,
   Edge extends keyof EntsDataModel[Table]["edges"],
   Config extends GenericEdgeConfig = EntsDataModel[Table]["edges"][Edge],
-  ToTable extends
-    TableNamesInDataModel<EntsDataModel> = EntsDataModel[Table]["edges"][Edge]["to"],
+  ToTable extends TableNamesInDataModel<EntsDataModel> =
+    EntsDataModel[Table]["edges"][Edge]["to"],
 > = PromiseEdgeResult<
   Config,
   PromiseEdgeEnts<EntsDataModel, ToTable>,
@@ -2077,8 +2078,8 @@ export type PromiseEdgeOrThrow<
   Table extends TableNamesInDataModel<EntsDataModel>,
   Edge extends keyof EntsDataModel[Table]["edges"],
   Config extends GenericEdgeConfig = EntsDataModel[Table]["edges"][Edge],
-  ToTable extends
-    TableNamesInDataModel<EntsDataModel> = EntsDataModel[Table]["edges"][Edge]["to"],
+  ToTable extends TableNamesInDataModel<EntsDataModel> =
+    EntsDataModel[Table]["edges"][Edge]["to"],
 > = PromiseEdgeResult<
   Config,
   PromiseEdgeEnts<EntsDataModel, ToTable>,
@@ -2092,8 +2093,8 @@ type PromiseEdgeOrNull<
   Table extends TableNamesInDataModel<EntsDataModel>,
   Edge extends keyof EntsDataModel[Table]["edges"],
   Config extends GenericEdgeConfig = EntsDataModel[Table]["edges"][Edge],
-  ToTable extends
-    TableNamesInDataModel<EntsDataModel> = EntsDataModel[Table]["edges"][Edge]["to"],
+  ToTable extends TableNamesInDataModel<EntsDataModel> =
+    EntsDataModel[Table]["edges"][Edge]["to"],
 > = PromiseEdgeResult<
   Config,
   PromiseEdgeEntsOrNull<EntsDataModel, ToTable>,
@@ -2107,8 +2108,8 @@ export type PromiseEdgeWriter<
   Table extends TableNamesInDataModel<EntsDataModel>,
   Edge extends keyof EntsDataModel[Table]["edges"],
   Config extends GenericEdgeConfig = EntsDataModel[Table]["edges"][Edge],
-  ToTable extends
-    TableNamesInDataModel<EntsDataModel> = EntsDataModel[Table]["edges"][Edge]["to"],
+  ToTable extends TableNamesInDataModel<EntsDataModel> =
+    EntsDataModel[Table]["edges"][Edge]["to"],
 > = PromiseEdgeResult<
   Config,
   PromiseEdgeEntsWriter<EntsDataModel, ToTable>,
@@ -2122,8 +2123,8 @@ export type PromiseEdgeWriterOrThrow<
   Table extends TableNamesInDataModel<EntsDataModel>,
   Edge extends keyof EntsDataModel[Table]["edges"],
   Config extends GenericEdgeConfig = EntsDataModel[Table]["edges"][Edge],
-  ToTable extends
-    TableNamesInDataModel<EntsDataModel> = EntsDataModel[Table]["edges"][Edge]["to"],
+  ToTable extends TableNamesInDataModel<EntsDataModel> =
+    EntsDataModel[Table]["edges"][Edge]["to"],
 > = PromiseEdgeResult<
   Config,
   PromiseEdgeEntsWriter<EntsDataModel, ToTable>,
@@ -2137,8 +2138,8 @@ export type PromiseEdgeWriterOrNull<
   Table extends TableNamesInDataModel<EntsDataModel>,
   Edge extends keyof EntsDataModel[Table]["edges"],
   Config extends GenericEdgeConfig = EntsDataModel[Table]["edges"][Edge],
-  ToTable extends
-    TableNamesInDataModel<EntsDataModel> = EntsDataModel[Table]["edges"][Edge]["to"],
+  ToTable extends TableNamesInDataModel<EntsDataModel> =
+    EntsDataModel[Table]["edges"][Edge]["to"],
 > = PromiseEdgeResult<
   Config,
   PromiseEdgeEntsWriterOrNull<EntsDataModel, ToTable>,
@@ -2150,7 +2151,9 @@ export type PromiseEdgeWriterOrNull<
 export interface PromiseOrderedQueryWriter<
   EntsDataModel extends GenericEntsDataModel,
   Table extends TableNamesInDataModel<EntsDataModel>,
-> extends Promise<
+>
+  extends
+    Promise<
       EntWriter<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel>[]
     >,
     PromiseOrderedQueryBase<EntsDataModel, Table> {
@@ -2214,8 +2217,8 @@ export interface PromisePaginationResultWriterOrNull<
   EntsDataModel extends GenericEntsDataModel,
   Table extends TableNamesInDataModel<EntsDataModel>,
 > extends Promise<PaginationResult<
-    EntWriter<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel>
-  > | null> {
+  EntWriter<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel>
+> | null> {
   docs(): Promise<PaginationResult<
     DocumentByName<EntsDataModel, Table>
   > | null>;
@@ -2241,10 +2244,10 @@ export interface PromisePaginationResultWriter<
   EntsDataModel extends GenericEntsDataModel,
   Table extends TableNamesInDataModel<EntsDataModel>,
 > extends Promise<
-    PaginationResult<
-      EntWriter<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel>
-    >
-  > {
+  PaginationResult<
+    EntWriter<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel>
+  >
+> {
   docs(): Promise<PaginationResult<DocumentByName<EntsDataModel, Table>>>;
 
   map<TOutput>(
@@ -2267,7 +2270,9 @@ export interface PromisePaginationResultWriter<
 export interface PromiseTableWriter<
   Table extends TableNamesInDataModel<EntsDataModel>,
   EntsDataModel extends GenericEntsDataModel,
-> extends PromiseQueryWriter<EntsDataModel, Table>,
+>
+  extends
+    PromiseQueryWriter<EntsDataModel, Table>,
     PromiseTableBase<EntsDataModel, Table> {
   get<
     Indexes extends EntsDataModel[Table]["indexes"],
@@ -2444,10 +2449,10 @@ export interface PromiseEntWriterOrNull<
   EntsDataModel extends GenericEntsDataModel,
   Table extends TableNamesInDataModel<EntsDataModel>,
 > extends Promise<EntWriter<
-    Table,
-    DocumentByName<EntsDataModel, Table>,
-    EntsDataModel
-  > | null> {
+  Table,
+  DocumentByName<EntsDataModel, Table>,
+  EntsDataModel
+> | null> {
   edge<Edge extends keyof EntsDataModel[Table]["edges"]>(
     edge: Edge,
   ): PromiseEdgeWriterOrNull<EntsDataModel, Table, Edge>;
@@ -2459,8 +2464,8 @@ export interface PromiseEntWriter<
   EntsDataModel extends GenericEntsDataModel,
   Table extends TableNamesInDataModel<EntsDataModel>,
 > extends Promise<
-    EntWriter<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel>
-  > {
+  EntWriter<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel>
+> {
   edge<Edge extends keyof EntsDataModel[Table]["edges"]>(
     edge: Edge,
   ): PromiseEdgeWriter<EntsDataModel, Table, Edge>;
@@ -2837,9 +2842,9 @@ export interface PromiseEntId<
 }
 
 class PromiseEntIdImpl<
-    EntsDataModel extends GenericEntsDataModel,
-    Table extends TableNamesInDataModel<EntsDataModel>,
-  >
+  EntsDataModel extends GenericEntsDataModel,
+  Table extends TableNamesInDataModel<EntsDataModel>,
+>
   extends Promise<GenericId<Table>>
   implements PromiseEntId<EntsDataModel, Table>
 {
@@ -2880,8 +2885,9 @@ export interface EntQueryCtx<DataModel extends GenericDataModel> {
   vectorSearch?: undefined;
 }
 
-export interface EntMutationCtx<DataModel extends GenericDataModel>
-  extends EntQueryCtx<DataModel> {
+export interface EntMutationCtx<
+  DataModel extends GenericDataModel,
+> extends EntQueryCtx<DataModel> {
   db: GenericDatabaseWriter<DataModel>;
 
   storage: StorageWriter;

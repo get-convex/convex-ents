@@ -4,7 +4,8 @@ Ents are compatible with any auth setup that Convex supports.
 
 ## Convex Auth
 
-There's a `defineEntsFromTables` helper for converting the table definitions from Convex Auth to Ents:
+There's a `defineEntsFromTables` helper for converting the table definitions
+from Convex Auth to Ents:
 
 ```ts filename="convex/schema.ts"
 import { v } from "convex/values";
@@ -42,4 +43,5 @@ export default schema;
 export const entDefinitions = getEntDefinitions(schema);
 ```
 
-In this example the `users` table is defined manually so that we can add an edge to the `messages` ents.
+In this example the `users` table is defined manually so that we can add an edge
+to the `messages` ents.

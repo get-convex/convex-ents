@@ -23,7 +23,8 @@
     "setup": "npm install && cd test && npm install",
     "build": "npx tsup src --dts --sourcemap --clean",
     "docs": "cd docs && npm run dev",
-    "lint": "tsc && eslint . && cd test && npm run lint",
+    "lint": "tsc && eslint . && prettier --check . && cd test && npm run lint",
+    "format": "prettier --write .",
     "prepublishOnly": "npm run build && npm run test:once",
     "typecheck": "tsc --noEmit && cd test && npm run typecheck",
     "test": "cd test && npm run test",
@@ -41,6 +42,7 @@
     "eslint": "^9.39.1",
     "globals": "^16.5.0",
     "npm-run-all": "^4.1.5",
+    "prettier": "^3.8.1",
     "tsup": "^8.0.1",
     "typescript": "^5.4.0"
   }
