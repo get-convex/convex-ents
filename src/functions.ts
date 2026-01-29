@@ -41,7 +41,10 @@ import {
   EntsSystemDataModel,
   IndexFieldTypesForEq,
   PromiseEdgeResult,
+  UniqueIndexFieldName,
   getEdgeDefinitions,
+  systemAwareGet,
+  systemAwareQuery,
 } from "./shared";
 import {
   EdgeChanges,
@@ -49,8 +52,8 @@ import {
   WithEdgePatches,
   WithEdges,
   WriterImplBase,
-  isSystemTable,
 } from "./writer";
+import { isSystemTable } from "./shared";
 
 export interface PromiseOrderedQueryOrNull<
   EntsDataModel extends GenericEntsDataModel,
@@ -151,7 +154,7 @@ export interface PromiseTableBase<
     indexName: Index,
     values: FieldTypeFromFieldPath<
       DocumentByName<EntsDataModel, Table>,
-      Indexes[Index][0]
+      UniqueIndexFieldName<Indexes[Index]>
     >[],
   ): PromiseEntsOrNulls<EntsDataModel, Table>;
   getMany(ids: GenericId<Table>[]): PromiseEntsOrNulls<EntsDataModel, Table>;
@@ -162,7 +165,7 @@ export interface PromiseTableBase<
     indexName: Index,
     values: FieldTypeFromFieldPath<
       DocumentByName<EntsDataModel, Table>,
-      Indexes[Index][0]
+      UniqueIndexFieldName<Indexes[Index]>
     >[],
   ): PromiseEnts<EntsDataModel, Table>;
   getManyX(ids: GenericId<Table>[]): PromiseEnts<EntsDataModel, Table>;
@@ -678,9 +681,7 @@ class PromiseTableImpl<
     table: Table,
   ) {
     super(ctx, entDefinitions, table, async () =>
-      isSystemTable(table)
-        ? (ctx.db.system.query(table as any) as any)
-        : ctx.db.query(table),
+      systemAwareQuery(ctx.db, table),
     );
   }
 
@@ -714,9 +715,7 @@ class PromiseTableImpl<
             return {
               id,
               doc: async () => {
-                const doc = await (isSystemTable(this.table)
-                  ? this.ctx.db.system.get(id as any)
-                  : this.ctx.db.get(id));
+                const doc = await systemAwareGet(this.ctx.db, this.table, id);
                 if (throwIfNull && doc === null) {
                   throw new Error(
                     `Document not found with id \`${id}\` in table "${this.table}"`,
@@ -733,8 +732,7 @@ class PromiseTableImpl<
               this.table,
               indexName,
             );
-            const doc = await this.ctx.db
-              .query(this.table)
+            const doc = await systemAwareQuery(this.ctx.db, this.table)
               .withIndex(indexName, (q) =>
                 values.reduce((q, value, i) => q.eq(fieldNames[i], value), q),
               )
@@ -771,9 +769,7 @@ class PromiseTableImpl<
             });
             return await Promise.all(
               ids.map(async (id) => {
-                const doc = await (isSystemTable(this.table)
-                  ? this.ctx.db.system.get(id as any)
-                  : this.ctx.db.get(id));
+                const doc = await systemAwareGet(this.ctx.db, this.table, id);
                 if (throwIfNull && doc === null) {
                   throw new Error(
                     `Document not found with id \`${id}\` in table "${this.table}"`,
@@ -785,15 +781,26 @@ class PromiseTableImpl<
           }
         : async () => {
             const [indexName, values] = args;
+            const fieldNames = getIndexFields(
+              this.entDefinitions,
+              this.table,
+              indexName,
+            );
+            if (fieldNames.length > 1) {
+              throw new Error(
+                `Index "${indexName}" has ${fieldNames.length} fields, ` +
+                  `but getMany() supports only single field indexes`,
+              );
+            }
+            const fieldName = fieldNames[0];
             return (await Promise.all(
               (values as any[]).map(async (value) => {
-                const doc = await this.ctx.db
-                  .query(this.table)
-                  .withIndex(indexName, (q) => q.eq(indexName, value))
+                const doc = await systemAwareQuery(this.ctx.db, this.table)
+                  .withIndex(indexName, (q) => q.eq(fieldName, value))
                   .unique();
                 if (throwIfNull && doc === null) {
                   throw new Error(
-                    `Table "${this.table}" does not contain document with field "${indexName}" = \`${value}\``,
+                    `Table "${this.table}" does not contain document with field "${fieldName}" = \`${value}\``,
                   );
                 }
                 return doc;
@@ -1374,8 +1381,12 @@ class PromiseEdgeOrNullImpl<
       edgeDoc: GenericDocument,
     ) => Promise<DocumentByName<EntsDataModel, Table>> = async (edgeDoc) => {
       const sourceId = edgeDoc[edgeDefinition.field] as string;
-      const targetId = edgeDoc[edgeDefinition.ref] as string;
-      const doc = await this.ctx.db.get(targetId as any);
+      const targetId = edgeDoc[edgeDefinition.ref] as GenericId<Table>;
+      const doc = await systemAwareGet(
+        this.ctx.db,
+        edgeDefinition.to,
+        targetId,
+      );
       if (doc === null) {
         throw new Error(
           `Dangling reference for edge "${edgeDefinition.name}" in ` +
@@ -1780,7 +1791,11 @@ class PromiseEntOrNullImpl<
                   `Expected an ID for a document in table "${edgeDefinition.to}".`,
               );
             }
-            const otherDoc = await this.ctx.db.get(otherId);
+            const otherDoc = await systemAwareGet(
+              this.ctx.db,
+              edgeDefinition.to,
+              otherId,
+            );
             // _scheduled_functions cannot be made dangling-reference-free,
             // because they are deleted by Convex automatically.
             if (
@@ -2689,7 +2704,7 @@ class PromiseEntWriterImpl<
             }
             if (edgeDefinition.cardinality === "single") {
               if (edgeDefinition.type === "ref") {
-                const oldDoc = (await this.ctx.db.get(docId))!;
+                const oldDoc = (await this.ctx.db.get(this.table, docId))!;
                 if (oldDoc[key] !== undefined && oldDoc[key] !== idOrIds) {
                   // This would be only allowed if the edge is optional
                   // on the field side, which is not supported
@@ -2864,7 +2879,10 @@ class PromiseEntIdImpl<
       this.table,
       async () => {
         const id = await this.retrieve();
-        return { id, doc: async () => this.ctx.db.get(id) };
+        return {
+          id,
+          doc: async () => systemAwareGet(this.ctx.db, this.table, id),
+        };
       },
       true,
     ) as any;
@@ -2903,16 +2921,6 @@ const nullRetriever = {
   id: null,
   doc: async () => null,
 };
-
-// function idRetriever<
-//   DataModel extends GenericDataModel,
-//   Table extends TableNamesInDataModel<DataModel>
-// >(ctx: EntQueryCtx<DataModel>, id: GenericId<Table>) {
-//   return {
-//     id,
-//     doc: async () => ctx.db.get(id),
-//   };
-// }
 
 function loadedRetriever<
   DataModel extends GenericDataModel,
@@ -3081,6 +3089,12 @@ function getIndexFields(
   table: string,
   index: string,
 ) {
+  if (index === "by_id") {
+    return ["_id"];
+  }
+  if (index === "by_creation_time") {
+    return ["_creationTime"];
+  }
   return (entDefinitions[table].indexes as unknown as Record<string, string[]>)[
     index
   ];

@@ -29,7 +29,8 @@ const schema = defineEntSchema(
       .edge("secret", { ref: "ownerId" })
       .edge("photo", { ref: "user" })
       .edges("ownedPhotos", { to: "photos", ref: "ownerId" })
-      .edges("headshots", { ref: true }),
+      .edges("headshots", { ref: true })
+      .index("legacyEmail", ["email"]),
 
     profiles: defineEnt({
       bio: v.string(),

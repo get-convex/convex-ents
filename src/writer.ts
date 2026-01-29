@@ -19,7 +19,7 @@ import {
   edgeCompoundIndexName,
 } from "./schema";
 import { ScheduledDeleteFuncRef } from "./deletion";
-import { getEdgeDefinitions } from "./shared";
+import { getEdgeDefinitions, isSystemTable } from "./shared";
 
 export class WriterImplBase<
   EntsDataModel extends GenericEntsDataModel,
@@ -75,7 +75,7 @@ export class WriterImplBase<
               edgeDefinition.deletion !== undefined &&
               (!isDeletingSoftly || edgeDefinition.deletion === "soft")
             ) {
-              const doc = await this.ctx.db.get(id);
+              const doc = await this.ctx.db.get(this.table, id);
               if (doc !== null) {
                 const otherId = doc[edgeDefinition.field] as
                   | GenericId<any>
@@ -390,7 +390,7 @@ export class WriterImplBase<
     if (id !== undefined) {
       const readPolicy = getReadRule(this.entDefinitions, this.table);
       if (readPolicy !== undefined) {
-        const doc = await this.ctx.db.get(id);
+        const doc = await this.ctx.db.get(this.table, id);
         if (doc === null) {
           throw new Error(
             `Cannot update document with ID "${id}" in table "${this.table} because it does not exist"`,
@@ -412,7 +412,7 @@ export class WriterImplBase<
       id === undefined
         ? undefined
         : entWrapper(
-            (await this.ctx.db.get(id))!,
+            (await this.ctx.db.get(this.table, id))!,
             this.ctx,
             this.entDefinitions,
             this.table,
@@ -493,7 +493,3 @@ export type EdgeChanges = Record<
     removeEdges?: GenericId<any>[];
   }
 >;
-
-export function isSystemTable(table: string) {
-  return table.startsWith("_");
-}
