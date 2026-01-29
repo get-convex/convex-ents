@@ -12,9 +12,6 @@ const test = baseTest.extend<{
   ctx: async ({}, use) => {
     const t = convexTest(schema);
     await t.run(async (baseCtx) => {
-      baseCtx.db
-        .query("messages")
-        .withIndex("by_creation_time", (q) => q.eq("_creationTime", 3));
       const ctx = await runCtx(baseCtx);
       await use(ctx);
     });
