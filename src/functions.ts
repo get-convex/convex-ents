@@ -41,8 +41,10 @@ import {
   EntsSystemDataModel,
   IndexFieldTypesForEq,
   PromiseEdgeResult,
+  UniqueIndexFieldName,
   getEdgeDefinitions,
   systemAwareGet,
+  systemAwareQuery,
 } from "./shared";
 import {
   EdgeChanges,
@@ -152,7 +154,7 @@ export interface PromiseTableBase<
     indexName: Index,
     values: FieldTypeFromFieldPath<
       DocumentByName<EntsDataModel, Table>,
-      Indexes[Index][0]
+      UniqueIndexFieldName<Indexes[Index]>
     >[],
   ): PromiseEntsOrNulls<EntsDataModel, Table>;
   getMany(ids: GenericId<Table>[]): PromiseEntsOrNulls<EntsDataModel, Table>;
@@ -163,7 +165,7 @@ export interface PromiseTableBase<
     indexName: Index,
     values: FieldTypeFromFieldPath<
       DocumentByName<EntsDataModel, Table>,
-      Indexes[Index][0]
+      UniqueIndexFieldName<Indexes[Index]>
     >[],
   ): PromiseEnts<EntsDataModel, Table>;
   getManyX(ids: GenericId<Table>[]): PromiseEnts<EntsDataModel, Table>;
@@ -679,9 +681,7 @@ class PromiseTableImpl<
     table: Table,
   ) {
     super(ctx, entDefinitions, table, async () =>
-      isSystemTable(table)
-        ? (ctx.db.system.query(table as any) as any)
-        : ctx.db.query(table),
+      systemAwareQuery(ctx.db, table),
     );
   }
 
@@ -732,8 +732,7 @@ class PromiseTableImpl<
               this.table,
               indexName,
             );
-            const doc = await this.ctx.db
-              .query(this.table)
+            const doc = await systemAwareQuery(this.ctx.db, this.table)
               .withIndex(indexName, (q) =>
                 values.reduce((q, value, i) => q.eq(fieldNames[i], value), q),
               )
@@ -782,15 +781,26 @@ class PromiseTableImpl<
           }
         : async () => {
             const [indexName, values] = args;
+            const fieldNames = getIndexFields(
+              this.entDefinitions,
+              this.table,
+              indexName,
+            );
+            if (fieldNames.length > 1) {
+              throw new Error(
+                `Index "${indexName}" has ${fieldNames.length} fields, ` +
+                  `but getMany() supports only single field indexes`,
+              );
+            }
+            const fieldName = fieldNames[0];
             return (await Promise.all(
               (values as any[]).map(async (value) => {
-                const doc = await this.ctx.db
-                  .query(this.table)
-                  .withIndex(indexName, (q) => q.eq(indexName, value))
+                const doc = await systemAwareQuery(this.ctx.db, this.table)
+                  .withIndex(indexName, (q) => q.eq(fieldName, value))
                   .unique();
                 if (throwIfNull && doc === null) {
                   throw new Error(
-                    `Table "${this.table}" does not contain document with field "${indexName}" = \`${value}\``,
+                    `Table "${this.table}" does not contain document with field "${fieldName}" = \`${value}\``,
                   );
                 }
                 return doc;
@@ -3079,6 +3089,12 @@ function getIndexFields(
   table: string,
   index: string,
 ) {
+  if (index === "by_id") {
+    return ["_id"];
+  }
+  if (index === "by_creation_time") {
+    return ["_creationTime"];
+  }
   return (entDefinitions[table].indexes as unknown as Record<string, string[]>)[
     index
   ];

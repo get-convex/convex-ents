@@ -3,6 +3,8 @@ import {
   FieldTypeFromFieldPath,
   GenericDatabaseReader,
   GenericDataModel,
+  NamedTableInfo,
+  QueryInitializer,
   SystemDataModel,
   SystemTableNames,
   TableNamesInDataModel,
@@ -36,16 +38,20 @@ export type IndexFieldTypesForEq<
   EntsDataModel extends GenericEntsDataModel,
   Table extends TableNamesInDataModel<EntsDataModel>,
   T extends string[],
-> = Pop<{
+> = PopIfSeveral<{
   [K in keyof T]: FieldTypeFromFieldPath<
     DocumentByName<EntsDataModel, Table>,
     T[K]
   >;
 }>;
 
-type Pop<T extends any[]> = T extends [...infer Rest, infer _Last]
-  ? Rest
-  : never;
+// System indexes have only a single field, so we won't to perform
+// equality check on that field. Normal indexes always have _creationTime as the last field.
+type PopIfSeveral<T extends any[]> = T extends [infer Only]
+  ? [Only]
+  : T extends [...infer Rest, infer _Last]
+    ? Rest
+    : never;
 
 export function getEdgeDefinitions<
   EntsDataModel extends GenericEntsDataModel,
@@ -56,9 +62,12 @@ export function getEdgeDefinitions<
     EdgeConfig
   >;
 }
-export function isSystemTable(table: string): table is SystemTableNames {
-  return table.startsWith("_");
-}
+
+export type UniqueIndexFieldName<T extends string[]> = T extends [infer Only]
+  ? Only
+  : T extends [infer Single, "_creationTime"]
+    ? Single
+    : never;
 
 export function systemAwareGet<
   DataModel extends GenericDataModel,
@@ -68,9 +77,19 @@ export function systemAwareGet<
     ? db.system.get(table, id as any)
     : db.get(table, id);
 }
-// TODO: make more queries system-aware
-// export function systemAwareQuery<DataModel extends GenericDataModel, Table extends TableNamesInDataModel<DataModel>>(db: GenericDatabaseReader<DataModel>, table: Table): QueryInitializer<NamedTableInfo<DataModel, Table>> {
-//   return isSystemTable(table)
-//     ? db.system.query(table) as any
-//     : db.query(table);
-// }
+
+export function systemAwareQuery<
+  DataModel extends GenericDataModel,
+  Table extends TableNamesInDataModel<DataModel>,
+>(
+  db: GenericDatabaseReader<DataModel>,
+  table: Table,
+): QueryInitializer<NamedTableInfo<DataModel, Table>> {
+  return isSystemTable(table)
+    ? (db.system.query(table) as any)
+    : db.query(table);
+}
+
+export function isSystemTable(table: string): table is SystemTableNames {
+  return table.startsWith("_");
+}

@@ -12,6 +12,9 @@ const test = baseTest.extend<{
   ctx: async ({}, use) => {
     const t = convexTest(schema);
     await t.run(async (baseCtx) => {
+      baseCtx.db
+        .query("messages")
+        .withIndex("by_creation_time", (q) => q.eq("_creationTime", 3));
       const ctx = await runCtx(baseCtx);
       await use(ctx);
     });
@@ -200,6 +203,18 @@ test("many:many symmetric edge", async ({ ctx }) => {
   expect((await friends[0].edge("friends"))[0].name).toEqual("Stark");
 });
 
+test("get via indexed field", async ({ ctx }) => {
+  await ctx.table("users").insert({ name: "Stark", email: "tony@stark.com" });
+  const user = await ctx.table("users").get("email", "tony@stark.com");
+  expect(user).not.toBeNull();
+});
+
+test("get via index with non-matching field name", async ({ ctx }) => {
+  await ctx.table("users").insert({ name: "Stark", email: "tony@stark.com" });
+  const user = await ctx.table("users").get("legacyEmail", "tony@stark.com");
+  expect(user).not.toBeNull();
+});
+
 test("getMany", async ({ ctx }) => {
   await ctx.table("users").insertMany([
     { name: "Stark", email: "tony@stark.com" },
@@ -233,6 +248,25 @@ test("getManyX", async ({ ctx }) => {
   expect(specificUsers).toHaveLength(2);
   expect(specificUsers[0]?.name).toEqual(users[0].name);
   expect(specificUsers[1]?.name).toEqual(users[1].name);
+});
+
+test("getMany via index with non-matching field name", async ({ ctx }) => {
+  await ctx.table("users").insert({ name: "Stark", email: "tony@stark.com" });
+  const users = await ctx
+    .table("users")
+    .getMany("legacyEmail", ["tony@stark.com"]);
+  expect(users).toHaveLength(1);
+  expect(users[0]!.name).toEqual("Stark");
+});
+
+test("getMany fails on compound index", async ({ ctx }) => {
+  await ctx
+    .table("posts")
+    .insert({ text: "My great video", type: "video", numLikes: 4 });
+  await expect(
+    // @ts-expect-error -- compound index
+    ctx.table("posts").getMany("numLikesAndType", ["video"]),
+  ).rejects.toThrow();
 });
 
 test("table using index", async ({ ctx }) => {
@@ -715,6 +749,47 @@ test("_scheduled_functions get", async ({ ctx }) => {
 
   const scheduled = await ctx.table.system("_scheduled_functions").get(id);
   expect(scheduled).not.toBeNull();
+
+  await ctx.scheduler.cancel(id);
+
+  vi.useRealTimers();
+});
+
+test("get via index on system tables", async ({ ctx }) => {
+  vi.useFakeTimers();
+
+  const id = await ctx.scheduler.runAfter(
+    10000,
+    internal.migrations.usersCapitalizeName,
+    { fn: "Foo" },
+  );
+  const job = await ctx.table.system("_scheduled_functions").getX(id);
+
+  const scheduled = await ctx.table
+    .system("_scheduled_functions")
+    .get("by_id", job._id);
+  expect(scheduled).not.toBeNull();
+
+  await ctx.scheduler.cancel(id);
+
+  vi.useRealTimers();
+});
+
+test("getMany via index on system tables", async ({ ctx }) => {
+  vi.useFakeTimers();
+
+  const id = await ctx.scheduler.runAfter(
+    10000,
+    internal.migrations.usersCapitalizeName,
+    { fn: "Foo" },
+  );
+  const job = await ctx.table.system("_scheduled_functions").getX(id);
+
+  const scheduled = await ctx.table
+    .system("_scheduled_functions")
+    .getMany("by_id", [job._id]);
+  expect(scheduled).toHaveLength(1);
+  expect(scheduled[0]).not.toBeNull();
 
   await ctx.scheduler.cancel(id);
 

@@ -25,7 +25,9 @@ All Convex Ents APIs require specifying a table up-front. If you need to read
 data from an arbitrary table, you must the
 [use the built-in `ctx.db`](/setup/config) object.
 
-## Reading a single ent by ID
+## Reading a single ent
+
+### Reading a single ent by ID
 
 ```ts
 const task = await ctx.table("tasks").get(taskId);
@@ -39,16 +41,16 @@ const task = await ctx.db.get("tasks", taskId);
 
 </Aside>
 
-## Reading a single ent by indexed field
+### Reading a single ent via an indexed field
 
 ```ts
-const task = await ctx.table("users").get("email", "steve@apple.com");
+const user = await ctx.table("users").get("email", "steve@apple.com");
 ```
 
 <Aside title="This is equivalent to the built-in:">
 
 ```ts
-const task = await ctx.db
+const user = await ctx.db
   .query("users")
   .withIndex("email", (q) => q.eq("email", "steve@apple.com"))
   .unique();
@@ -56,16 +58,16 @@ const task = await ctx.db
 
 </Aside>
 
-## Reading a single ent via a compound index
+### Reading a single ent via a compound index
 
 ```ts
-const task = await ctx.table("users").get("nameAndRank", "Steve", 10);
+const user = await ctx.table("users").get("nameAndRank", "Steve", 10);
 ```
 
 <Aside title="This is equivalent to the built-in:">
 
 ```ts
-const task = await ctx.db
+const user = await ctx.db
   .query("users")
   .withIndex("nameAndRank", (q) => q.eq("name", "Steve").eq("rank", 10))
   .unique();
@@ -73,7 +75,7 @@ const task = await ctx.db
 
 </Aside>
 
-## Reading a single ent or throwing
+### Reading a single ent or throwing
 
 The `getX` method (pronounced "get or throw") throws an `Error` if the read
 produced no ents:
@@ -83,10 +85,12 @@ const task = await ctx.table("tasks").getX(taskId);
 ```
 
 ```ts
-const task = await ctx.table("users").getX("email", "steve@apple.com");
+const user = await ctx.table("users").getX("email", "steve@apple.com");
 ```
 
-## Reading multiple ents by IDs
+## Reading multiple ents
+
+### Reading multiple ents by IDs
 
 Retrieve a list of ents or nulls:
 
@@ -104,7 +108,33 @@ const tasks = await Promise.all(
 
 </Aside>
 
-## Reading multiple ents by IDs or throwing
+### Reading multiple ents via an indexed field
+
+```ts
+const users = await ctx
+  .table("users")
+  .getMany("email", ["steve@apple.com", "bill@microsoft.com"]);
+```
+
+<Aside title="This is equivalent to the built-in:">
+
+```ts
+const users = await Promise.all(
+  ["steve@apple.com", "bill@microsoft.com"].map((email) =>
+    ctx.db
+      .query("users")
+      .withIndex("email", (q) => q.eq("email", email))
+      .unique(),
+  ),
+);
+```
+
+</Aside>
+
+Any index with a single field is supported. `getMany` does not support indexes
+over multiple fields.
+
+### Reading multiple ents by IDs or throwing
 
 Retrieve a list of ents or throw an `Error` if any of the IDs didn't map to an
 existing ent:
@@ -114,6 +144,20 @@ const tasks = await ctx.table("tasks").getManyX([taskId1, taskId2]);
 ```
 
 Also throws if any of the ents fail a [read rule](/schema/rules).
+
+### Reading multiple ents via an indexed field or throwing
+
+Retrieve a list of ents or throw an `Error` if any of the field values didn't
+map to an existing ent:
+
+```ts
+const users = await ctx
+  .table("users")
+  .getManyX("email", ["steve@apple.com", "bill@microsoft.com"]);
+```
+
+Any index with a single field is supported. `getManyX` does not support indexes
+over multiple fields.
 
 ## Listing all ents
 
