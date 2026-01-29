@@ -1,3 +1,13 @@
+# 0.19.0
+
+- `getMany(indexName, values)` now supports any single-field index and is
+  properly documented.
+- System indexes (`"by_id"`, `"by_creation_time"`, etc.) are now supported when
+  reading ents via `get(indexName, value)` and `getMany(indexName, values)` when
+  typechecking.
+- All the `ctx.db.get` API calls under the hood now use the new form with
+  explicit table name argument.
+
 # 0.18.1
 
 Fixes installation (removed `postinstall` script).
