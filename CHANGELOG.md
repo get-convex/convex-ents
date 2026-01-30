@@ -1,3 +1,18 @@
+# 0.20.0
+
+It's now possible to retrieve only the IDs of the ents on the other side of a
+many:many edge:
+
+```ts
+// Returns the document ID of the first tag associated with message with ID `messageId`.
+await ctx.table("messages").getX(messageId).edge("tags").ids().first();
+```
+
+This will translate to a single vanilla Convex query on the table backing the
+edge. See
+[Reading Ents](https://labs.convex.dev/convex-ents/read#getting-manymany-edge-ids)
+for more details.
+
 # 0.19.0
 
 - `getMany(indexName, values)` now supports any single-field index and is
