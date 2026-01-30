@@ -6,6 +6,7 @@ import { Ent, EntWriter, MutationCtx } from "./types";
 import { StorageActionWriter } from "convex/server";
 
 const test = baseTest.extend<{
+  // Change MutationCtx to QueryCtx to test the read types
   ctx: MutationCtx & { storage: StorageActionWriter };
 }>({
   // eslint-disable-next-line no-empty-pattern
@@ -683,6 +684,70 @@ test("order many:many edge", async ({ ctx }) => {
     async () =>
       await ctx.table("messages").firstX().edge("tags").order("desc").uniqueX(),
   ).rejects.toThrow();
+});
+
+test("many:many edge ids only", async ({ ctx }) => {
+  const userId = await ctx
+    .table("users")
+    .insert({ name: "Stark", email: "tony@stark.com" });
+  const messageId = await ctx
+    .table("messages")
+    .insert({ text: "Hello world", userId: userId });
+  const messageId2 = await ctx
+    .table("messages")
+    .insert({ text: "Nada tags", userId: userId });
+  const messageId3 = await ctx
+    .table("messages")
+    .insert({ text: "Nada tags", userId: userId });
+  const tagIds = await ctx.table("tags").insertMany([
+    { name: "cool", messages: [messageId, messageId3] },
+    { name: "funny", messages: [messageId] },
+    { name: "smart", messages: [messageId] },
+    { name: "wonderful", messages: [messageId] },
+  ]);
+  const message1Lazy = ctx.table("messages").getX(messageId);
+  const message2Lazy = ctx.table("messages").getX(messageId2);
+  const message3Lazy = ctx.table("messages").getX(messageId3);
+  expect(await message1Lazy.edge("tags").ids().take(3)).toMatchObject(
+    tagIds.slice(0, 3),
+  );
+  expect(
+    await message1Lazy
+      .edge("tags")
+      .ids()
+      .take(3)
+      .map(async (id) => (await ctx.table("tags").getX(id)).name),
+  ).toMatchObject(["cool", "funny", "smart"]);
+  expect(await message1Lazy.edge("tags").ids().first()).toEqual(tagIds[0]);
+  expect(await message1Lazy.edge("tags").ids().firstX()).toEqual(tagIds[0]);
+  expect(await message1Lazy.edge("tags").order("desc").ids().first()).toEqual(
+    tagIds.at(-1),
+  );
+  expect(await message2Lazy.edge("tags").ids().first()).toBeNull();
+  await expect(async () => {
+    await message2Lazy.edge("tags").ids().firstX();
+  }).rejects.toThrowError(`Expected at least one ID, but got none`);
+  expect(await message3Lazy.edge("tags").ids().unique()).toEqual(tagIds[0]);
+  expect(await message3Lazy.edge("tags").ids().uniqueX()).toEqual(tagIds[0]);
+  expect(await message2Lazy.edge("tags").ids().unique()).toBeNull();
+  await expect(async () => {
+    await message2Lazy.edge("tags").ids().uniqueX();
+  }).rejects.toThrowError(`Expected one unique ID, but got none`);
+  expect(
+    await message1Lazy
+      .edge("tags")
+      .ids()
+      .map(async (id) => (await ctx.table("tags").getX(id)).name),
+  ).toMatchObject(["cool", "funny", "smart", "wonderful"]);
+  expect(
+    (
+      await message1Lazy
+        .edge("tags")
+        .ids()
+        .paginate({ numItems: 2, cursor: null })
+        .map(async (id) => (await ctx.table("tags").getX(id)).name)
+    ).page,
+  ).toMatchObject(["cool", "funny"]);
 });
 
 test("table collect", async ({ ctx }) => {

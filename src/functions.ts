@@ -88,6 +88,44 @@ export interface PromiseOrderedQueryOrNull<
   docs(): Promise<DocumentByName<EntsDataModel, Table>[] | null>;
 }
 
+export interface PromiseOrderedIdsQueryOrNull<
+  EntsDataModel extends GenericEntsDataModel,
+  Table extends TableNamesInDataModel<EntsDataModel>,
+> extends Promise<GenericId<Table>[] | null> {
+  /**
+   * Map over the relevant IDs.
+   */
+  map<TOutput>(
+    callbackFn: (
+      value: GenericId<Table>,
+      index: number,
+      array: GenericId<Table>[],
+    ) => TOutput | Promise<TOutput>,
+  ): PromiseArrayOrNull<TOutput>;
+
+  /**
+   * Paginate the relevant IDs.
+   */
+  paginate(
+    paginationOpts: PaginationOptions,
+  ): PromiseIdsPaginationResultOrNull<EntsDataModel, Table>;
+
+  /**
+   * Take the first `n` relevant IDs.
+   */
+  take(n: number): PromiseIdsOrNull<EntsDataModel, Table>;
+
+  /**
+   * Returns the first relevant ID, or `null` if there are no relevant IDs.
+   */
+  first(): Promise<GenericId<Table> | null>;
+
+  /**
+   * Returns the only relevant ID, or `null` if there are none or throws if there is more than one.
+   */
+  unique(): Promise<GenericId<Table> | null>;
+}
+
 export interface PromiseOrderedQueryWriterOrNull<
   EntsDataModel extends GenericEntsDataModel,
   Table extends TableNamesInDataModel<EntsDataModel>,
@@ -299,6 +337,33 @@ export interface PromiseOrderedQuery<
   uniqueX(): PromiseEnt<EntsDataModel, Table>;
 }
 
+export interface PromiseOrderedIdsQuery<
+  EntsDataModel extends GenericEntsDataModel,
+  Table extends TableNamesInDataModel<EntsDataModel>,
+> extends Promise<GenericId<Table>[]> {
+  map<TOutput>(
+    callbackFn: (
+      value: GenericId<Table>,
+      index: number,
+      array: GenericId<Table>[],
+    ) => Promise<TOutput> | TOutput,
+  ): PromiseArray<TOutput>;
+
+  paginate(
+    paginationOpts: PaginationOptions,
+  ): PromiseIdsPaginationResult<EntsDataModel, Table>;
+
+  take(n: number): PromiseIds<EntsDataModel, Table>;
+
+  first(): Promise<GenericId<Table> | null>;
+
+  firstX(): Promise<GenericId<Table>>;
+
+  unique(): Promise<GenericId<Table> | null>;
+
+  uniqueX(): Promise<GenericId<Table>>;
+}
+
 export interface PromiseQuery<
   EntsDataModel extends GenericEntsDataModel,
   Table extends TableNamesInDataModel<EntsDataModel>,
@@ -352,7 +417,7 @@ class PromiseQueryOrNullImpl<
       array: Ent<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel>[],
     ) => TOutput | Promise<TOutput>,
   ) {
-    return new PromiseArrayImpl(async () => {
+    return new PromiseArrayOrNullImpl(async () => {
       const array = await this;
       if (array === null) {
         return null as TOutput[] | null;
@@ -549,6 +614,120 @@ class PromiseQueryOrNullImpl<
   }
 }
 
+class PromiseIdsQueryOrNullImpl<
+  EntsDataModel extends GenericEntsDataModel,
+  Table extends TableNamesInDataModel<EntsDataModel>,
+>
+  extends Promise<GenericId<Table>[] | null>
+  implements PromiseOrderedIdsQueryOrNull<EntsDataModel, Table>
+{
+  constructor(
+    protected retrieve: () => Promise<Query<GenericTableInfo> | null>,
+    protected field: string,
+  ) {
+    super(() => {});
+  }
+
+  map<TOutput>(
+    callbackFn: (
+      value: GenericId<Table>,
+      index: number,
+      array: GenericId<Table>[],
+    ) => TOutput | Promise<TOutput>,
+  ) {
+    return new PromiseArrayOrNullImpl(async () => {
+      const array = await this;
+      if (array === null) {
+        return null as TOutput[] | null;
+      }
+      return await Promise.all(array.map(callbackFn));
+    });
+  }
+
+  paginate(paginationOpts: PaginationOptions) {
+    return new PromiseIdsPaginationResultOrNullImpl(async () => {
+      const query = await this.retrieve();
+      if (query === null) {
+        return null;
+      }
+      const result = await query.paginate(paginationOpts);
+      return {
+        ...result,
+        page: result.page.map((id) => this._getId(id)),
+      };
+    });
+  }
+
+  take(n: number) {
+    return new PromiseIdsOrNullImpl(async () => {
+      const query = await this.retrieve();
+      if (query === null) {
+        return null;
+      }
+      const result = await query.take(n);
+      return result.map((id) => this._getId(id));
+    });
+  }
+
+  async first() {
+    const query = await this.retrieve();
+    if (query === null) {
+      return null;
+    }
+    const doc = await query.first();
+    if (doc === null) {
+      return null;
+    }
+    return this._getId(doc);
+  }
+
+  async firstX() {
+    const id = await this.first();
+    if (id === null) {
+      throw new Error("Expected at least one ID, but got none");
+    }
+    return id;
+  }
+
+  async unique() {
+    const query = await this.retrieve();
+    if (query === null) {
+      return null;
+    }
+    const result = await query.unique();
+    if (result === null) {
+      return null;
+    }
+    return this._getId(result);
+  }
+
+  async uniqueX() {
+    const id = await this.unique();
+    if (id === null) {
+      throw new Error("Expected one unique ID, but got none");
+    }
+    return id;
+  }
+
+  then<TResult1 = GenericId<Table>[] | null, TResult2 = never>(
+    onfulfilled?:
+      | ((value: GenericId<Table>[] | null) => TResult1 | PromiseLike<TResult1>)
+      | null,
+    onrejected?: ((reason: any) => TResult2 | PromiseLike<TResult2>) | null,
+  ): Promise<TResult1 | TResult2> {
+    return this.retrieve()
+      .then((query) => (query === null ? null : query.collect()))
+      .then((docs) =>
+        docs === null ? null : docs.map((doc) => this._getId(doc)),
+      )
+      .then(onfulfilled, onrejected);
+  }
+
+  _getId(doc: GenericDocument) {
+    return doc[this.field] as GenericId<Table>;
+  }
+}
+
 export interface PromisePaginationResultOrNull<
   EntsDataModel extends GenericEntsDataModel,
   Table extends TableNamesInDataModel<EntsDataModel>,
@@ -668,6 +847,76 @@ class PromisePaginationResultOrNullImpl<
             },
       )
       .then(onfulfilled, onrejected);
+  }
+}
+
+export interface PromiseIdsPaginationResultOrNull<
+  EntsDataModel extends GenericEntsDataModel,
+  Table extends TableNamesInDataModel<EntsDataModel>,
+> extends Promise<PaginationResult<GenericId<Table>> | null> {
+  map<TOutput>(
+    callbackFn: (
+      value: GenericId<Table>,
+      index: number,
+      array: GenericId<Table>[],
+    ) => Promise<TOutput> | TOutput,
+  ): Promise<PaginationResult<TOutput> | null>;
+}
+
+export interface PromiseIdsPaginationResult<
+  EntsDataModel extends GenericEntsDataModel,
+  Table extends TableNamesInDataModel<EntsDataModel>,
+> extends Promise<PaginationResult<GenericId<Table>>> {
+  map<TOutput>(
+    callbackFn: (
+      value: GenericId<Table>,
+      index: number,
+      array: GenericId<Table>[],
+    ) => Promise<TOutput> | TOutput,
+  ): Promise<PaginationResult<TOutput>>;
+}
+
+class PromiseIdsPaginationResultOrNullImpl<
+  EntsDataModel extends GenericEntsDataModel,
+  Table extends TableNamesInDataModel<EntsDataModel>,
+>
+  extends Promise<PaginationResult<GenericId<Table>> | null>
+  implements PromiseIdsPaginationResultOrNull<EntsDataModel, Table>
+{
+  constructor(
+    protected retrieve: () => Promise<PaginationResult<
+      GenericId<Table>
+    > | null>,
+  ) {
+    super(() => {});
+  }
+
+  async map<TOutput>(
+    callbackFn: (
+      value: GenericId<Table>,
+      index: number,
+      array: GenericId<Table>[],
+    ) => Promise<TOutput> | TOutput,
+  ) {
+    const result = await this;
+    if (result === null) {
+      return null;
+    }
+    return {
+      ...result,
+      page: await Promise.all(result.page.map(callbackFn)),
+    };
+  }
+
+  then<TResult1 = GenericId<Table>[] | null, TResult2 = never>(
+    onfulfilled?:
+      | ((
+          value: PaginationResult<GenericId<Table>> | null,
+        ) => TResult1 | PromiseLike<TResult1>)
+      | null,
+    onrejected?: ((reason: any) => TResult2 | PromiseLike<TResult2>) | null,
+  ): Promise<TResult1 | TResult2> {
+    return this.retrieve().then(onfulfilled, onrejected);
   }
 }
 
@@ -987,7 +1236,7 @@ class PromiseEntsOrNullImpl<
       array: Ent<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel>[],
     ) => TOutput | Promise<TOutput>,
   ) {
-    return new PromiseArrayImpl(async () => {
+    return new PromiseArrayOrNullImpl(async () => {
       const array = await this;
       if (array === null) {
         return null as TOutput[] | null;
@@ -1126,6 +1375,72 @@ export interface PromiseEntsOrNulls<
   (Ent<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel> | null)[]
 > {}
 
+class PromiseIdsOrNullImpl<
+  EntsDataModel extends GenericEntsDataModel,
+  Table extends TableNamesInDataModel<EntsDataModel>,
+> extends Promise<GenericId<Table>[] | null> {
+  constructor(private retrieve: () => Promise<GenericId<Table>[] | null>) {
+    super(() => {});
+  }
+
+  map<TOutput>(
+    callbackFn: (
+      value: GenericId<Table>,
+      index: number,
+      array: GenericId<Table>[],
+    ) => Promise<TOutput> | TOutput,
+  ): PromiseArrayOrNull<TOutput> {
+    return new PromiseArrayOrNullImpl(async () => {
+      const array = await this;
+      if (array === null) {
+        return null as TOutput[] | null;
+      }
+      return await Promise.all(array.map(callbackFn));
+    });
+  }
+
+  then<TResult1 = GenericId<Table>[] | null, TResult2 = never>(
+    onfulfilled?:
+      | ((value: GenericId<Table>[] | null) => TResult1 | PromiseLike<TResult1>)
+      | null,
+    onrejected?: ((reason: any) => TResult2 | PromiseLike<TResult2>) | null,
+  ): Promise<TResult1 | TResult2> {
+    return this.retrieve().then(onfulfilled, onrejected);
+  }
+}
+
+// This lazy promise materializes objects, so chaining to this type of
+// lazy promise performs one operation for each
+// retrieved document in JavaScript, basically as if using `Promise.all()`.
+export interface PromiseIdsOrNull<
+  EntsDataModel extends GenericEntsDataModel,
+  Table extends TableNamesInDataModel<EntsDataModel>,
+> extends Promise<GenericId<Table>[] | null> {
+  map<TOutput>(
+    callbackFn: (
+      value: GenericId<Table>,
+      index: number,
+      array: GenericId<Table>[],
+    ) => Promise<TOutput> | TOutput,
+  ): PromiseArrayOrNull<TOutput>;
+}
+
+// This lazy promise materializes objects, so chaining to this type of
+// lazy promise performs one operation for each
+// retrieved document in JavaScript, basically as if using `Promise.all()`.
+export interface PromiseIds<
+  EntsDataModel extends GenericEntsDataModel,
+  Table extends TableNamesInDataModel<EntsDataModel>,
+> extends Promise<GenericId<Table>[]> {
+  map<TOutput>(
+    callbackFn: (
+      value: GenericId<Table>,
+      index: number,
+      array: GenericId<Table>[],
+    ) => Promise<TOutput> | TOutput,
+  ): PromiseArrayOrNull<TOutput>;
+}
+
 export interface PromiseEdgeOrderedEntsOrNull<
   EntsDataModel extends GenericEntsDataModel,
   Table extends TableNamesInDataModel<EntsDataModel>,
@@ -1183,6 +1498,14 @@ export interface PromiseEdgeOrderedEntsWriterOrNull<
   Table extends TableNamesInDataModel<EntsDataModel>,
 > extends PromiseEntsWriterOrNull<EntsDataModel, Table> {
   /**
+   * Returns the IDs of the ents on the other end of the edge.
+   * Returns null if chained to a null result.
+   *
+   * Note that read rules are not applied to filter the returned IDs.
+   */
+  ids(): PromiseOrderedIdsQueryOrNull<EntsDataModel, Table>;
+
+  /**
    * Paginate the ents on the other end of the edge.
    * Results are ordered by edge's `_creationTime`.
    */
@@ -1235,6 +1558,13 @@ export interface PromiseEdgeOrderedEnts<
   Table extends TableNamesInDataModel<EntsDataModel>,
 > extends PromiseEnts<EntsDataModel, Table> {
   /**
+   * Returns the IDs of the ents on the other end of the edge.
+   *
+   * Note that read rules are not applied to filter the returned IDs.
+   */
+  ids(): PromiseOrderedIdsQuery<EntsDataModel, Table>;
+
+  /**
    * Paginate the ents on the other end of the edge.
    * Results are ordered by edge's `_creationTime`.
    */
@@ -1286,6 +1616,13 @@ export interface PromiseEdgeEnts<
   has(id: GenericId<Table>): Promise<boolean>;
 
   /**
+   * Returns the IDs of the ents on the other end of the edge.
+   *
+   * Note that read rules are not applied to filter the returned IDs.
+   */
+  ids(): PromiseOrderedIdsQuery<EntsDataModel, Table>;
+
+  /**
    * Query the ents on the other end of the edge
    * ordered by edge's `_creationTime`.
    */
@@ -1299,6 +1636,13 @@ export interface PromiseEdgeOrderedEntsWriter<
   EntsDataModel extends GenericEntsDataModel,
   Table extends TableNamesInDataModel<EntsDataModel>,
 > extends PromiseEntsWriter<EntsDataModel, Table> {
+  /**
+   * Returns the IDs of the ents on the other end of the edge.
+   *
+   * Note that read rules are not applied to filter the returned IDs.
+   */
+  ids(): PromiseOrderedIdsQuery<EntsDataModel, Table>;
+
   /**
    * Paginate the ents on the other end of the edge.
    * Results are ordered by edge's `_creationTime`.
@@ -1414,6 +1758,13 @@ class PromiseEdgeOrNullImpl<
         return await Promise.all(edgeDocs.map(retrieveDoc));
       },
       false,
+    );
+  }
+
+  ids() {
+    return new PromiseIdsQueryOrNullImpl(
+      () => this.retrieveQuery(),
+      this.edgeDefinition.ref,
     );
   }
 
@@ -1838,7 +2189,7 @@ export interface PromiseArray<T> extends Promise<T[]> {
   ): Promise<T[]>;
 }
 
-class PromiseArrayImpl<T>
+class PromiseArrayOrNullImpl<T>
   extends Promise<T[] | null>
   implements PromiseArrayOrNull<T>
 {
@@ -2023,6 +2374,10 @@ export type EntsTable<EntsDataModel extends GenericEntsDataModel> =
   };
 
 export type EntsTableWriter<EntsDataModel extends GenericEntsDataModel> = {
+  /**
+   * Read from and write to the given `table` using the index with the given `indexName`.
+   * Without the `indexRange` argument, the use of the index only affects the order of the results.
+   */
   <
     Table extends TableNamesInDataModel<EntsDataModel>,
     IndexName extends IndexNames<NamedTableInfo<EntsDataModel, Table>>,
@@ -2036,6 +2391,10 @@ export type EntsTableWriter<EntsDataModel extends GenericEntsDataModel> = {
       >,
     ) => IndexRange,
   ): PromiseQueryWriter<EntsDataModel, Table>;
+
+  /**
+   * Read from and write to the given `table`.
+   */
   <Table extends TableNamesInDataModel<EntsDataModel>>(
     table: Table,
   ): PromiseTableWriter<Table, EntsDataModel>;
@@ -2172,10 +2531,16 @@ export interface PromiseOrderedQueryWriter<
       EntWriter<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel>[]
     >,
     PromiseOrderedQueryBase<EntsDataModel, Table> {
+  /**
+   * Paginate the relevant ents.
+   */
   paginate(
     paginationOpts: PaginationOptions,
   ): PromisePaginationResultWriter<EntsDataModel, Table>;
 
+  /**
+   * Map over the relevant ents.
+   */
   map<TOutput>(
     callbackFn: (
       value: EntWriter<
@@ -2192,14 +2557,30 @@ export interface PromiseOrderedQueryWriter<
     ) => Promise<TOutput> | TOutput,
   ): PromiseArray<TOutput>;
 
+  /**
+   * Take the first `n` relevant ents.
+   */
   take(n: number): PromiseEntsWriter<EntsDataModel, Table>;
 
+  /**
+   * Returns the first relevant ent, or `null` if there are no ents.
+   */
   first(): PromiseEntWriterOrNull<EntsDataModel, Table>;
 
+  /**
+   * Returns the first relevant ent, or throws if there are no ents.
+   */
   firstX(): PromiseEntWriter<EntsDataModel, Table>;
 
+  /**
+   * Returns the only relevant ent, `null` if there are none,
+   * or throws if there are more than one.
+   */
   unique(): PromiseEntWriterOrNull<EntsDataModel, Table>;
 
+  /**
+   * Returns the only relevant ent, or throws if there are none or more than one.
+   */
   uniqueX(): PromiseEntWriter<EntsDataModel, Table>;
 }
 
@@ -2481,6 +2862,9 @@ export interface PromiseEntWriter<
 > extends Promise<
   EntWriter<Table, DocumentByName<EntsDataModel, Table>, EntsDataModel>
 > {
+  /**
+   * Traverse the given `edge`.
+   */
   edge<Edge extends keyof EntsDataModel[Table]["edges"]>(
     edge: Edge,
   ): PromiseEdgeWriter<EntsDataModel, Table, Edge>;

@@ -451,7 +451,11 @@ You can efficiently test whether two ents are connected by a many:many edge
 using the `has` method:
 
 ```ts
-const hasTag = ctx.table("messages").getX(messageId).edge("tags").has(tagId);
+const hasTag = await ctx
+  .table("messages")
+  .getX(messageId)
+  .edge("tags")
+  .has(tagId);
 ```
 
 <Aside title="This is equivalent to the built-in:">
@@ -468,6 +472,85 @@ const hasTag =
 
 </Aside>
 
+### Getting many:many edge IDs
+
+If you're performing some kind of a "join" on the client, you might want the
+server to only return the IDs of the ents related via a many:many edge, without
+having to load all the related ents. You can do this with the `ids` method:
+
+```ts
+const tagIds = await ctx.table("messages").getX(messageId).edge("tags").ids();
+```
+
+<Aside title="This is equivalent to the built-in:">
+
+```ts
+const tagIds = await Promise.all(
+  (
+    await ctx.db
+      .query("messages_to_tags")
+      .withIndex("messagesId", (q) => q.eq("messagesId", messageId))
+      .collect()
+  ).map((edge) => edge.tagsId),
+);
+```
+
+</Aside>
+
+You can further chain the methods `paginate`, `take`, `first`, `firstX`,
+`unique`, `uniqueX` to limit the number of IDs retrieved:
+
+```ts
+const firstTagId = await ctx
+  .table("messages")
+  .getX(messageId)
+  .edge("tags")
+  .ids()
+  .first();
+```
+
+<Aside title="This is equivalent to the built-in:">
+
+```ts
+const edge = await ctx.db
+  .query("messages_to_tags")
+  .withIndex("messagesId", (q) => q.eq("messagesId", messageId))
+  .first();
+if (edge === null) {
+  return null;
+}
+const firstTagId = edge.tagsId;
+```
+
+</Aside>
+
+To change the order in which the IDs are listed, use the `order` method before
+the `ids` method:
+
+```ts
+const lastTagId = await ctx
+  .table("messages")
+  .getX(messageId)
+  .edge("tags")
+  .order("desc")
+  .ids()
+  .first();
+```
+
+You can use the `map` method to transform the ID to another result:
+
+```ts
+const sharedIds = await ctx
+  .table("messages")
+  .getX(messageId)
+  .edge("tags")
+  .ids()
+  .map(async (id) => [
+    id,
+    await ctx.table("messages").getX(anotherMessageId).edge("tags").has(id),
+  ]);
+```
+
 ## Retrieving related ents
 
 Sometimes you want to retrieve both the ents from one table and the related ents
@@ -482,7 +565,7 @@ the ent from the database:
 
 ```ts
 const user = await ctx.table("users").firstX();
-const profile = user.edgeX("profile");
+const profile = await user.edgeX("profile");
 ```
 
 ### Mapping ents to include edges
