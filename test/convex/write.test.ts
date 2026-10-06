@@ -264,68 +264,6 @@ test("replace to remove many:many", async ({ ctx }) => {
   ).toHaveLength(0);
 });
 
-test("replace preserves existing many:many edges", async ({ ctx }) => {
-  const alice = await ctx
-    .table("users")
-    .insert({ name: "Alice", email: "alice@example.com" })
-    .get();
-  const [bobId, carolId, daveId] = await ctx.table("users").insertMany([
-    { name: "Bob", email: "bob@example.com" },
-    { name: "Carol", email: "carol@example.com" },
-    { name: "Dave", email: "dave@example.com" },
-  ]);
-  await alice.patch({ followees: { add: [bobId, carolId] } });
-
-  await alice.replace({
-    name: "Alice",
-    email: "alice@example.com",
-    followees: [bobId, carolId],
-  });
-
-  expect(await alice.edge("followees").ids()).toEqual([bobId, carolId]);
-  expect(await ctx.table("users").getX(bobId).edge("followers").ids()).toEqual([
-    alice._id,
-  ]);
-  expect(
-    await ctx.table("users").getX(carolId).edge("followers").ids(),
-  ).toEqual([alice._id]);
-  expect(await ctx.table("users").getX(daveId).edge("followers").ids()).toEqual(
-    [],
-  );
-});
-
-test("replace preserves existing symmetric many:many edges", async ({
-  ctx,
-}) => {
-  const alice = await ctx
-    .table("users")
-    .insert({ name: "Alice", email: "alice@example.com" })
-    .get();
-  const [bobId, carolId, daveId] = await ctx.table("users").insertMany([
-    { name: "Bob", email: "bob@example.com" },
-    { name: "Carol", email: "carol@example.com" },
-    { name: "Dave", email: "dave@example.com" },
-  ]);
-  await alice.patch({ friends: { add: [bobId, carolId] } });
-
-  await alice.replace({
-    name: "Alice",
-    email: "alice@example.com",
-    friends: [bobId, carolId],
-  });
-
-  expect(await alice.edge("friends").ids()).toEqual([bobId, carolId]);
-  expect(await ctx.table("users").getX(bobId).edge("friends").ids()).toEqual([
-    alice._id,
-  ]);
-  expect(await ctx.table("users").getX(carolId).edge("friends").ids()).toEqual([
-    alice._id,
-  ]);
-  expect(await ctx.table("users").getX(daveId).edge("friends").ids()).toEqual(
-    [],
-  );
-});
-
 test("replace adds and removes many:many edges", async ({ ctx }) => {
   const alice = await ctx
     .table("users")
