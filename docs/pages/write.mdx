@@ -146,8 +146,9 @@ await ctx
 ```
 
 If a list is specified, the edges that need to be created are created, and all
-other existing edges are deleted. If the edge name is ommited entirely, the
-edges are left unchanged:
+other existing edges are deleted. To determine the changes, `replace` fetches
+all existing edge documents for the field. If the edge name is ommited entirely,
+the edges are left unchanged:
 
 ```ts
 await ctx
@@ -169,7 +170,9 @@ await message.patch({
 
 Any edges in the `add` list that didn't exist are created, and any edges in the
 `remove` list that did exist are deleted. Edges to ents with ID not listed in
-either list are not affected by `patch`.
+either list are not affected by `patch`. Unlike `replace`, `patch` doesn't fetch
+all existing edges, it performs one existence check per ID in `add` and `remove`
+(two per ID in `remove` for symmetric edges, one for each direction).
 
 ## Updating ents connected by edges
 
