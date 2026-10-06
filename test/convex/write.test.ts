@@ -264,6 +264,44 @@ test("replace to remove many:many", async ({ ctx }) => {
   ).toHaveLength(0);
 });
 
+test.for(["followees", "friends"] as const)(
+  "replace preserves and updates many:many edges (%s)",
+  async (edge, { ctx }) => {
+    const alice = await ctx
+      .table("users")
+      .insert({ name: "Alice", email: "alice@example.com" })
+      .get();
+    const [bobId, carolId, daveId] = await Promise.all(
+      ["Bob", "Carol", "Dave"].map((name) =>
+        ctx.table("users").insert({ name, email: `${name}@example.com` }),
+      ),
+    );
+    await alice.patch({ [edge]: { add: [bobId, carolId] } });
+
+    for (const requested of [
+      [bobId, carolId],
+      [carolId, daveId, daveId],
+    ]) {
+      await alice.replace({
+        name: "Alice",
+        email: "alice@example.com",
+        [edge]: requested,
+      });
+      expect((await alice.edge(edge)).map((user) => user._id).sort()).toEqual(
+        [...new Set(requested)].sort(),
+      );
+      const inverse = edge === "friends" ? "friends" : "followers";
+      for (const id of [bobId, carolId, daveId]) {
+        expect(
+          (await ctx.table("users").getX(id).edge(inverse)).map(
+            (user) => user._id,
+          ),
+        ).toEqual(requested.includes(id) ? [alice._id] : []);
+      }
+    }
+  },
+);
+
 test("replace only patches edges", async ({ ctx }) => {
   const someUserId = await ctx.table("users").insert({
     name: "Gates",

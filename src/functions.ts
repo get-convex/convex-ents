@@ -3119,6 +3119,7 @@ class PromiseEntWriterImpl<
                 // };
               } else {
                 const requested = new Set(idOrIds);
+                const missing = new Set(requested);
                 const removeEdges = (
                   await this.ctx.db
                     .query(edgeDefinition.table)
@@ -3145,14 +3146,14 @@ class PromiseEntWriterImpl<
                   )
                   .filter(([_edgeId, otherId]) => {
                     if (requested.has(otherId as any)) {
-                      requested.delete(otherId as any);
+                      missing.delete(otherId as any);
                       return false;
                     }
                     return true;
                   })
                   .map(([edgeId]) => edgeId as GenericId<any>);
                 edges[key] = {
-                  add: idOrIds as GenericId<any>[],
+                  add: [...missing] as GenericId<any>[],
                   removeEdges,
                 };
               }
