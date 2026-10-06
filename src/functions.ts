@@ -3160,7 +3160,9 @@ class PromiseEntWriterImpl<
             }
           }),
         );
-        await this.base.writeEdges(docId, edges);
+        await this.base.writeEdges(docId, edges, {
+          additionsKnownMissing: true,
+        });
         return docId;
       },
     );

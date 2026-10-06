@@ -171,6 +171,39 @@ Any edges in the `add` list that didn't exist are created, and any edges in the
 `remove` list that did exist are deleted. Edges to ents with ID not listed in
 either list are not affected by `patch`.
 
+### Fetching costs of many:many updates
+
+`patch` and `replace` read the junction table differently. The following counts
+apply to each many:many edge field included in the update. They exclude reads
+needed to retrieve the ent, evaluate security rules, or check unique fields.
+
+| Update                                   | Junction table reads                                                                                             |
+| ---------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `patch({ tags: { add: ids } })`          | One indexed existence query per distinct ID in `add`, including edges that already exist.                        |
+| `patch({ tags: { remove: ids } })`       | One indexed query per entry in `remove` to fetch the edge rows to delete.                                        |
+| `patch({ tags: { add, remove } })`       | Both sets of queries above. Other existing edges are not fetched.                                                |
+| `replace({ ...fields, tags: ids })`      | One indexed query fetching **all existing edges** for that field. No additional existence queries for additions. |
+| `patch` or `replace` with `tags` omitted | No junction table reads or writes for `tags`.                                                                    |
+
+For symmetric many:many edges, such as `friends`, removal in `patch` queries
+both stored directions for each entry in `remove`. `replace` also fetches both
+directions, using two indexed queries rather than one. Addition in `patch` still
+uses one existence query per distinct requested ID.
+
+`replace` compares the fetched edges with the requested IDs in memory. It keeps
+unchanged edges, deletes edges no longer requested, and inserts missing edges
+without querying them again. An empty list removes all existing edges for that
+field. Duplicate requested IDs do not create duplicate relationships.
+
+For example, if Alice already follows 600 users, replacing her `followees` with
+the same 600 IDs fetches all 600 edge rows in one query and performs no edge
+writes. Patching two additions and one removal instead performs three indexed
+queries, regardless of how many other users Alice follows.
+
+Use `patch` when you already know the additions and removals and want to avoid
+fetching the full existing edge set. Use `replace` when you have the complete
+desired set and need the library to determine the changes.
+
 ## Updating ents connected by edges
 
 The `patch`, `replace` and `delete` methods can be chained after `edge` calls to

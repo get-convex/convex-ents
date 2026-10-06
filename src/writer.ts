@@ -130,7 +130,7 @@ export class WriterImplBase<
         // - or Convex could implement this.
       }
     }
-    await this.writeEdges(id, edges, isDeletingSoftly);
+    await this.writeEdges(id, edges, { deleteSoftly: isDeletingSoftly });
     if (deletionConfig !== undefined && deletionConfig.type === "scheduled") {
       const fnRef = ((this.ctx as any).scheduledDelete ??
         makeFunctionReference(
@@ -174,7 +174,13 @@ export class WriterImplBase<
   async writeEdges(
     docId: GenericId<any>,
     changes: EdgeChanges,
-    deleteSoftly?: boolean,
+    {
+      deleteSoftly = false,
+      additionsKnownMissing = false,
+    }: {
+      deleteSoftly?: boolean;
+      additionsKnownMissing?: boolean;
+    } = {},
   ) {
     await Promise.all(
       Object.values(getEdgeDefinitions(this.entDefinitions, this.table)).map(
@@ -260,15 +266,17 @@ export class WriterImplBase<
             if (idOrIds.add !== undefined) {
               await Promise.all(
                 [...new Set(idOrIds.add)].map(async (id) => {
-                  const existing = await this.ctx.db
-                    .query(edgeDefinition.table)
-                    .withIndex(edgeCompoundIndexName(edgeDefinition), (q) =>
-                      (q.eq(edgeDefinition.field, docId as any) as any).eq(
-                        edgeDefinition.ref,
-                        id,
-                      ),
-                    )
-                    .first();
+                  const existing = additionsKnownMissing
+                    ? null
+                    : await this.ctx.db
+                        .query(edgeDefinition.table)
+                        .withIndex(edgeCompoundIndexName(edgeDefinition), (q) =>
+                          (q.eq(edgeDefinition.field, docId as any) as any).eq(
+                            edgeDefinition.ref,
+                            id,
+                          ),
+                        )
+                        .first();
                   if (existing === null) {
                     await this.ctx.db.insert(edgeDefinition.table, {
                       [edgeDefinition.field]: docId,
