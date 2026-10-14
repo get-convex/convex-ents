@@ -501,7 +501,7 @@ type AddField<
   >
     ? VObject<
         Expand<TypeScriptType & ObjectFieldType<FieldName, P>>,
-        Expand<Fields & { FieldName: P }>,
+        Expand<Fields & { [key in FieldName]: P }>,
         IsOptional,
         FieldPaths | FieldName
       >
