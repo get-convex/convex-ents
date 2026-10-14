@@ -20,7 +20,7 @@
   "dependencies": {
     "next": "^13.4.19",
     "nextra": "^2.13.2",
-    "nextra-theme-docs": "latest",
+    "nextra-theme-docs": "^2.13.2",
     "react": "^18.2.0",
     "react-dom": "^18.2.0"
   },
@@ -30,5 +30,8 @@
     "postcss": "^8.4.29",
     "tailwindcss": "^3.3.3",
     "typescript": "^5.0.4"
+  },
+  "overrides": {
+    "next-mdx-remote": "^6.0.0"
   }
 }
